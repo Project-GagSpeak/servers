@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "o5aHeVFo5ZHeseqw9DbgUO1tk0IOsuaJGtSbapUtBo4=",
+  "Source": "GagSpeakServer",
+  "BasePath": "_content/GagSpeakServer",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

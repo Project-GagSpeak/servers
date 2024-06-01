@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34511.84
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeakServer", "GagSpeakServer.csproj", "{F57F84DB-0293-406D-9CB0-51E3AF7071DD}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{F57F84DB-0293-406D-9CB0-51E3AF7071DD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F57F84DB-0293-406D-9CB0-51E3AF7071DD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F57F84DB-0293-406D-9CB0-51E3AF7071DD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F57F84DB-0293-406D-9CB0-51E3AF7071DD}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0F26838D-03E7-4D5E-BBA4-7900102349D6}
+	EndGlobalSection
+EndGlobal
