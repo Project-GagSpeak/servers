@@ -1,0 +1,3 @@
+[submodule "GagSpeak-API"]
+	path = GagSpeak-API
+	url = https://github.com/CordeliaMist/GagSpeak-API.git
