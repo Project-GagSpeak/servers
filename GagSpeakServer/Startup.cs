@@ -28,7 +28,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Gagspeak.API.SignalR;
 using GagspeakServer.Hubs;
+using Microsoft.AspNetCore.Http.Connections;
+using GagspeakServer.Utils.Configuration;
+using GagspeakServer.Services;
 
 namespace GagspeakServer;
 public class Startup
@@ -59,6 +63,21 @@ public class Startup
         ConfigureDatabase(services, gagspeakConfig);
 
         ConfigureSignalR(services, gagspeakConfig);
+
+        // see if we are running on the main server
+        bool isMainServer = gagspeakConfig.GetValue<Uri>(nameof(ServerConfiguration.MainServerAddress), defaultValue: null) == null;
+
+        // append the services we need
+        services.Configure<ServerConfiguration>(Configuration.GetRequiredSection("GagSpeak"));
+        services.Configure<GagspeakConfigBase>(Configuration.GetRequiredSection("GagSpeak"));
+        services.AddSingleton<IConfigService<ServerConfiguration>, GagspeakConfigServiceServer<ServerConfiguration>>();
+        services.AddSingleton<IConfigService<GagspeakConfigBase>, GagspeakConfigServiceServer<GagspeakConfigBase>>();
+        // add the singletons
+        services.AddSingleton<SystemInfoService>();
+        
+        // add the hosted provider
+        services.AddHostedService(provider => provider.GetRequiredService<SystemInfoService>());
+
     }
 
     private static void ConfigureSignalR(IServiceCollection services, IConfigurationSection gagspeakConfig)
@@ -118,12 +137,16 @@ public class Startup
         // establish our endpoints and mappings
         app.UseEndpoints(endpoints =>
         {
+            endpoints.MapHub<GagspeakHub>(IGagspeakHub.Path, options =>
+            {
+                options.ApplicationMaxBufferSize = 5242880;
+                options.TransportMaxBufferSize = 5242880;
+                options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
+            });
             // see the heartbeat of the server
             endpoints.MapHub<Connection>("/heartbeat");
             // see the user
             // endpoints.MapHub<User>("/user");
-            // link up the chat hub
-            endpoints.MapHub<ChatHub>("/chathub");
         });
     }
 }

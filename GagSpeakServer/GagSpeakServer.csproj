@@ -7,11 +7,17 @@
   </PropertyGroup>
 
 	<ItemGroup>
-		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+		<Content Remove="appsettings.Development.json" />
+		<Content Remove="appsettings.json" />
 	</ItemGroup>
 
-
-
+	<ItemGroup>
+		<None Include="appsettings.Development.json" />
+		<None Include="appsettings.json">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+	
 	<ItemGroup>
 		<PackageReference Include="ByteSize" Version="2.1.2" />
 		<PackageReference Include="EFCore.NamingConventions" Version="8.0.3" />
@@ -26,7 +32,6 @@
 		</PackageReference>
 	</ItemGroup>
 
-
 	<ItemGroup>
 		<PackageReference Include="Microsoft.AspNetCore.Authentication" Version="2.2.0" />
 		<PackageReference Include="Microsoft.AspNetCore.Authentication.Core" Version="2.2.0" />
@@ -39,6 +44,10 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-  </ItemGroup>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\GagSpeak-API\GagSpeakAPI\GagSpeak.API.csproj" />
+	</ItemGroup>
 
 </Project>

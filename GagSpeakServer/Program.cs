@@ -1,5 +1,8 @@
 
 using GagspeakServer.Data;
+using GagspeakServer.Services;
+using GagspeakServer.Utils.Configuration;
+
 namespace GagspeakServer;
 public class Program
 {
@@ -19,7 +22,7 @@ public class Program
             // get the context for the database entries
             var context = services.GetRequiredService<GagspeakDbContext>();
             // get the options for the server configuration service
-            // var options = services.GetRequiredService<IConfigurationService<ServerConfiguration>>(); ((confused))
+            var options = services.GetRequiredService<IConfigService<ServerConfiguration>>();
             // get the logger
             var logger = services.GetRequiredService<ILogger<Program>>();
             // log the start of the application
