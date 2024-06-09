@@ -26,6 +26,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     
     // Logger specific to GagspeakHub
     private readonly GagspeakHubLogger _logger;
+    private readonly ILogger<GagspeakHub> _loggerInfo;
     
     // Address of the file server
     private readonly Uri _fileServerAddress;
@@ -49,7 +50,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         _contextAccessor = contextAccessor;
         _expectedClientVersion = configuration.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
         _logger = new GagspeakHubLogger(this, logger);
+        _loggerInfo = logger;
         _dbContextLazy = new Lazy<GagspeakDbContext>(() => GagSpeakDbContextFactory.CreateDbContext());
+        
     }
 
     // for the disposal of the gagspeak of hubbs
@@ -71,20 +74,26 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     {
         _logger.LogCallInfo();
 
+        _loggerInfo.LogInformation("Updating System Info");
         // await all clients to update the system information
         await Clients.Caller.Client_UpdateSystemInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
 
+        _loggerInfo.LogInformation("Getting User");
         // get the user from the database
         var dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
         
+        _loggerInfo.LogInformation("Updating Last Logged In");
         // update their last logged in time to the current time in UTC
         dbUser.LastLoggedIn = DateTime.UtcNow;
 
+        _loggerInfo.LogInformation("Sending Welcome Message");
         // await for the them to recieve the server message 
-        await Clients.Caller.Client_RecieveServerMessage(MessageSeverity.Information, "Welcome to the Gagspeak Server, Current Online Users: " + _systemInfoService.SystemInfoDto.OnlineUsers).ConfigureAwait(false);
+        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Welcome to the Gagspeak Server, Current Online Users: " + _systemInfoService.SystemInfoDto.OnlineUsers).ConfigureAwait(false);
 
+        _loggerInfo.LogInformation("Saving Changes");
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
+        _loggerInfo.LogInformation("Returning Connection DTO");
         return new ConnectionDto(new UserData(dbUser.UID, string.IsNullOrWhiteSpace(dbUser.Alias) ? null : dbUser.Alias))
         {
             CurrentClientVersion = _expectedClientVersion,
@@ -95,7 +104,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     [Authorize(Policy = "Authenticated")]
     public async Task<bool> CheckClientHealth()
     {
-        Console.WriteLine("CheckingClientHealth");
+        _loggerInfo.LogInformation("CheckingClientHealth");
         //await UpdateUserOnRedis().ConfigureAwait(false);
 
         return false;

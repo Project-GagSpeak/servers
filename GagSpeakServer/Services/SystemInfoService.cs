@@ -31,7 +31,7 @@ public class SystemInfoService : IHostedService, IDisposable
     {
         _logger.LogInformation("System Info Service started");
 
-        var timeOut = _config.IsMain ? 5 : 15;
+        var timeOut = _config.IsMain ? 120 : 300;
 
         _timer = new Timer(PushSystemInfo, null, TimeSpan.Zero, TimeSpan.FromSeconds(timeOut));
 

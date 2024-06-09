@@ -17,7 +17,7 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub
 {
     // This method is called when the client receives a server message
-    public Task Client_RecieveServerMessage(MessageSeverity messageSeverity, string message)
+    public Task Client_ReceiveServerMessage(MessageSeverity messageSeverity, string message)
         => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
 
     // This method is called when the client updates system info

@@ -9,7 +9,7 @@ public class GagspeakConfigBase : IGagspeakConfig
     public int DbContextPoolSize { get; set; } = 100;   // The size of the DbContext pool
     public string Jwt { get; set; } = string.Empty;     // the JWT secret
     public Uri MainServerAddress { get; set; }          // The address of the main server
-    // maybe add name here later, idk. Shouldnt madder now.
+    public string RedisConnectionString { get; set; } = string.Empty; // The connection string for the redis server ???? (not sure why i have this but it breaks without it lmao)
 
     // get the value of the key
     public T GetValue<T>(string key)
