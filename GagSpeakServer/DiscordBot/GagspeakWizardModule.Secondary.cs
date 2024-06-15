@@ -16,9 +16,9 @@ public partial class GagspeakWizardModule
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentSecondary), Context.Interaction.User.Id);
 
-        using var mareDb = GetDbContext();
-        var primaryUID = (await mareDb.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false)).User.UID;
-        var secondaryUids = await mareDb.Auth.CountAsync(p => p.PrimaryUserUID == primaryUID).ConfigureAwait(false);
+        using var gagspeakDb = GetDbContext();
+        var primaryUID = (await gagspeakDb.LodeStoneAuth.Include(u => u.User).SingleAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false)).User.UID;
+        var secondaryUids = await gagspeakDb.Auth.CountAsync(p => p.PrimaryUserUID == primaryUID).ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Blue);
         eb.WithTitle("Secondary UID");

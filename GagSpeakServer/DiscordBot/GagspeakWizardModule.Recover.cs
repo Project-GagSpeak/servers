@@ -16,7 +16,7 @@ public partial class GagspeakWizardModule
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentRecover), Context.Interaction.User.Id);
 
-        using var mareDb = GetDbContext();
+        using var gagspeakDb = GetDbContext();
         EmbedBuilder eb = new();
         eb.WithColor(Color.Blue);
         eb.WithTitle("Recover");
@@ -27,7 +27,7 @@ public partial class GagspeakWizardModule
             + "- 2️⃣ are all your secondary accounts/UIDs" + Environment.NewLine
             + "If you are using Vanity UIDs the original UID is displayed in the second line of the account selection.");
         ComponentBuilder cb = new();
-        await AddUserSelection(mareDb, cb, "wizard-recover-select").ConfigureAwait(false);
+        await AddUserSelection(gagspeakDb, cb, "wizard-recover-select").ConfigureAwait(false);
         AddHome(cb);
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }

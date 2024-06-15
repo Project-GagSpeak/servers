@@ -1,9 +1,9 @@
 using Discord;
 using Discord.Interactions;
 
-namespace GagspeakServer.Discord;
+namespace GagSpeakServer.DiscordBot.Modal;
 
-// todo: remove all this crap at some point
+// restructure this with the verification by sending the code to client and stuff. (maybe could delete entirely)
 
 public class LodestoneModal : IModal
 {
@@ -11,5 +11,5 @@ public class LodestoneModal : IModal
 
     [InputLabel("Enter the Lodestone URL of your Character")]
     [ModalTextInput("lodestone_url", TextInputStyle.Short, "https://*.finalfantasyxiv.com/lodestone/character/<CHARACTERID>/")]
-    public string LodestoneUrl { get; set; }
+    public string? LodestoneUrl { get; set; }
 }

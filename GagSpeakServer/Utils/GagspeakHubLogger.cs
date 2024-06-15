@@ -1,7 +1,7 @@
 using GagspeakServer.Hubs;
 using System.Runtime.CompilerServices;
 
-// Ripped from the mare hub logger as a way to reference, debug, and understand the process that the server undergoes for construction.
+// Ripped from the gagspeak hub logger as a way to reference, debug, and understand the process that the server undergoes for construction.
 
 namespace GagspeakServer.Utils;
 
@@ -36,5 +36,10 @@ public class GagspeakHubLogger
         string formattedArgs = args != null && args.Length != 0 ? "|" + string.Join(":", args) : string.Empty;
         //_logger.LogWarning("{uid}:{method}{args}", _hub.UserUID, methodName, formattedArgs);
         _logger.LogWarning("DEV UID:{method}{args}", methodName, formattedArgs);
+    }
+
+    public void LogMessage(string message)
+    {
+        _logger.LogInformation("DEBUG MESSAGE: {message}", message);
     }
 }

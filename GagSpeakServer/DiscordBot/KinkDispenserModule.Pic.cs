@@ -34,7 +34,7 @@ public partial class KinkDispenserModule : InteractionModuleBase
         // if they do have access::
 
         // create a new instance of the picdataserice for this command
-        var newService = new SelectionDataService();
+        var newService = new SelectionDataService(sort);
 
         _logger.LogInformation("{method}:{userId}:{searchTerms}", nameof(KinkPicCommand), Context.User.Id, searchTerms);
         
@@ -85,9 +85,19 @@ public partial class KinkDispenserModule : InteractionModuleBase
             var picPath = Path.Combine("Downloads-Pics", $"{resp.Id}-lowres-display.png");
             var url = newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl;
 
-            // convert it to the discord link
-            var picUrl = await ConvertSexSiteImgURLtoDiscordURL(url, picPath, resp.Id);
-            newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl = picUrl;
+               // get the link
+               var picUrlTask = ConvertSexSiteImgURLtoDiscordURL(url, picPath, resp.Id);
+
+               // fetch the fullresURL and the info on it
+               var fetchFullResURLTask = newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx]
+                    .FetchFullResURL(_logger, newService);
+
+               // Wait for both tasks to complete
+               await Task.WhenAll(picUrlTask, fetchFullResURLTask);
+
+               // After both tasks have completed, you can get the results
+               var picUrl = picUrlTask.Result;
+               newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl = picUrl;
 
             eb = new();
             cb = new();
@@ -189,17 +199,27 @@ public partial class KinkDispenserModule : InteractionModuleBase
             var url = service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl;
             var picPath = Path.Combine("Downloads-Pics", $"{msgId}-lowres-display.png");
             // get the link
-            var picUrl = await ConvertSexSiteImgURLtoDiscordURL(url, picPath, msgId);
+            var picUrlTask = ConvertSexSiteImgURLtoDiscordURL(url, picPath, msgId);
+
+            // fetch the fullresURL and the info on it
+            var fetchFullResURLTask = service.ResultImgs.ImageList[service.ResultImgs.CurIdx]
+                 .FetchFullResURL(_logger, service);
+
+            // Wait for both tasks to complete
+            await Task.WhenAll(picUrlTask, fetchFullResURLTask);
+
+            // After both tasks have completed, you can get the results
+            var picUrl = picUrlTask.Result;
             service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl = picUrl;
 
             EmbedBuilder eb = new();
             ComponentBuilder cb = new();
-            await CreateEmbeddedGifDisplay(eb, cb, msgId).ConfigureAwait(false);
+            await CreateEmbeddedPicDisplay(eb, cb, msgId).ConfigureAwait(false);
             await ModifyInteraction(eb, cb).ConfigureAwait(false);
         }
         // the service was not found, so inform the user
         else
-        {
+        { 
             await HandleSessionExpired().ConfigureAwait(false);
         }
     }
@@ -216,8 +236,6 @@ public partial class KinkDispenserModule : InteractionModuleBase
         {
             // Defer the reply first
             await Context.Interaction.DeferAsync();
-            // before we go to download the fullResURL we first need to obtain it
-            await service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FetchFullResURL(_logger, service).ConfigureAwait(false);
             // now that we have the full res URL lets start tossing in our path and url and updating this
             string url = service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FullResURL;
             // get the path, set it to pic if it includes pic? in the url

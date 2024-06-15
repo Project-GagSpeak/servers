@@ -1,3 +1,4 @@
+using System.Linq;
 using Discord;
 using Discord.Interactions;
 using GagspeakServer.Data;
@@ -9,6 +10,11 @@ using StackExchange.Redis;
 using Gagspeak.API.Data.Enum;
 using GagspeakServer.Utils.Configuration;
 using GagspeakServer.Discord.Configuration;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
+using Discord.WebSocket;
+using System.Text;
 
 namespace GagspeakServer.Discord;
 
@@ -161,8 +167,100 @@ public class GagspeakModule : InteractionModuleBase
         }
     }
 
-    // This method is responsible for adding a user
-    public async Task<Embed> HandleUserAdd(string desiredUid, ulong discordUserId)
+     [SlashCommand("updateroles", "Updates roles for users with 'Distinguished Conisuir', 'Server Booster', or 'Esteemed Patron' roles")]
+     public async Task UpdateRoles()
+     {
+          // log the used slash command
+          _logger.LogInformation("SlashCommand:{userId}:{Method}", Context.Interaction.User.Id, nameof(UpdateRoles));
+          // Check if the user has the "Assistant Role" or is an admin or owner
+          var user = await Context.Guild.GetUserAsync(Context.User.Id);
+          var assistantRole = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Assistant", StringComparison.Ordinal));
+          var isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
+          if ((assistantRole == null || !user.RoleIds.Contains(assistantRole.Id)) && !isAdminOrOwner)
+          {
+               await RespondAsync("You do not have permission to use this command.", ephemeral: true).ConfigureAwait(false);
+               return;
+          }
+
+          // Get the roles to check for
+          var distinguishedConnoisseurRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Distinguished Connoisseur");
+          var esteemedPatreonRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Esteemed Patron");
+          var illustriousSupporterRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Illustrious Supporter");
+          var serverBoosterRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Server Booster");
+          var contributorRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Contributor");
+
+          if (distinguishedConnoisseurRole == null || serverBoosterRole == null 
+          || esteemedPatreonRole == null || illustriousSupporterRole == null || contributorRole == null)
+          {
+               await RespondAsync("One or more roles do not exist.", ephemeral: true).ConfigureAwait(false);
+               return;
+          }
+
+          // Immediately respond with a deferred message
+          await Context.Interaction.DeferAsync();
+          // store a counter so we know how many roles we updated
+          int rolesUpdated = 0;
+
+          EmbedBuilder eb = new();
+          eb.WithTitle($"Updating {rolesUpdated} roles...");
+          eb.WithColor(Color.Magenta);
+          // respond to the message with an embed letting us know that we are updating the roles
+          await FollowupAsync(embed: eb.Build(), ephemeral: true).ConfigureAwait(false);
+          var resp = await GetOriginalResponseAsync().ConfigureAwait(false);
+
+          // get the list of users.
+          IEnumerable<IGuildUser> users = await Context.Guild.GetUsersAsync();
+
+          // Create a list to store the user-role tuples
+          List<(string, string)> userRoles = new List<(string, string)>();
+
+          // Iterate over the guild users
+          foreach (var guildUser in users)
+          {
+               // If the user has one of the roles and does not have the Contributor role, add the Contributor role
+               if ((guildUser.RoleIds.Contains(distinguishedConnoisseurRole.Id) || guildUser.RoleIds.Contains(esteemedPatreonRole.Id)
+                   || guildUser.RoleIds.Contains(illustriousSupporterRole.Id) || guildUser.RoleIds.Contains(serverBoosterRole.Id))
+                   && !guildUser.RoleIds.Contains(contributorRole.Id))
+               {
+                    // Increment the counter
+                    rolesUpdated++;
+                    await guildUser.AddRoleAsync(contributorRole);
+                    // Update the message
+                    eb.WithTitle($"Updating {rolesUpdated} roles...");
+                    // Store the user's name and the role they had that gave them the contributor role in the list
+                    var roleNames = guildUser.RoleIds.Select(roleId => Context.Guild.GetRole(roleId).Name)
+                        .FirstOrDefault(roleName =>
+                            roleName.Contains(distinguishedConnoisseurRole.Name) ||
+                            roleName.Contains(esteemedPatreonRole.Name) ||
+                            roleName.Contains(illustriousSupporterRole.Name) ||
+                            roleName.Contains(serverBoosterRole.Name));
+
+                    // Use the Nickname if it's not null, otherwise use the Username
+                    var displayName = guildUser.DisplayName ?? guildUser.Username;
+                    userRoles.Add((displayName, roleNames));
+
+                    await ModifyMessageAsync(eb, resp).ConfigureAwait(false);
+               }
+          }
+
+          if(rolesUpdated > 0) {
+               eb.WithDescription("Summary of Added Users:");
+               foreach (var (username, roleName) in userRoles)
+                    eb.AddField($"{username}", $"Role for Contributor: __{roleName}__");
+          }
+
+          eb.WithTitle($"Update Complete! Updated {rolesUpdated} roles!");
+
+          await ModifyMessageAsync(eb, resp).ConfigureAwait(false);
+     }
+
+     public async Task ModifyMessageAsync(EmbedBuilder eb, IUserMessage message)
+     {
+          await message.ModifyAsync(msg => msg.Embed = eb.Build());
+     }
+
+     // This method is responsible for adding a user
+     public async Task<Embed> HandleUserAdd(string desiredUid, ulong discordUserId)
     {
         // An EmbedBuilder is created to build the embed message
         var embed = new EmbedBuilder();

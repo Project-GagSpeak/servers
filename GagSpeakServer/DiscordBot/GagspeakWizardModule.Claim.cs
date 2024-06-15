@@ -4,6 +4,7 @@ using GagspeakServer.Data;
 using Microsoft.EntityFrameworkCore;
 using GagspeakServer.Utils;
 using GagspeakServer.Models;
+using GagSpeakServer.DiscordBot.Modal;
 
 namespace GagspeakServer.Discord;
 

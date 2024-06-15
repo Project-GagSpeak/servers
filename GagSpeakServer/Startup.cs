@@ -11,31 +11,114 @@ using Microsoft.EntityFrameworkCore;
 using GagspeakServer.Discord;
 using GagspeakServer.Discord.Configuration;
 using StackExchange.Redis;
+using MareSynchronosAuthService.Controllers;
+using MareSynchronosShared.Metrics;
+using MareSynchronosShared.Services;
+using MareSynchronosShared.Utils;
+using Microsoft.AspNetCore.Mvc.Controllers;
+using StackExchange.Redis.Extensions.Core.Configuration;
+using StackExchange.Redis.Extensions.System.Text.Json;
+using StackExchange.Redis;
+using System.Net;
+using MareSynchronosAuthService.Services;
+using MareSynchronosShared.RequirementHandlers;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using MareSynchronosShared.Data;
+using Microsoft.EntityFrameworkCore;
+using Prometheus;
+using MareSynchronosShared.Utils.Configuration;
+using SixLabors.ImageSharp;
 
 namespace GagspeakServer;
 public class Startup
 {
-    // create the logger object from our service provider
-    //private readonly ILogger<Startup> _logger;
+    private readonly IConfiguration _configuration; // the configuration object
+    private ILogger<Startup> _logger; // the logger object for the startup class.
 
-    // establish the constructor to initialize the config and logger to this instance of the startup
-
-    public Startup(IConfiguration configuration)
+    public Startup(IConfiguration configuration, ILogger<Startup> logger)
     {
-        Configuration = configuration;
-        //_logger = logger;
+        _configuration = configuration;
+        _logger = logger;
     }
 
-    // define the configuration
-    public IConfiguration Configuration { get; }
-
-
-    // This method gets called by the runtime. Use this method to add services to the container.
+    /// <summary> The primary server configurator. It is responsible for configuring all the major components of the Server. </summary>
+    /// <para> The method handles configuration for GAGSPEAK-METRICS, DATABASE, AUTHORIZATION, SIGNALR & REDIS, GAGSPEAK-SERVICES </para>
+    /// </summary>
+    /// <param name="services">The sevice collection for the Server</param>
     public void ConfigureServices(IServiceCollection services)
     {
+        // begin by adding the http context accessor
+        services.AddHttpContextAccessor();
+
+        // add a transient service for the configuration
+        services.AddTransient(_ => _configuration);
+
+        // create a configuration section var for the gagspeak config
+        IConfigurationSection gagspeakConfig = _configuration.GetRequiredSection("GagSpeak");
+
+        // handle the configuration for our metrics
+        ConfigureMetrics(services);
+
+        // handle the startup configuration for our database
+        ConfigureDatabase(services, mareConfig);
+
+        // handle the startup configuration for our authorization module
+        ConfigureAuthorization(services);
+
+        // handle the startup configuration for our signalR module
+        ConfigureSignalR(services, mareConfig);
+
+        // append the client health checks
+        services.AddHealthChecks();
+        // ammend the apicontrollers application part manager
+        services.AddControllers().ConfigureApplicationPartManager(a =>
+        {
+            a.FeatureProviders.Remove(a.FeatureProviders.OfType<ControllerFeatureProvider>().First());
+            if (gagspeakConfig.GetValue<Uri>(nameof(ServerConfiguration.MainServerAddress), defaultValue: null) == null)
+            {
+                a.FeatureProviders.Add(new AllowedControllersFeatureProvider(typeof(MareServerConfigurationController), typeof(MareBaseConfigurationController), typeof(ClientMessageController)));
+            }
+            else
+            {
+                a.FeatureProviders.Add(new AllowedControllersFeatureProvider());
+            }
+        });
+
+
+
+
+
+        /// <summary> The configurator for our application and enviorment. </summary>
+        /// <param name="app">The application builder</param>
+        /// <param name="env">The web host enviorment</param>
+        /// <param name="logger">The logger for the startup class</param>
+        public void ConfigureAppEnv(IApplicationBuilder app, IWebHostEnvironment env, ILogger<Startup> logger)
+    {
+        // define the config var from the App services, and call upon our GagspeakConfigBase
+        var config = app.ApplicationServices.GetRequiredService<IConfigService<GagspeakConfigBase>>();
+
+        // we want to use routing
+        app.UseRouting();
+
+        // we want to use HTTPMetrics for our metrics (created thanks to Prometheus)
+        app.UseHttpMetrics();
+
+        // we want to use authentication and authorization
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        
+        // A stand-alone Kestrel based metric server that saves you the effort of setting up the ASP.NET Core pipeline.
+        // For all practical purposes, this is just a regular ASP.NET Core server that only serves Prometheus requests.
+        KestrelMetricServer metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigBase.MetricsPort), 4985));
+
+
         services.AddHttpContextAccessor(); // requires to prevent server spitting invalid httpcontext accessor errors.
 
-        // create a mare config in our configuration under a section we define
+        // create a gagspeak config in our configuration under a section we define
         var gagspeakConfig = Configuration.GetSection("Gagspeak");
 
         // we need to fill our service collection container with the services we need, so we let's add them

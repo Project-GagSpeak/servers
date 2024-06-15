@@ -1,4 +1,7 @@
-using Microsoft.AspNetCore.Http;
+using Gagspeak.API.Data.Enum;
+using Gagspeak.API.Data;
+using GagspeakServer.Models;
+using static GagspeakServer.Hubs.GagspeakHub;
 
 namespace GagspeakServer;
 
@@ -7,11 +10,24 @@ namespace GagspeakServer;
 /// </summary>
 public static class Extensions
 {
+
+    // an extention method for the userData 
+    public static UserData ToUserData(this User user)
+    {
+        return new UserData(user.UID, user.Alias);
+    }
+
+    /// <summary> Fetch the individual pair status based on the userInfo </summary>
+    public static IndividualPairStatus ToIndividualPairStatus(this UserInfo userInfo)
+    {
+        if (userInfo.IndividuallyPaired) return IndividualPairStatus.Bidirectional;
+        if (!userInfo.IndividuallyPaired && userInfo.GIDs.Contains("//GAGSPEAK//DIRECT", StringComparer.Ordinal)) return IndividualPairStatus.OneSided;
+        return IndividualPairStatus.None;
+    }
+
     private static long _noIpCntr = 0;
 
-    /// <summary>
-    /// Get the IP address of the client
-    /// </summary>
+    /// <summary> Get the IP address of the client </summary>
     public static string GetIpAddress(this IHttpContextAccessor accessor)
     {
         // Try to get the IP address from the Cloudflare header

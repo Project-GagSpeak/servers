@@ -104,9 +104,19 @@ public partial class KinkDispenserModule : InteractionModuleBase
             var gifPath = Path.Combine("Downloads-Gifs", $"{resp.Id}-lowres-display.gif");
             var url = newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl;
 
-            // convert it
-            var gifUrl = await ConvertSexSiteImgURLtoDiscordURL(url, gifPath, resp.Id);
-            newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl = gifUrl;
+               // get the link
+               var gifUrlTask = ConvertSexSiteImgURLtoDiscordURL(url, gifPath, resp.Id);
+
+               // fetch the fullresURL and the info on it
+               var fetchFullResURLTask = newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx]
+                    .FetchFullResURL(_logger, newService);
+
+               // Wait for both tasks to complete
+               await Task.WhenAll(gifUrlTask, fetchFullResURLTask);
+
+               // After both tasks have completed, you can get the results
+               var gifUrl = gifUrlTask.Result;
+               newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl = gifUrl;
 
             eb = new();
             cb = new();
@@ -197,28 +207,38 @@ public partial class KinkDispenserModule : InteractionModuleBase
 
     public async Task ShiftImageDisplay(ulong msgId)
     {
-        _logger.LogTrace("Shifting image display (start)");
-        // get the service
-        if(_botServices.GifData.TryGetValue(msgId, out var service))
-        {
-            _logger.LogTrace("Service found and is valid");
+          _logger.LogTrace("Shifting image display (start)");
+          // get the service
+          if(_botServices.GifData.TryGetValue(msgId, out var service))
+          {
+               _logger.LogTrace("Service found and is valid");
 
-            // get the url and path for conversion
-            var url = service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl;
-            var gifPath = Path.Combine("Downloads-Gifs", $"{msgId}-lowres-display.gif");
-            // get the link
-            var gifUrl = await ConvertSexSiteImgURLtoDiscordURL(url, gifPath, msgId);
-            service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl = gifUrl;
+               // get the url and path for conversion
+               var url = service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl;
+               var gifPath = Path.Combine("Downloads-Gifs", $"{msgId}-lowres-display.gif");
+               // get the link
+               var gifUrlTask = ConvertSexSiteImgURLtoDiscordURL(url, gifPath, msgId);
 
-            EmbedBuilder eb = new();
-            ComponentBuilder cb = new();
-            await CreateEmbeddedGifDisplay(eb, cb, msgId).ConfigureAwait(false);
-            await ModifyInteraction(eb, cb).ConfigureAwait(false);
-        }
-        else
-        {
-            await HandleSessionExpired().ConfigureAwait(false);
-        }
+               // fetch the fullresURL and the info on it
+               var fetchFullResURLTask = service.ResultImgs.ImageList[service.ResultImgs.CurIdx]
+                    .FetchFullResURL(_logger, service);
+
+               // Wait for both tasks to complete
+               await Task.WhenAll(gifUrlTask, fetchFullResURLTask);
+
+               // After both tasks have completed, you can get the results
+               var gifUrl = gifUrlTask.Result;
+               service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl = gifUrl;
+
+               EmbedBuilder eb = new();
+               ComponentBuilder cb = new();
+               await CreateEmbeddedGifDisplay(eb, cb, msgId).ConfigureAwait(false);
+               await ModifyInteraction(eb, cb).ConfigureAwait(false);
+          }
+          else
+          {
+          await HandleSessionExpired().ConfigureAwait(false);
+          }
     }
 
     [ComponentInteraction("print")]
@@ -233,8 +253,6 @@ public partial class KinkDispenserModule : InteractionModuleBase
         {
             // Defer the reply first
             await Context.Interaction.DeferAsync();
-            // before we go to download the fullResURL we first need to obtain it
-            await service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FetchFullResURL(_logger, service).ConfigureAwait(false);
             // now that we have the full res URL lets start tossing in our path and url and updating this
             string url = service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FullResURL;
             // get the path, set it to gif if it includes gif? in the url

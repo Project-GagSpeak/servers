@@ -3,19 +3,19 @@ using System.ComponentModel.DataAnnotations;
 namespace GagspeakServer.Models;
 
 /// <summary>
-/// <para> At the moment from current analysis this is meant to represent the model of the auth table in the database. </para>
-/// <para> This currently associates one account user with one secretkey, and creates a userUID from this. </para>
-/// <para> Purpose of everything outside the hashedkey and userUID is still being looked into, however this should change so that one secretkey is able to have multiple UID's.</para>
+/// The <c>Auth</c> Auth class represents a user's authentication information.
+/// <para> The <c>HashedKey</c> property is a unique identifier, and all auth models 
+/// store the primary user UID so we know who the account owner is if it is a secondary account. </para>
 /// </summary>
 public class Auth
 {
-    [Key]
-    [MaxLength(64)]
-    public string HashedKey { get; set; }
+     [Key]
+     [MaxLength(64)]
+     public string HashedKey { get; set; }        // The "Secret Key" for a profile. The secret key where the UserUID == PrimaryUserUID is the account secret key.
 
-    public string UserUID { get; set; }
-    public User User { get; set; }
-    public bool IsBanned { get; set; }
-    public string? PrimaryUserUID { get; set; }
-    public User? PrimaryUser { get; set; }
+     public string UserUID { get; set; }          // the UID of this profile
+     public User User { get; set; }               // the playercharacter user
+     public bool IsBanned { get; set; }           // if this profile is banned or not
+     public string? PrimaryUserUID { get; set; }  // the UID of the first profile made under this account
+     public User? PrimaryUser { get; set; }       // the user profile object of the first profile made under this account
 }

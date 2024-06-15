@@ -9,7 +9,9 @@ public class GagspeakConfigBase : IGagspeakConfig
     public int DbContextPoolSize { get; set; } = 100;   // The size of the DbContext pool
     public string Jwt { get; set; } = string.Empty;     // the JWT secret
     public Uri MainServerAddress { get; set; }          // The address of the main server
-    public string RedisConnectionString { get; set; } = string.Empty; // The connection string for the redis server ???? (not sure why i have this but it breaks without it lmao)
+    public int MetricsPort { get; set; }                // the port address on our VM that hosts the Kestrel server for metrics
+    public int RedisPool { get; set; } = 50;            // the size of the redi's pool. This means that 
+    public string RedisConnectionString { get; set; } = string.Empty; // The connection string for the redis server
 
     // get the value of the key
     public T GetValue<T>(string key)

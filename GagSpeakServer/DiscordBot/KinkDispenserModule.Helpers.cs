@@ -101,7 +101,10 @@ public partial class KinkDispenserModule : InteractionModuleBase
                 "] Search: " + service.SearchTerms);
             eb.WithDescription("[Image Caption]: " + service.ResultImgs.ImageList[service.ResultImgs.CurIdx].Label);
             eb.WithImageUrl(service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl);
-            eb.WithFooter("[Tags]: " + string.Join(", ", service.ResultImgs.ImageList[service.ResultImgs.CurIdx].Tags));
+            eb.WithFooter("[Full Image Resolution]: " +
+               service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FullResImgSize.Width + "x" +
+               service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FullResImgSize.Height + "\n" +
+               "[Tags]: " + string.Join(", ", service.ResultImgs.ImageList[service.ResultImgs.CurIdx].Tags));
             eb.Color = Color.Magenta;
             ActionRowBuilder row1 = new();
             ActionRowBuilder row2 = new();
@@ -116,6 +119,7 @@ public partial class KinkDispenserModule : InteractionModuleBase
         } 
         else
         {
+            _logger.LogError("Error: Could not find the service associated with the message ID.");
             await HandleSessionExpired().ConfigureAwait(false);
             return;
         }
@@ -129,7 +133,10 @@ public partial class KinkDispenserModule : InteractionModuleBase
                 "] Search: " + service.SearchTerms);
             eb.WithDescription("[Image Caption]: " + service.ResultImgs.ImageList[service.ResultImgs.CurIdx].Label);
             eb.WithImageUrl(service.ResultImgs.ImageList[service.ResultImgs.CurIdx].ThumbUrl);
-            eb.WithFooter("[Tags]: " + string.Join(", ", service.ResultImgs.ImageList[service.ResultImgs.CurIdx].Tags));
+            eb.WithFooter("[Full Image Resolution]: " +
+                 service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FullResImgSize.Width + "x" +
+                 service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FullResImgSize.Height + "\n" +
+                 "[Tags]: " + string.Join(", ", service.ResultImgs.ImageList[service.ResultImgs.CurIdx].Tags));
             eb.Color = Color.Magenta;
             ActionRowBuilder row1 = new();
             ActionRowBuilder row2 = new();
@@ -439,11 +446,12 @@ public partial class KinkDispenserModule : InteractionModuleBase
                 // get the preview image URL
                 var imgNode = node.SelectSingleNode(".//img[contains(@class, 'image')]");
                 tmpMediaImg.ThumbUrl = imgNode?.GetAttributeValue("data-src", imgNode.GetAttributeValue("src", ""));
-                _logger.LogInformation("Found thumbnail: {tmpMediaImg.ThumbUrl}", tmpMediaImg.ThumbUrl);
-                
+                //_logger.LogInformation("Found thumbnail: {tmpMediaImg.ThumbUrl}", tmpMediaImg.ThumbUrl);
+
                 // get the full res URL href
                 var fullResPageUrlNode = node.SelectSingleNode(".//a[contains(@class, 'image_wrapper')]");
                 var fullResPageUrl = fullResPageUrlNode?.GetAttributeValue("href", "");
+                tmpMediaImg.Label = fullResPageUrlNode?.GetAttributeValue("title", "");
 
                 if (!string.IsNullOrEmpty(fullResPageUrl))
                 {

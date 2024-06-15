@@ -6,25 +6,31 @@ using GagspeakServer.Services;
 using GagspeakServer.Utils.Configuration;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis.Extensions.Core.Abstractions;
+using GagspeakServer.Metrics;
 
 namespace GagspeakServer.Services;
 
 public class SystemInfoService : IHostedService, IDisposable
 {
+    private readonly GagspeakMetrics _metrics;
     private readonly IConfigService<ServerConfiguration> _config;
     private readonly IServiceProvider _services;
     private readonly ILogger<SystemInfoService> _logger;
     private readonly IHubContext<GagspeakHub, IGagspeakHub> _hubContext;
+    private readonly IRedisDatabase _redis;
     private Timer _timer;
     public SystemInfoDto SystemInfoDto { get; private set; } = new();
 
-    public SystemInfoService(IConfigService<ServerConfiguration> configurationService, IServiceProvider services,
-        ILogger<SystemInfoService> logger, IHubContext<GagspeakHub, IGagspeakHub> hubContext)
+    public SystemInfoService(GagspeakMetrics metrics, IConfigService<ServerConfiguration> configurationService, IServiceProvider services,
+        ILogger<SystemInfoService> logger, IHubContext<GagspeakHub, IGagspeakHub> hubContext, IRedisDatabase redis)
     {
+        _metrics = metrics;
         _config = configurationService;
         _services = services;
         _logger = logger;
         _hubContext = hubContext;
+        _redis = redis;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -44,7 +50,10 @@ public class SystemInfoService : IHostedService, IDisposable
         {
             ThreadPool.GetAvailableThreads(out int workerThreads, out int ioThreads);
 
-            var onlineUsers = 1337; //(_redis.SearchKeysAsync("UID:*").GetAwaiter().GetResult()).Count();
+            _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableWorkerThreads, workerThreads);
+            _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
+
+            var onlineUsers = (_redis.SearchKeysAsync("UID:*").GetAwaiter().GetResult()).Count();
             SystemInfoDto = new SystemInfoDto()
             {
                 OnlineUsers = onlineUsers,
@@ -58,6 +67,10 @@ public class SystemInfoService : IHostedService, IDisposable
 
                 using var scope = _services.CreateScope();
                 using var db = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
+
+                _metrics.SetGaugeTo(MetricsAPI.GaugeAuthorizedConnections, onlineUsers);
+                _metrics.SetGaugeTo(MetricsAPI.GaugePairs, db.ClientPairs.AsNoTracking().Count());
+                _metrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, db.Users.AsNoTracking().Count());
             }
         }
         catch (Exception ex)

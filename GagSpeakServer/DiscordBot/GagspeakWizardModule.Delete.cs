@@ -12,7 +12,7 @@ public partial class GagspeakWizardModule
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentDelete), Context.Interaction.User.Id);
 
-        using var mareDb = GetDbContext();
+        using var gagspeakDb = GetDbContext();
         EmbedBuilder eb = new();
         eb.WithTitle("Delete Account");
         eb.WithDescription("You can delete your primary or secondary UIDs here." + Environment.NewLine + Environment.NewLine
@@ -23,7 +23,7 @@ public partial class GagspeakWizardModule
         eb.WithColor(Color.Blue);
 
         ComponentBuilder cb = new();
-        await AddUserSelection(mareDb, cb, "wizard-delete-select").ConfigureAwait(false);
+        await AddUserSelection(gagspeakDb, cb, "wizard-delete-select").ConfigureAwait(false);
         AddHome(cb);
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
@@ -35,8 +35,8 @@ public partial class GagspeakWizardModule
 
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionDeleteAccount), Context.Interaction.User.Id, uid);
 
-        using var mareDb = GetDbContext();
-        bool isPrimary = mareDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID == null;
+        using var gagspeakDb = GetDbContext();
+        bool isPrimary = gagspeakDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID == null;
         EmbedBuilder eb = new();
         eb.WithTitle($"Are you sure you want to delete {uid}?");
         eb.WithDescription($"This operation is irreversible. All your pairs, joined syncshells and information stored on the service for {uid} will be " +
