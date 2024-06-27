@@ -1,0 +1,1 @@
+﻿Prevents folders from being deleted in buildtime
