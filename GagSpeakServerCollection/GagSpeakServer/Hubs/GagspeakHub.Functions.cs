@@ -183,6 +183,28 @@ public partial class GagspeakHub
         }
     }
 
+    /// <summary>
+    /// A helper function that fetches all bidirectional (synced) client pairs for a given user.
+    /// </summary>
+    /// <param name="uid"></param>
+    /// <returns></returns>
+    public async Task<List<User>> GetSyncedPairs(string uid)
+    {
+        // Query to find bidirectional (synced) client pairs
+        var syncedPairsQuery = from cp in DbContext.ClientPairs
+                               join cp2 in DbContext.ClientPairs
+                               on new { UserUID = cp.UserUID, OtherUserUID = cp.OtherUserUID }
+                               equals new { UserUID = cp2.OtherUserUID, OtherUserUID = cp2.UserUID }
+                               where cp.UserUID == uid
+                               select cp.OtherUser; // Select the OtherUser object directly
+
+        // Execute the query and return the list of User objects
+        var syncedUsers = await syncedPairsQuery.Distinct().ToListAsync().ConfigureAwait(false);
+
+        return syncedUsers;
+    }
+
+
 
     /// <summary> 
     /// 
@@ -279,7 +301,6 @@ public partial class GagspeakHub
         // return the proper object
         return new UserInfo(
             resultList[0].OtherUserAlias, // the alias of the user.
-            resultList.SingleOrDefault(p => true)?.Synced ?? false, // if they are individually paired
             resultList.Max(p => p.Synced), // if they are synced.
             resultList[0].OwnGlobalPerms,
             resultList[0].OwnPermissions,
@@ -370,12 +391,15 @@ public partial class GagspeakHub
 
         // Aquire the query result and form it into an established list
         var resultList = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
+        _logger.LogMessage($"resultList count: {resultList.Count}");
+        // Example of logging the first few items
+        // resultList.ForEach(item => _logger.LogMessage($"Item: {item.UserUID}, {item.OtherUserUID}"));
+
         // Group results by OtherUserUID and convert to dictionary for return
         return resultList.GroupBy(g => g.OtherUserUID, StringComparer.Ordinal).ToDictionary(g => g.Key, g =>
         {
             return new UserInfo(
                 resultList[0].OtherUserAlias, // the alias of the user.
-                resultList.SingleOrDefault(p => true)?.Synced ?? false, // if they are individually paired
                 resultList.Max(p => p.Synced), // if they are synced.
                 resultList[0].OwnGlobalPerms,
                 resultList[0].OwnPermissions,
@@ -456,7 +480,6 @@ public partial class GagspeakHub
 
     public record UserInfo(
         string Alias, 
-        bool IndividuallyPaired, 
         bool IsSynced,
         UserGlobalPermissions ownGlobalPerms,
         ClientPairPermissions ownPairPermissions,

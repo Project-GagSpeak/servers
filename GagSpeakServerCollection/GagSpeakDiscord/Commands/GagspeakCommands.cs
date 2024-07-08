@@ -95,14 +95,6 @@ public class GagspeakCommands : InteractionModuleBase
         using var scope = _services.CreateScope();
         using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
 
-        // if the user is not an admin, return
-        if (!(await db.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == Context.Interaction.User.Id))?.User?.IsAdmin ?? true)
-        {
-            // they aint no admin so tell em they aint got no business here and return
-            await RespondAsync("No permission", ephemeral: true).ConfigureAwait(false);
-            return;
-        }
-
         // if the spesified uid doesnt exist then tell the user and return
         if (!string.IsNullOrEmpty(uid) && !await db.Users.AnyAsync(u => u.UID == uid))
         {
@@ -305,15 +297,8 @@ public class GagspeakCommands : InteractionModuleBase
         using var scope = _services.CreateScope();
         // The GagspeakDbContext is retrieved from the service provider
         using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
-        // If the user is not an admin
-        if (!(await db.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(a => a.DiscordId == discordUserId))?.User?.IsAdmin ?? true)
-        {
-            // The embed message is updated to indicate that the user does not have permission to add a user
-            embed.WithTitle("Failed to add user");
-            embed.WithDescription("No permission");
-        }
         // If the user already exists in the database
-        else if (db.Users.Any(u => u.UID == desiredUid || u.Alias == desiredUid))
+        if (db.Users.Any(u => u.UID == desiredUid || u.Alias == desiredUid))
         {
             // The embed message is updated to indicate that the user already exists in the database
             embed.WithTitle("Failed to add user");
@@ -324,10 +309,9 @@ public class GagspeakCommands : InteractionModuleBase
             // A new user is created
             User newUser = new()
             {
-                IsAdmin = false,
-                IsModerator = false,
                 LastLoggedIn = DateTime.UtcNow,
                 UID = desiredUid,
+                VanityTier = CkSupporterTier.NoRole,
             };
 
             // A new auth is created with a hashed key
@@ -379,18 +363,15 @@ public class GagspeakCommands : InteractionModuleBase
             return eb;
         }
 
-        // Check if the primary user is an admin or a moderator.
-        bool isAdminCall = primaryUser.User.IsModerator || primaryUser.User.IsAdmin;
-
         // If an optional user or UID was provided and the primary user is not an admin or moderator, set the title and description of the embed builder and return it.
-        if ((optionalUser != null || uid != null) && !isAdminCall)
+        if ((optionalUser != null || uid != null))
         {
             eb.WithTitle("Unauthorized");
             eb.WithDescription("You are not authorized to view another users' information");
             return eb;
         }
         // If an optional user or UID was provided and the primary user is an admin or moderator, fetch the user from the database.
-        else if ((optionalUser != null || uid != null) && isAdminCall)
+        else if ((optionalUser != null || uid != null))
         {
             AccountClaimAuth userInDb = null;
             if (optionalUser != null)
@@ -476,13 +457,6 @@ public class GagspeakCommands : InteractionModuleBase
 
         // Add a field to the embed builder with the title "Hashed Secret Key" and the value of the user's hashed secret key
         eb.AddField("Hashed Secret Key", auth.HashedKey);
-
-        // If the information is being shown by an admin and the user is currently online
-        if (isAdminCall && !string.IsNullOrEmpty(identity))
-        {
-            // Add a field to the embed builder with the title "Character Ident" and the value of the user's identity
-            eb.AddField("Character Ident", identity);
-        }
 
         // Return the embed builder
         return eb;

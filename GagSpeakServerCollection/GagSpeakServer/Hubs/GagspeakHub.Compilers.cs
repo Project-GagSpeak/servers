@@ -14,9 +14,9 @@ public partial class GagspeakHub
     /// Compiles a globalPermissions DTO with the data provided from the DbContext's UserGlobalPermissions 
     /// </summary>
     /// <returns> A GlobalPermissionsDto object </returns>
-    private UserGlobalPermissions CompileGlobalPerms(UserGlobalPermissions userGlobalPermissions)
+    private GagSpeak.API.Data.Permissions.UserGlobalPermissions CompileGlobalPerms(UserGlobalPermissions userGlobalPermissions)
     {
-        return new UserGlobalPermissions()
+        return new GagSpeak.API.Data.Permissions.UserGlobalPermissions()
         {
             Safeword = userGlobalPermissions.Safeword,
             SafewordUsed = userGlobalPermissions.SafewordUsed,

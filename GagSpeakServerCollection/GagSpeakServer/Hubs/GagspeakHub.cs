@@ -1,10 +1,6 @@
-using Gagspeak.API.Data;
 using Gagspeak.API.Data.Enum;
 using Gagspeak.API.SignalR;
-using GagSpeak.API.Data.Character;
 using GagSpeak.API.Dto.Connection;
-using GagSpeak.API.Dto.Permissions;
-using GagspeakServer.Listeners;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;
@@ -108,38 +104,36 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         var userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
         if (!userExists)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, 
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error,
                 $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
             return null;
         }
 
         // Send a client callback to the client caller with the systeminfo Dto.
-        _logger.LogMessage("Updating System Info To client who called the request");
         await Clients.Caller.Client_UpdateSystemInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
 
         // Grab the user from the database whose UID reflects the UID of the client callers claims, and update last login time.
-        _logger.LogMessage("Getting User & Updating last login time.");
         User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
         dbUser.LastLoggedIn = DateTime.UtcNow;
 
         // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
-        _logger.LogMessage("Sending Welcome Message");
         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
             "Welcome to the CK Gagspeak Server! We currently have " + _systemInfoService.SystemInfoDto.OnlineUsers +
             "Kinksters online. We hope you enjoy your fun~").ConfigureAwait(false);
 
         // because the connection DTO contains the user's global permissions, we will need to fetch them.
-        var clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        var clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
         // if the permissions do not yet exist, we should create them & add them to the database
-        if(clientCallerGlobalPerms == null)
+        if (clientCallerGlobalPerms == null)
         {
             clientCallerGlobalPerms = new UserGlobalPermissions() { UserUID = UserUID };
             DbContext.UserGlobalPermissions.Add(clientCallerGlobalPerms);
         }
 
         // because it also contains the appearance data, we should fetch that as well
-        var clientCallerAppearanceData = await DbContext.UserAppearanceData.SingleAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if(clientCallerAppearanceData == null) {
+        var clientCallerAppearanceData = await DbContext.UserAppearanceData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        if (clientCallerAppearanceData == null)
+        {
             clientCallerAppearanceData = new UserGagAppearanceData() { UserUID = UserUID };
             DbContext.UserAppearanceData.Add(clientCallerAppearanceData);
         }
@@ -148,13 +142,52 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // now we can create the connectionDto object and return it to the client caller.
-        _logger.LogMessage("Returning Connection DTO");
         return new ConnectionDto(dbUser.ToUserData())
         {
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
-            UserGlobalPermissions = CompileGlobalPermissions(clientCallerGlobalPerms),
-            CharacterAppearanceData = CompileCharaAppearanceData(clientCallerAppearanceData),
+            UserGlobalPermissions = new GagSpeak.API.Data.Permissions.UserGlobalPermissions()
+            {
+                Safeword = clientCallerGlobalPerms.Safeword,
+                SafewordUsed = clientCallerGlobalPerms.SafewordUsed,
+                CommandsFromFriends = clientCallerGlobalPerms.CommandsFromFriends,
+                CommandsFromParty = clientCallerGlobalPerms.CommandsFromParty,
+                LiveChatGarblerActive = clientCallerGlobalPerms.LiveChatGarblerActive,
+                LiveChatGarblerLocked = clientCallerGlobalPerms.LiveChatGarblerLocked,
+                WardrobeEnabled = clientCallerGlobalPerms.WardrobeEnabled,
+                ItemAutoEquip = clientCallerGlobalPerms.ItemAutoEquip,
+                RestraintSetAutoEquip = clientCallerGlobalPerms.RestraintSetAutoEquip,
+                LockGagStorageOnGagLock = clientCallerGlobalPerms.LockGagStorageOnGagLock,
+                PuppeteerEnabled = clientCallerGlobalPerms.PuppeteerEnabled,
+                GlobalTriggerPhrase = clientCallerGlobalPerms.GlobalTriggerPhrase,
+                GlobalAllowSitRequests = clientCallerGlobalPerms.GlobalAllowSitRequests,
+                GlobalAllowMotionRequests = clientCallerGlobalPerms.GlobalAllowMotionRequests,
+                GlobalAllowAllRequests = clientCallerGlobalPerms.GlobalAllowAllRequests,
+                MoodlesEnabled = clientCallerGlobalPerms.MoodlesEnabled,
+                ToyboxEnabled = clientCallerGlobalPerms.ToyboxEnabled,
+                LockToyboxUI = clientCallerGlobalPerms.LockToyboxUI,
+                ToyIsActive = clientCallerGlobalPerms.ToyIsActive,
+                ToyIntensity = clientCallerGlobalPerms.ToyIntensity,
+                SpatialVibratorAudio = clientCallerGlobalPerms.SpatialVibratorAudio,
+            },
+            CharacterAppearanceData = new GagSpeak.API.Data.Character.CharacterAppearanceData()
+            {
+                SlotOneGagType = clientCallerAppearanceData.SlotOneGagType,
+                SlotOneGagPadlock = clientCallerAppearanceData.SlotOneGagPadlock,
+                SlotOneGagPassword = clientCallerAppearanceData.SlotOneGagPassword,
+                SlotOneGagTimer = clientCallerAppearanceData.SlotOneGagTimer,
+                SlotOneGagAssigner = clientCallerAppearanceData.SlotOneGagAssigner,
+                SlotTwoGagType = clientCallerAppearanceData.SlotTwoGagType,
+                SlotTwoGagPadlock = clientCallerAppearanceData.SlotTwoGagPadlock,
+                SlotTwoGagPassword = clientCallerAppearanceData.SlotTwoGagPassword,
+                SlotTwoGagTimer = clientCallerAppearanceData.SlotTwoGagTimer,
+                SlotTwoGagAssigner = clientCallerAppearanceData.SlotTwoGagAssigner,
+                SlotThreeGagType = clientCallerAppearanceData.SlotThreeGagType,
+                SlotThreeGagPadlock = clientCallerAppearanceData.SlotThreeGagPadlock,
+                SlotThreeGagPassword = clientCallerAppearanceData.SlotThreeGagPassword,
+                SlotThreeGagTimer = clientCallerAppearanceData.SlotThreeGagTimer,
+                SlotThreeGagAssigner = clientCallerAppearanceData.SlotThreeGagAssigner,
+            }
         };
     }
 
@@ -229,7 +262,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     [Authorize(Policy = "Authenticated")]
     public async Task<bool> CheckClientHealth()
     {
-        _logger.LogMessage("CheckingClientHealth -- Also Updating User on Redis");
+        // _logger.LogMessage("CheckingClientHealth -- Also Updating User on Redis"); <--- Terrible idea to log this because it will log once for every user online lol.
         await UpdateUserOnRedis().ConfigureAwait(false);
 
         return false;
@@ -270,7 +303,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // otherwise, this is a new connection, so lets establish it.
         else
         {
-            _logger.LogMessage("Adding New Connection");
             /* _metrics.IncGaugeWithLabels(MetricsAPI.GaugeConnections, lebels: Continent); 
              * ^^^^^ Leave this out if possible, requires grabbing IP just to set, not ok with that */
 
@@ -334,7 +366,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
                 // log the call info of the user who disconnected
                 _logger.LogCallInfo(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
-                
+
                 // check to see if they disconnected with an exception. If it did, log it as a warning message
                 if (exception != null)
                 {
@@ -347,7 +379,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 // send a function call to all connected pairs of this user that they have gone offline.
                 await SendOfflineToAllPairedUsers().ConfigureAwait(false);
             }
-            catch { /* Consume */ } 
+            catch { /* Consume */ }
             finally
             {
                 // finally, remove this user from the concurrent dictionary of connected users.

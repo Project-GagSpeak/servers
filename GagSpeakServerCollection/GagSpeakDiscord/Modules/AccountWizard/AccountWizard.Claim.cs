@@ -283,12 +283,6 @@ public partial class AccountWizard
             hasValidUid = true;
         }
 
-        // make the first registered user on the service to admin
-        if (!await db.Users.AnyAsync().ConfigureAwait(false))
-        {
-            user.IsAdmin = true;
-        }
-
         user.LastLoggedIn = DateTime.UtcNow;
 
         var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());

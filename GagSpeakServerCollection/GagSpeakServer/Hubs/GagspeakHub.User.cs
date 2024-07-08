@@ -83,185 +83,80 @@ public partial class GagspeakHub
             OtherUser = otherUser,
             User = user,
         };
-        // append it to the database
+        // add this clientpair relation to the database
         await DbContext.ClientPairs.AddAsync(wl).ConfigureAwait(false);
 
         /* Calls a massively NASA Tier DB function to get all user information we need from the DB at once. */
         var existingData = await GetPairInfo(UserUID, otherUser.UID).ConfigureAwait(false);
 
-        /* --------- Fetching client caller's own PairPermissions for other user --------- */
+
+        /* --------- CREATING OR UPDATING our tables for otheruser, AND otherUser's tables for us --------- */
+
+        // grab our own global permissions
         var globalPerms = existingData?.ownGlobalPerms;
-        // if the global permissions don't exist, aka we dont have any permissions stored for this person yet.
-        if (globalPerms != null)
+        // if null, then table wasn't in database.
+        if (globalPerms == null)
         {
-            // create our own permissions.  generate new permissions.
+            // create new permissions for backup obect
             globalPerms = new GagspeakShared.Models.UserGlobalPermissions() { User = user };
 
-            // grab the existing permissions we have set for the other user if any exist again as a final failsafe
-            var existingDbPerms = await DbContext.UserGlobalPermissions
-                .SingleOrDefaultAsync(p => p.UserUID == user.UID).ConfigureAwait(false);
-            // if this is null as well, then we just need to inject the new permissions into the database.
-            if (existingDbPerms == null)
+            // grab the existing Own Global Perms from DB
+            var existingOwnGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == user.UID).ConfigureAwait(false);
+            // If table row does not exist, add newly generated one above to database
+            if (existingOwnGlobalPerms == null)
             {
                 await DbContext.UserGlobalPermissions.AddAsync(globalPerms).ConfigureAwait(false);
             }
-            // otherwise, we need to update the existing permissions with the new permissions to refresh them.
+            // table row did exist, so update it.
             else
             {
-                // update the client permissions with the new permissions, but do not change the user.
-                globalPerms.Safeword = "NONE SET";
-                globalPerms.SafewordUsed = false;
-                globalPerms.CommandsFromFriends = false;
-                globalPerms.CommandsFromParty = false;
-                globalPerms.LiveChatGarblerActive = false;
-                globalPerms.LiveChatGarblerLocked = false;
-                globalPerms.WardrobeEnabled = false;
-                globalPerms.ItemAutoEquip = false;
-                globalPerms.RestraintSetAutoEquip = false;
-                globalPerms.LockGagStorageOnGagLock = false;
-                globalPerms.PuppeteerEnabled = false;
-                globalPerms.GlobalTriggerPhrase = "";
-                globalPerms.GlobalAllowSitRequests = false;
-                globalPerms.GlobalAllowMotionRequests = false;
-                globalPerms.GlobalAllowAllRequests = false;
-                globalPerms.MoodlesEnabled = false;
-                globalPerms.ToyboxEnabled = false;
-                globalPerms.LockToyboxUI = false;
-                globalPerms.ToyIsActive = false;
-                globalPerms.ToyIntensity = 0;
-                globalPerms.SpatialVibratorAudio = false;
-
-                // update the existing permissions to the new refreshed permissions.
-                DbContext.UserGlobalPermissions.Update(existingDbPerms);
+                // update the global permissions with the freshly generated globalPermissions object.
+                DbContext.UserGlobalPermissions.Update(existingOwnGlobalPerms);
             }
         }
 
-
-        var permissions = existingData?.ownPairPermissions;
-        // if the permissions don't exist, aka we dont have any permissions stored for this person yet.
-        if (permissions == null)
+        // grab our own pair permissions for the other user we're adding.
+        var ownPairPermissions = existingData?.ownPairPermissions;
+        // if null, then table wasn't in database.
+        if (ownPairPermissions == null)
         {
-            // create our own permissions.  generate new permissions.
-            permissions = new ClientPairPermissions() { User = user, OtherUser = otherUser };
+            // create new permissions for backup object
+            ownPairPermissions = new ClientPairPermissions() { User = user, OtherUser = otherUser };
 
-            // grab the existing permissions we have set for the other user if any exist again as a final failsafe
-            var existingDbPerms = await DbContext.ClientPairPermissions
-                .SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == user.UID).ConfigureAwait(false);
-            // if this is null as well, then we just need to inject the new permissions into the database.
+            // grab the existing Own Pair Permissions from DB
+            var existingDbPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+            // If table row does not exist, add newly generated one above to database
             if (existingDbPerms == null)
             {
-                await DbContext.ClientPairPermissions.AddAsync(permissions).ConfigureAwait(false);
+                await DbContext.ClientPairPermissions.AddAsync(ownPairPermissions).ConfigureAwait(false);
             }
-            // otherwise, we need to update the existing permissions with the new permissions to refresh them.
+            // table row did exist, so update it.
             else
             {
-                // update the client permissions with the new permissions, but do not change the user.
-                existingDbPerms.ExtendedLockTimes = false;
-                existingDbPerms.MaxLockTime = TimeSpan.Zero;
-                existingDbPerms.InHardcore = false;
-
-                existingDbPerms.ApplyRestraintSets = false;
-                existingDbPerms.LockRestraintSets = false;
-                existingDbPerms.MaxAllowedRestraintTime = TimeSpan.Zero;
-                existingDbPerms.RemoveRestraintSets = false;
-
-                existingDbPerms.TriggerPhrase = "";
-                existingDbPerms.StartChar = '(';
-                existingDbPerms.EndChar = ')';
-                existingDbPerms.AllowSitRequests = false;
-                existingDbPerms.AllowMotionRequests = false;
-                existingDbPerms.AllowAllRequests = false;
-
-                existingDbPerms.AllowPositiveStatusTypes = false;
-                existingDbPerms.AllowNegativeStatusTypes = false;
-                existingDbPerms.AllowSpecialStatusTypes = false;
-                existingDbPerms.PairCanApplyOwnMoodlesToYou = false;
-                existingDbPerms.PairCanApplyYourMoodlesToYou = false;
-                existingDbPerms.MaxMoodleTime = TimeSpan.Zero;
-                existingDbPerms.AllowPermanentMoodles = false;
-
-                existingDbPerms.ChangeToyState = false;
-                existingDbPerms.CanControlIntensity = false;
-                existingDbPerms.VibratorAlarms = false;
-                existingDbPerms.CanUseRealtimeVibeRemote = false;
-                existingDbPerms.CanExecutePatterns = false;
-                existingDbPerms.CanExecuteTriggers = false;
-                existingDbPerms.CanCreateTriggers = false;
-                existingDbPerms.CanSendTriggers = false;
-
-                existingDbPerms.AllowForcedFollow = false;
-                existingDbPerms.IsForcedToFollow = false;
-                existingDbPerms.AllowForcedSit = false;
-                existingDbPerms.IsForcedToSit = false;
-                existingDbPerms.AllowForcedToStay = false;
-                existingDbPerms.IsForcedToStay = false;
-                existingDbPerms.AllowBlindfold = false;
-                existingDbPerms.ForceLockFirstPerson = false;
-                existingDbPerms.IsBlindfolded = false;
-
-                // update the existing permissions to the new refreshed permissions.
+                // update the pair permissions with the freshly generated pairPermissions object.
                 DbContext.ClientPairPermissions.Update(existingDbPerms);
             }
         }
 
-        // do the same for the permissions access, refer to comments above
-        var permissionsAccess = existingData?.ownPairPermissionAccess;
-        if (permissionsAccess == null)
+        // grab our own pair permissions access for the other user we're adding.
+        var ownPairPermissionsAccess = existingData?.ownPairPermissionAccess;
+        // if null, then table wasn't in database.
+        if (ownPairPermissionsAccess == null)
         {
-            permissionsAccess = new ClientPairPermissionAccess() { User = user, OtherUser = otherUser };
+            // create new permissions for backup object
+            ownPairPermissionsAccess = new ClientPairPermissionAccess() { User = user, OtherUser = otherUser };
 
-            var existingDbPermsAccess = await DbContext.ClientPairPermissionAccess
-                .SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == user.UID).ConfigureAwait(false);
+            // grab the existing Own Pair Permissions Access from DB
+            var existingDbPermsAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+            // If table row does not exist, add newly generated one above to database
             if (existingDbPermsAccess == null)
             {
-                await DbContext.ClientPairPermissionAccess.AddAsync(permissionsAccess).ConfigureAwait(false);
+                await DbContext.ClientPairPermissionAccess.AddAsync(ownPairPermissionsAccess).ConfigureAwait(false);
             }
+            // table row did exist, so update it.
             else
             {
-                // unique permissions stored here:
-                existingDbPermsAccess.CommandsFromFriendsAllowed = false; // Global
-                existingDbPermsAccess.CommandsFromPartyAllowed = false; // Global
-                existingDbPermsAccess.LiveChatGarblerActiveAllowed = false; // Global
-                existingDbPermsAccess.LiveChatGarblerLockedAllowed = false; // Global
-                existingDbPermsAccess.ExtendedLockTimesAllowed = false;
-                existingDbPermsAccess.MaxLockTimeAllowed = false;
-                // unique permissions for the wardrobe
-                existingDbPermsAccess.WardrobeEnabledAllowed = false; // Global
-                existingDbPermsAccess.ItemAutoEquipAllowed = false; // Global
-                existingDbPermsAccess.RestraintSetAutoEquipAllowed = false; // Global
-                existingDbPermsAccess.LockGagStorageOnGagLockAllowed = false; // Global
-                existingDbPermsAccess.ApplyRestraintSetsAllowed = false;
-                existingDbPermsAccess.LockRestraintSetsAllowed = false;
-                existingDbPermsAccess.MaxAllowedRestraintTimeAllowed = false;
-                existingDbPermsAccess.RemoveRestraintSetsAllowed = false;
-                // unique permissions for the puppeteer
-                existingDbPermsAccess.PuppeteerEnabledAllowed = false; // Global
-                existingDbPermsAccess.AllowSitRequestsAllowed = false;
-                existingDbPermsAccess.AllowMotionRequestsAllowed = false;
-                existingDbPermsAccess.AllowAllRequestsAllowed = false;
-                // unique Moodles permissions
-                existingDbPermsAccess.MoodlesEnabledAllowed = false; // Global
-                existingDbPermsAccess.AllowPositiveStatusTypesAllowed = false;
-                existingDbPermsAccess.AllowNegativeStatusTypesAllowed = false;
-                existingDbPermsAccess.AllowSpecialStatusTypesAllowed = false;
-                existingDbPermsAccess.PairCanApplyOwnMoodlesToYouAllowed = false;
-                existingDbPermsAccess.PairCanApplyYourMoodlesToYouAllowed = false;
-                existingDbPermsAccess.MaxMoodleTimeAllowed = false;
-                existingDbPermsAccess.AllowPermanentMoodlesAllowed = false;
-                // unique permissions for the toybox
-                existingDbPermsAccess.ToyboxEnabledAllowed = false; // Global
-                existingDbPermsAccess.LockToyboxUIAllowed = false; // Global
-                existingDbPermsAccess.ToyIsActiveAllowed = false; // Global
-                existingDbPermsAccess.SpatialVibratorAudioAllowed = false; // Global
-                existingDbPermsAccess.ChangeToyStateAllowed = false;
-                existingDbPermsAccess.CanControlIntensityAllowed = false;
-                existingDbPermsAccess.VibratorAlarmsAllowed = false;
-                existingDbPermsAccess.CanUseRealtimeVibeRemoteAllowed = false;
-                existingDbPermsAccess.CanExecutePatternsAllowed = false;
-                existingDbPermsAccess.CanExecuteTriggersAllowed = false;
-                existingDbPermsAccess.CanCreateTriggersAllowed = false;
-                existingDbPermsAccess.CanSendTriggersAllowed = false;
-
+                // update the pair permissions access with the freshly generated pairPermissionsAccess object.
                 DbContext.ClientPairPermissionAccess.Update(existingDbPermsAccess);
             }
         }
@@ -281,8 +176,8 @@ public partial class GagspeakHub
 
         // grab our own permissions and other permissions and compile them into the objects meant to be attached to the userPairDto
         GagSpeak.API.Data.Permissions.UserGlobalPermissions ownGlobalPerms = globalPerms.ToApiGlobalPerms();
-        GagSpeak.API.Data.Permissions.UserPairPermissions ownPairPerms = permissions.ToApiUserPairPerms();
-        GagSpeak.API.Data.Permissions.UserEditAccessPermissions ownAccessPerms = permissionsAccess.ToApiUserPairEditAccessPerms();
+        GagSpeak.API.Data.Permissions.UserPairPermissions ownPairPerms = ownPairPermissions.ToApiUserPairPerms();
+        GagSpeak.API.Data.Permissions.UserEditAccessPermissions ownAccessPerms = ownPairPermissionsAccess.ToApiUserPairEditAccessPerms();
         GagSpeak.API.Data.Permissions.UserGlobalPermissions otherGlobalPerms = otherGlobalPermissions.ToApiGlobalPerms();
         GagSpeak.API.Data.Permissions.UserPairPermissions otherPerms = otherPermissions.ToApiUserPairPerms();
         GagSpeak.API.Data.Permissions.UserEditAccessPermissions otherPermsAccess = otherPermissionsAccess.ToApiUserPairEditAccessPerms();
@@ -291,7 +186,6 @@ public partial class GagspeakHub
         UserPairDto userPairResponse = new UserPairDto(
             otherUser.ToUserData(),
             otherEntry == null ? IndividualPairStatus.OneSided : IndividualPairStatus.Bidirectional,
-            ownGlobalPerms,
             ownPairPerms,
             ownAccessPerms,
             otherGlobalPerms,
@@ -391,15 +285,83 @@ public partial class GagspeakHub
     {
         _logger.LogCallInfo();
 
+        // fetch our user from the users table via our UserUID claim
+        User ClientCallerUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+
+        // before we do anything, we need to validate the tables of our paired clients. So, lets first only grab our synced pairs.
+        List<User> PairedUsers = await GetSyncedPairs(UserUID).ConfigureAwait(false);
+
+        // now, let's check to see if each of these paired users have valid tables in the database. if they don't we should create them.
+        foreach (var otherUser in PairedUsers)
+        {
+            // fetch our own global permissions
+            var ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID).ConfigureAwait(false);
+            // check if null, if so, create new ClientCaller Global Permissions & add it to the database.
+            if (ownGlobalPerms == null)
+            {
+                _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {UserUID}, creating new one.");
+                ownGlobalPerms = new UserGlobalPermissions() { User = ClientCallerUser };
+                await DbContext.UserGlobalPermissions.AddAsync(ownGlobalPerms).ConfigureAwait(false);
+            }
+
+            // fetch our own pair permissions for the other user
+            var ownPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+            // check if null, if so, create new ClientCaller Pair Permissions & add it to the database.
+            if (ownPairPermissions == null)
+            {
+                _logger.LogMessage($"No PairPermissions TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
+                ownPairPermissions = new ClientPairPermissions() { User = ClientCallerUser, OtherUser = otherUser };
+                await DbContext.ClientPairPermissions.AddAsync(ownPairPermissions).ConfigureAwait(false);
+            }
+
+            // fetch our own pair permissions access for the other user
+            var ownPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+            // check if null, if so, create new ClientCaller Pair Permissions Access & add it to the database.
+            if (ownPairPermissionAccess == null) {
+                _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
+                ownPairPermissionAccess = new ClientPairPermissionAccess() { User = ClientCallerUser, OtherUser = otherUser };
+                await DbContext.ClientPairPermissionAccess.AddAsync(ownPairPermissionAccess).ConfigureAwait(false);
+            }
+
+            // fetch the other users global permissions
+            var otherGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID).ConfigureAwait(false);
+            // check if null, if so, create new OtherUser Global Permissions & add it to the database.
+            if (otherGlobalPerms == null) {
+                _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {otherUser.UID}, creating new one.");
+                otherGlobalPerms = new UserGlobalPermissions() { User = otherUser };
+                await DbContext.UserGlobalPermissions.AddAsync(otherGlobalPerms).ConfigureAwait(false);
+            }
+
+            // fetch the other users pair permissions
+            var otherPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+            // check if null, if so, create new OtherUser Pair Permissions & add it to the database.
+            if (otherPairPermissions == null) {
+                _logger.LogMessage($"No PairPermissions TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
+                otherPairPermissions = new ClientPairPermissions() { User = otherUser, OtherUser = ClientCallerUser };
+                await DbContext.ClientPairPermissions.AddAsync(otherPairPermissions).ConfigureAwait(false);
+            }
+
+            // fetch the other users pair permissions access
+            var otherPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+            // check if null, if so, create new OtherUser Pair Permissions Access & add it to the database.
+            if (otherPairPermissionAccess == null) {
+                _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
+                otherPairPermissionAccess = new ClientPairPermissionAccess() { User = otherUser, OtherUser = ClientCallerUser };
+                await DbContext.ClientPairPermissionAccess.AddAsync(otherPairPermissionAccess).ConfigureAwait(false);
+            }
+        }
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
         // fetch all the pair information of the client caller
         var pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
+
+        var userPairDtos = new List<UserPairDto>();
 
         // return the list of UserPair DTO's containing the paired clients of the client caller
         return pairs.Select(p =>
         {
             return new UserPairDto(new UserData(p.Key, p.Value.Alias),
                 p.Value.ToIndividualPairStatus(),
-                p.Value.ownGlobalPerms.ToApiGlobalPerms(),
                 p.Value.ownPairPermissions.ToApiUserPairPerms(),
                 p.Value.ownPairPermissionAccess.ToApiUserPairEditAccessPerms(),
                 p.Value.otherGlobalPerms.ToApiGlobalPerms(),
@@ -407,6 +369,7 @@ public partial class GagspeakHub
                 p.Value.otherPairPermissionAccess.ToApiUserPairEditAccessPerms());
         }).ToList();
     }
+
 
     /// <summary>
     /// 
@@ -635,7 +598,7 @@ public partial class GagspeakHub
         await Clients.User(UserUID).Client_UserRemoveClientPair(dto).ConfigureAwait(false);
 
         // If the pair was not individually paired, then we can return here.
-        if (!pairData.IndividuallyPaired) return;
+        if (!pairData.IsSynced) return;
 
         // check if other user is online, if no then there is no need to do anything further
         var otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);

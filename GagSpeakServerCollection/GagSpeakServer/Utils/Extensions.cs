@@ -22,8 +22,8 @@ public static class Extensions
     /// <summary> Fetch the individual pair status based on the userInfo </summary>
     public static IndividualPairStatus ToIndividualPairStatus(this UserInfo userInfo)
     {
-        if (userInfo.IndividuallyPaired) return IndividualPairStatus.Bidirectional;
-        if (!userInfo.IndividuallyPaired) return IndividualPairStatus.OneSided;
+        if (userInfo.IsSynced) return IndividualPairStatus.Bidirectional;
+        if (!userInfo.IsSynced) return IndividualPairStatus.OneSided;
         return IndividualPairStatus.None;
     }
 

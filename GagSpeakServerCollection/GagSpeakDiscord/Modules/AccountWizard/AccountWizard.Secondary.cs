@@ -1,5 +1,6 @@
 using Discord;
 using Discord.Interactions;
+using Gagspeak.API.Data.Enum;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
@@ -54,9 +55,8 @@ public partial class AccountWizard
     {
         User newUser = new()
         {
-            IsAdmin = false,
-            IsModerator = false,
             LastLoggedIn = DateTime.UtcNow,
+            VanityTier = CkSupporterTier.NoRole
         };
 
         var hasValidUid = false;

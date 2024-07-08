@@ -52,38 +52,6 @@ public class UserRequirementHandler : AuthorizationHandler<UserRequirement, HubI
             if (ident == RedisValue.EmptyString) context.Fail();
         }
 
-        // if the requirement is Administrator, check if the user is an admin
-        if ((requirement.Requirements & UserRequirements.Administrator) is UserRequirements.Administrator)
-        {
-
-            // Get the UID from the context claim
-            var uid = context.User.Claims.SingleOrDefault(g => string.Equals(g.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))?.Value;
-            // if the UID is null, fail the context
-            if (uid == null) context.Fail();
-            // fetch the user from the database
-            var user = await _dbContext.Users.AsNoTracking().SingleOrDefaultAsync(b => b.UID == uid).ConfigureAwait(false);
-            // if the user is null or not an admin, fail the context
-            if (user == null || !user.IsAdmin) context.Fail();
-
-            // otherwise, log that the user is authenticated
-            _logger.LogInformation("Admin {uid} authenticated", uid);
-        }
-
-        // if the user requires is a moderator, check if the user is a moderator
-        if ((requirement.Requirements & UserRequirements.Moderator) is UserRequirements.Moderator)
-        {
-
-            // Get the UID from the context claim
-            var uid = context.User.Claims.SingleOrDefault(g => string.Equals(g.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))?.Value;
-            // if the UID is null, fail the context
-            if (uid == null) context.Fail();
-            // fetch the user from the database
-            var user = await _dbContext.Users.AsNoTracking().SingleOrDefaultAsync(b => b.UID == uid).ConfigureAwait(false);
-            // if the user is null or not a moderator or admin, fail the context
-            if (user == null || !user.IsAdmin && !user.IsModerator) context.Fail();
-            _logger.LogInformation("Admin/Moderator {uid} authenticated", uid);
-        }
-
         // otherwise, succeed the context requirement.
         context.Succeed(requirement);
     }
