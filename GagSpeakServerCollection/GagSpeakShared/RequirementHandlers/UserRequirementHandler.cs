@@ -48,8 +48,14 @@ public class UserRequirementHandler : AuthorizationHandler<UserRequirement, HubI
             // if the UID is null, fail the context
             if (uid == null) context.Fail();
             // fetch the ident(ity) from the Redis database
-            var ident = await _redis.GetAsync<string>("UID:" + uid).ConfigureAwait(false);
-            if (ident == RedisValue.EmptyString) context.Fail();
+            var ident = await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
+            if (ident == RedisValue.EmptyString)
+            {
+                // allow people on the toybox hub to also be authorized.
+                ident = await _redis.GetAsync<string>("ToyboxHub:UID:" + uid).ConfigureAwait(false);
+            }
+            
+            context.Fail();
         }
 
         // otherwise, succeed the context requirement.

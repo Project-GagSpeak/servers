@@ -94,33 +94,33 @@ public partial class GagspeakHub
         // if no UID is provided, set it to the client caller context UserUID
         uid ??= UserUID;
         // return the list of UID's of all users that are paired with the provided UID
-        return (await GetSyncedUnpausedOnlinePairs(UserUID).ConfigureAwait(false));
+        return (await GetSyncedUnpausedOnlinePairs(uid).ConfigureAwait(false));
     }
 
     /// <summary> Helper to get the total number of users who are online currently from the list of passed in UID's.</summary>
     private async Task<Dictionary<string, string>> GetOnlineUsers(List<string> uids)
     {
-        var result = await _redis.GetAllAsync<string>(uids.Select(u => "UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
-        return uids.Where(u => result.TryGetValue("UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["UID:" + u], StringComparer.Ordinal);
+        var result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
+        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["UID:" + u], StringComparer.Ordinal);
     }
 
     /// <summary> Helper function to get the user's identity from the redis by their UID </summary>
     private async Task<string> GetUserIdent(string uid)
     {
         if (uid.IsNullOrEmpty()) return string.Empty;
-        return await _redis.GetAsync<string>("UID:" + uid).ConfigureAwait(false);
+        return await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
     }
 
     /// <summary> Helper function to remove a user from the redis by their UID</summary>
     private async Task RemoveUserFromRedis()
     {
-        await _redis.RemoveAsync("UID:" + UserUID, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
+        await _redis.RemoveAsync("GagspeakHub:UID:" + UserUID, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
     }
 
     /// <summary> A helper function to update the user's identity on the redi's by their UID</summary>
     private async Task UpdateUserOnRedis()
     {
-        await _redis.AddAsync("UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60), StackExchange.Redis.When.Always, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
+        await _redis.AddAsync("GagspeakHub:UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60), StackExchange.Redis.When.Always, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
     }
 
     /// <summary> 
@@ -469,7 +469,8 @@ public partial class GagspeakHub
                             join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
                                 // Filter to include only pairs where the main user is involved
-                            where user.UserUID == uid && u.UID == user.OtherUserUID
+                            where user.UserUID == uid 
+                                && u.UID == user.OtherUserUID
                             // Select OtherUserUID for the final determining factor
                             select user.OtherUserUID;
 

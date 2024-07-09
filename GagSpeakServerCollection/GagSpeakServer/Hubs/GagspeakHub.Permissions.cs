@@ -3,6 +3,7 @@ using Gagspeak.API.SignalR;
 using GagSpeak.API.Data.Permissions;
 using GagSpeak.API.Dto.Permissions;
 using GagspeakServer.Utils;
+using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -45,14 +46,24 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         string propertyName = dto.ChangedPermission.Key;
         object newValue = dto.ChangedPermission.Value;
         // Get the PropertyInfo object for the property with the matching name in globalPerms
-        PropertyInfo propertyInfo = typeof(UserGlobalPermissions).GetProperty(propertyName);
+        PropertyInfo propertyInfo = typeof(GagspeakShared.Models.UserGlobalPermissions).GetProperty(propertyName);
         if (propertyInfo != null)
         {
-            // Ensure the type of the newValue matches the property type
+            // Catches Boolean & String recognition
             if (propertyInfo.PropertyType == newValue.GetType())
             {
                 // [YES THIS IS WHERE IT UPDATES THE ACTUAL GLOBALPERMS OBJECT]
                 propertyInfo.SetValue(globalPerms, newValue);
+            }
+            // timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
+            else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
+            {
+                propertyInfo.SetValue(globalPerms, TimeSpan.FromTicks((long)(ulong)newValue));
+            }
+            // char recognition. (these are converted to byte for Dto's instead of char)
+            else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
+            {
+                propertyInfo.SetValue(globalPerms, Convert.ToChar(newValue));
             }
             else
             {
@@ -73,6 +84,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // grab the user pairs of the client caller
         List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         var pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+
+        // debug the list of pairs of client
+        foreach (var pair in pairsOfClient)
+        {
+            _logger.LogMessage($"Pair: {pair.Key}");
+        }
 
         // callback to the client caller's pairs, letting them know that our permission was updated.
         await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdateOtherPairPermsGlobal(dto).ConfigureAwait(false);
@@ -109,14 +126,24 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // establish the keyvalue pair from the Dto so we know what is changing.
         string propertyName = dto.ChangedPermission.Key;
         object newValue = dto.ChangedPermission.Value;
-        PropertyInfo propertyInfo = typeof(UserGlobalPermissions).GetProperty(propertyName);
+        PropertyInfo propertyInfo = typeof(GagspeakShared.Models.UserGlobalPermissions).GetProperty(propertyName);
         if (propertyInfo != null)
         {
-            // Ensure the type of the newValue matches the property type
+            // Boolean & String recognition
             if (propertyInfo.PropertyType == newValue.GetType())
             {
                 // [YES THIS IS WHERE IT UPDATES THE ACTUAL GLOBALPERMS OBJECT]
                 propertyInfo.SetValue(globalPerms, newValue);
+            }
+            // timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
+            else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
+            {
+                propertyInfo.SetValue(globalPerms, TimeSpan.FromTicks((long)(ulong)newValue));
+            }
+            // char recognition. (these are converted to byte for Dto's instead of char)
+            else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
+            {
+                propertyInfo.SetValue(globalPerms, Convert.ToChar(newValue));
             }
             else
             {
@@ -139,6 +166,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
         // now get all the online users out of that batch.
         var pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+
+        // debug the list of pairs of client
+        foreach (var pair in pairsOfClient)
+        {
+            _logger.LogMessage($"Pair: {pair.Key}");
+        }
 
         // send callback to all the paired users of the userpair we modified, informing them of the update (includes the client caller)
         await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdateOtherPairPermsGlobal(dto).ConfigureAwait(false);
@@ -167,20 +200,40 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             return;
         }
 
+        // store to see if change is a pause change
+        bool pauseChange = false;
+
         // establish the keyvalue pair from the Dto so we know what is changing.
         string propertyName = dto.ChangedPermission.Key;
         object newValue = dto.ChangedPermission.Value;
-        PropertyInfo propertyInfo = typeof(UserPairPermissions).GetProperty(propertyName);
+        PropertyInfo propertyInfo = typeof(ClientPairPermissions).GetProperty(propertyName);
         if (propertyInfo != null)
         {
-            // Ensure the type of the newValue matches the property type
+            // Standard boolean & string recognition
             if (propertyInfo.PropertyType == newValue.GetType())
             {
-                // [YES THIS IS WHERE IT UPDATES THE ACTUAL PAIRPERMS OBJECT]
+                // before making change, see if the property name is "IsPaused", and if its new value is different from the current value.
+                if (string.Equals(propertyName, "IsPaused", StringComparison.Ordinal) && pairPerms.IsPaused != (bool)newValue)
+                {
+                    pauseChange = true;
+                }
+
                 propertyInfo.SetValue(pairPerms, newValue);
+            }
+            // timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
+            else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
+            {
+                propertyInfo.SetValue(pairPerms, TimeSpan.FromTicks((long)(ulong)newValue));
+            }
+            // char recognition. (these are converted to byte for Dto's instead of char)
+            else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
+            {
+                propertyInfo.SetValue(pairPerms, Convert.ToChar(newValue));
             }
             else
             {
+                // debug the two property types so we know why it happened
+                _logger.LogMessage($"PropertyType: {propertyInfo.PropertyType}, NewValueType: {newValue.GetType()}");
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Type miss-match on requested update").ConfigureAwait(false);
                 return;
             }
@@ -193,11 +246,38 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
         DbContext.Update(pairPerms);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        // fetch our user
+        GagspeakShared.Models.User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
-        // send a callback to the userpair we updated our permission for, so they get the updated info
-        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPerms(dto).ConfigureAwait(false);
         // callback the updated info to the client caller as well so it can update properly.
-        await Clients.Caller.Client_UserUpdateSelfPairPerms(dto).ConfigureAwait(false);
+        await Clients.User(UserUID).Client_UserUpdateSelfPairPerms(dto).ConfigureAwait(false);
+        // send a callback to the userpair we updated our permission for, so they get the updated info
+        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPerms(new UserPairPermChangeDto(new Gagspeak.API.Data.UserData(user!.UID, user.Alias), dto.ChangedPermission)).ConfigureAwait(false);
+
+        // grab the other players pair perms for you
+        var pairData = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+
+        // check to 
+        if (pauseChange && pairData != null && !pairData.IsPaused)
+        {
+            _logger.LogMessage("Pause change detected, checking if both users are online to send online/offline updates.");
+            // obtain the other character identifier
+            var otherCharaIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
+
+            // if our user is null, or the other user is null, we are not both online, so dont do this.
+            if (UserCharaIdent == null || otherCharaIdent == null) return;
+
+            if ((bool)newValue)
+            {
+                await Clients.User(UserUID).Client_UserSendOffline(new(new(dto.User.UID))).ConfigureAwait(false);
+                await Clients.User(dto.User.UID).Client_UserSendOffline(new(new(UserUID))).ConfigureAwait(false);
+            }
+            else
+            {
+                await Clients.User(UserUID).Client_UserSendOnline(new(new(dto.User.UID), otherCharaIdent)).ConfigureAwait(false);
+                await Clients.User(dto.User.UID).Client_UserSendOnline(new(new(UserUID), UserCharaIdent)).ConfigureAwait(false);
+            }
+        }
     }
 
 
@@ -222,14 +302,24 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // establish the keyvalue pair from the Dto so we know what is changing.
         string propertyName = dto.ChangedPermission.Key;
         object newValue = dto.ChangedPermission.Value;
-        PropertyInfo propertyInfo = typeof(UserPairPermissions).GetProperty(propertyName);
+        PropertyInfo propertyInfo = typeof(ClientPairPermissions).GetProperty(propertyName);
         if (propertyInfo != null)
         {
-            // Ensure the type of the newValue matches the property type
+            // Catches boolean & string recognition
             if (propertyInfo.PropertyType == newValue.GetType())
             {
                 // [YES THIS IS WHERE IT UPDATES THE ACTUAL PAIRPERMS OBJECT]
                 propertyInfo.SetValue(pairPerms, newValue);
+            }
+            // timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
+            else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
+            {
+                propertyInfo.SetValue(pairPerms, TimeSpan.FromTicks((long)(ulong)newValue));
+            }
+            // char recognition. (these are converted to byte for Dto's instead of char)
+            else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
+            {
+                propertyInfo.SetValue(pairPerms, Convert.ToChar(newValue));
             }
             else
             {
@@ -269,14 +359,35 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // establish the key-value pair from the Dto so we know what is changing.
         string propertyName = dto.ChangedAccessPermission.Key;
         object newValue = dto.ChangedAccessPermission.Value;
-        PropertyInfo propertyInfo = typeof(UserEditAccessPermissions).GetProperty(propertyName);
+        PropertyInfo propertyInfo = typeof(ClientPairPermissionAccess).GetProperty(propertyName);
         if (propertyInfo != null)
         {
             // Ensure the type of the newValue matches the property type
             if (propertyInfo.PropertyType == newValue.GetType())
             {
-                // Set the new value for the property
-                propertyInfo.SetValue(pairAccess, newValue);
+                try
+                {
+                    // log the debug output of the types
+                    _logger.LogMessage($"PropertyType: {propertyInfo.PropertyType}, NewValueType: {newValue.GetType()}");
+                    // Set the new value for the property
+                    propertyInfo.SetValue(pairAccess, newValue);
+                }
+                catch(TargetException ex)
+                {
+                    _logger.LogMessage($"TargetException setting value: {ex.Message}");
+                }
+                catch(ArgumentException ex)
+                {
+                    _logger.LogMessage($"ArgumentException setting value: {ex.Message}");
+                }
+                catch(MethodAccessException ex)
+                {
+                    _logger.LogMessage($"MethodAccessException setting value: {ex.Message}");
+                }
+                catch(Exception ex)
+                {
+                    _logger.LogMessage($"Error setting value: {ex.Message}");
+                }
             }
             else
             {
@@ -293,8 +404,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         DbContext.Update(pairAccess);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // send a callback to the userpair we updated our permission for, so they get the updated info
-        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPermAccess(dto).ConfigureAwait(false);
+        // fetch our user
+        GagspeakShared.Models.User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+
+        // send a callback to the userpair we updated our permission for, so they get the updated info (we update the user so that when the pair receives it they know who to update this for)
+        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPermAccess(new UserPairAccessChangeDto(new Gagspeak.API.Data.UserData(user!.UID, user.Alias), dto.ChangedAccessPermission)).ConfigureAwait(false);
         // callback the updated info to the client caller as well so it can update properly.
         await Clients.Caller.Client_UserUpdateSelfPairPermAccess(dto).ConfigureAwait(false);
     }

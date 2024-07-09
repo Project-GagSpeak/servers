@@ -8,12 +8,12 @@ namespace GagspeakServer.Utils;
 /// <summary>
 /// Logger for the GagspeakHub
 /// </summary>
-public class GagspeakHubLogger
+public class ToyboxHubLogger
 {
-    private readonly GagspeakHub _hub;              // The GagspeakHub instance
-    private readonly ILogger<GagspeakHub> _logger;  // The logger instance
+    private readonly ToyboxHub _hub;              // The GagspeakHub instance
+    private readonly ILogger<ToyboxHub> _logger;  // The logger instance
 
-    public GagspeakHubLogger(GagspeakHub hub, ILogger<GagspeakHub> logger)
+    public ToyboxHubLogger(ToyboxHub hub, ILogger<ToyboxHub> logger)
     {
         _hub = hub;
         _logger = logger;
@@ -27,15 +27,15 @@ public class GagspeakHubLogger
     public void LogCallInfo(object[] args = null, [CallerMemberName] string methodName = "")
     {
         string formattedArgs = args != null && args.Length != 0 ? "|" + string.Join(":", args) : string.Empty;
-        _logger.LogInformation("{uid}:{method}{args}", _hub.UserUID, methodName, formattedArgs);
-        //_logger.LogInformation("DEV UID:{method}{args}", methodName, formattedArgs);
+        //_logger.LogInformation("{uid}:{method}{args}", _hub.UserUID, methodName, formattedArgs);
+        _logger.LogInformation("DEV UID:{method}{args}", methodName, formattedArgs);
     }
 
     public void LogCallWarning(object[] args = null, [CallerMemberName] string methodName = "")
     {
         string formattedArgs = args != null && args.Length != 0 ? "|" + string.Join(":", args) : string.Empty;
-        _logger.LogWarning("{uid}:{method}{args}", _hub.UserUID, methodName, formattedArgs);
-        //_logger.LogWarning("DEV UID:{method}{args}", methodName, formattedArgs);
+        //_logger.LogWarning("{uid}:{method}{args}", _hub.UserUID, methodName, formattedArgs);
+        _logger.LogWarning("DEV UID:{method}{args}", methodName, formattedArgs);
     }
 
     public void LogMessage(string message)

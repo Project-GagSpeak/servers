@@ -53,22 +53,26 @@ public class SystemInfoService : IHostedService, IDisposable
             _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableWorkerThreads, workerThreads);
             _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
 
-            var onlineUsers = (_redis.SearchKeysAsync("UID:*").GetAwaiter().GetResult()).Count();
+            var gagspeakOnlineUsers = (_redis.SearchKeysAsync("GagspeakHub:UID:*").GetAwaiter().GetResult()).Count();
+            var powerPlugOnlineUsers = (_redis.SearchKeysAsync("PowerPlugHub:UID:*").GetAwaiter().GetResult()).Count();
+
             SystemInfoDto = new SystemInfoDto()
             {
-                OnlineUsers = onlineUsers,
+                OnlineUsers = gagspeakOnlineUsers, // Specific to GagspeakHub
+                OnlineToyboxUsers = powerPlugOnlineUsers, // Specific to PowerPlugHub
             };
 
             if (_config.IsMain)
             {
-                _logger.LogInformation("Sending System Info, Online Users: {onlineUsers}", onlineUsers);
+                // can always just refer to discord bot for this number instead of letting it spam my logs.
+                // _logger.LogInformation("Online Users: {onlineUsers}", gagspeakOnlineUsers);
 
                 _hubContext.Clients.All.Client_UpdateSystemInfo(SystemInfoDto);
 
                 using var scope = _services.CreateScope();
                 using var db = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
 
-                _metrics.SetGaugeTo(MetricsAPI.GaugeAuthorizedConnections, onlineUsers);
+                _metrics.SetGaugeTo(MetricsAPI.GaugeAuthorizedConnections, gagspeakOnlineUsers);
                 _metrics.SetGaugeTo(MetricsAPI.GaugePairs, db.ClientPairs.AsNoTracking().Count());
                 _metrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, db.Users.AsNoTracking().Count());
             }

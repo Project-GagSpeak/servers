@@ -105,7 +105,7 @@ public class Startup
     /// <summary> Helper method for configuring the Gagspeak Services </summary>
     private void ConfigureGagspeakServices(IServiceCollection services, IConfigurationSection gagspeakConfig)
     {
-        // configure the server configsuations for both the server config and the gagspeak config base.
+        // configure the server configurations for both the server config and the gagspeak config base.
         services.Configure<ServerConfiguration>(Configuration.GetRequiredSection("GagSpeak"));
         services.Configure<GagspeakConfigurationBase>(Configuration.GetRequiredSection("GagSpeak"));
         _logger.LogInformation("Server Configurations configured");
@@ -441,6 +441,22 @@ public class Startup
                 // configure the transports to be websockets, server sent events, and long polling
                 options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
             });
+            // create a maphub that maps the gagspeak hub to the gagspeak hub path
+            endpoints.MapHub<ToyboxHub>(IToyboxHub.Path, options =>
+            {
+                options.ApplicationMaxBufferSize = 5242880; // the max buffer size
+                options.TransportMaxBufferSize = 5242880;   // the transport max buffer size
+                // configure the transports to be websockets, server sent events, and long polling
+                options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
+            });
+/*            // create a maphub that maps the gagspeak hub to the gagspeak hub path
+            endpoints.MapHub<ChatHub>(IGagspeakHub.Path, options =>
+            {
+                options.ApplicationMaxBufferSize = 5242880; // the max buffer size
+                options.TransportMaxBufferSize = 5242880;   // the transport max buffer size
+                // configure the transports to be websockets, server sent events, and long polling
+                options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
+            });*/
 
             // map the health checks to the health endpoint
             endpoints.MapHealthChecks("/health").AllowAnonymous(); // allow anonymous access to the health checks

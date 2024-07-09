@@ -81,14 +81,10 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     }
 
     /// <summary> 
-    /// 
     /// Called by a connected client when they want to request a ConnectionDto object from the server.
-    /// 
     /// <para>
-    /// 
     /// This method required the requesting client to have the authorize policy "Identified" 
     /// (Meaning they have passed authorization) is bound to their request for the function to proceed. 
-    /// 
     /// </para>
     /// </summary>
     [Authorize(Policy = "Identified")]
@@ -118,8 +114,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
         // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
-            "Welcome to the CK Gagspeak Server! We currently have " + _systemInfoService.SystemInfoDto.OnlineUsers +
-            "Kinksters online. We hope you enjoy your fun~").ConfigureAwait(false);
+            "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
+            " Kinksters are online.\nWe hope you enjoy your fun~").ConfigureAwait(false);
 
         // because the connection DTO contains the user's global permissions, we will need to fetch them.
         var clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);

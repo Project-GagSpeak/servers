@@ -200,7 +200,7 @@ public class JwtController : Controller
             }
 
             // see if the user is already currently logged in with the same identifier.
-            var existingIdent = await _redis.GetAsync<string>("UID:" + authResult.Uid);
+            var existingIdent = await _redis.GetAsync<string>("GagspeakHub:UID:" + authResult.Uid);
             // if they are, return an unauthorized result. (already logged in)
             if (!string.IsNullOrEmpty(existingIdent))
             {

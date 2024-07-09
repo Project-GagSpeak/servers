@@ -16,13 +16,16 @@ public class ClientMessageController : Controller
 {
     // Declare private variables for logger and hub context
     private ILogger<ClientMessageController> _logger;
-    private IHubContext<GagspeakHub, IGagspeakHub> _hubContext;
+    private IHubContext<GagspeakHub, IGagspeakHub> _hubContextMain;
+    private IHubContext<ToyboxHub, IToyboxHub> _hubContextToybox;
 
     // Constructor for this controller, injecting dependencies
-    public ClientMessageController(ILogger<ClientMessageController> logger, IHubContext<GagspeakHub, IGagspeakHub> hubContext)
+    public ClientMessageController(ILogger<ClientMessageController> logger, 
+        IHubContext<GagspeakHub, IGagspeakHub> hubContext, IHubContext<ToyboxHub, IToyboxHub> hubContextToybox)
     {
         _logger = logger;
-        _hubContext = hubContext;
+        _hubContextMain = hubContext;
+        _hubContextToybox = hubContextToybox;
     }
 
     // Define the route and HTTP method for sending a message
@@ -37,13 +40,13 @@ public class ClientMessageController : Controller
         if (!hasUid)
         {
             _logger.LogInformation("Sending Message of severity {severity} to all online users: {message}", msg.Severity, msg.Message);
-            await _hubContext.Clients.All.Client_ReceiveServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
+            await _hubContextMain.Clients.All.Client_ReceiveServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
         }
         // If there is a UID, send the message to the specific user
         else
         {
             _logger.LogInformation("Sending Message of severity {severity} to user {uid}: {message}", msg.Severity, msg.UID, msg.Message);
-            await _hubContext.Clients.User(msg.UID).Client_ReceiveServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
+            await _hubContextMain.Clients.User(msg.UID).Client_ReceiveServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
         }
 
         // Return an empty result
