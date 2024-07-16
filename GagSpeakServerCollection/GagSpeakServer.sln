@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.8.34511.84
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeak.API", "..\GagSpeak-API\GagSpeakAPI\GagSpeak.API.csproj", "{54B0BD5F-27D6-45AE-B279-A1F4FBB5A452}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeakServer", "GagSpeakServer\GagSpeakServer.csproj", "{992E8196-300D-4D10-8AA1-C17EB5D63BB6}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeakShared", "GagSpeakShared\GagSpeakShared.csproj", "{C5495797-1B2C-4E8F-B1B1-DFECCBE5EA32}"
@@ -13,16 +11,14 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeakAuthentication", "G
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeakDiscord", "GagSpeakDiscord\GagSpeakDiscord.csproj", "{AF0ADB09-8B83-4D66-9D98-92A4DBB62CF6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectGagspeakAPI", "..\GagSpeak-API\ProjectGagspeakAPI\ProjectGagspeakAPI.csproj", "{59D26FDE-A0C0-4937-88A3-341CE3FB45B3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{54B0BD5F-27D6-45AE-B279-A1F4FBB5A452}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{54B0BD5F-27D6-45AE-B279-A1F4FBB5A452}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{54B0BD5F-27D6-45AE-B279-A1F4FBB5A452}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{54B0BD5F-27D6-45AE-B279-A1F4FBB5A452}.Release|Any CPU.Build.0 = Release|Any CPU
 		{992E8196-300D-4D10-8AA1-C17EB5D63BB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{992E8196-300D-4D10-8AA1-C17EB5D63BB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{992E8196-300D-4D10-8AA1-C17EB5D63BB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -39,6 +35,10 @@ Global
 		{AF0ADB09-8B83-4D66-9D98-92A4DBB62CF6}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AF0ADB09-8B83-4D66-9D98-92A4DBB62CF6}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AF0ADB09-8B83-4D66-9D98-92A4DBB62CF6}.Release|Any CPU.Build.0 = Release|Any CPU
+		{59D26FDE-A0C0-4937-88A3-341CE3FB45B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{59D26FDE-A0C0-4937-88A3-341CE3FB45B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{59D26FDE-A0C0-4937-88A3-341CE3FB45B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{59D26FDE-A0C0-4937-88A3-341CE3FB45B3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -49,7 +49,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\GagSpeak-API\GagSpeakAPI\GagSpeak.API.csproj" />
+		<ProjectReference Include="..\..\GagSpeak-API\ProjectGagspeakAPI\ProjectGagspeakAPI.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
