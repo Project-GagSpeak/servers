@@ -1,5 +1,5 @@
-using GagSpeakAPI.Data;
-using GagSpeakAPI.Data.Enum;
+using GagspeakAPI.Data;
+using GagspeakAPI.Data.Enum;
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;

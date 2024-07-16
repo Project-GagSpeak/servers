@@ -7,11 +7,11 @@ namespace GagspeakServer.Utils;
 #pragma warning disable MA0051; // Method is too long
 public static class ClientPairPermissionExtensions
 {
-    public static GagSpeakAPI.Data.Permissions.UserGlobalPermissions ToApiGlobalPerms(this UserGlobalPermissions? globalPermsModel)
+    public static GagspeakAPI.Data.Permissions.UserGlobalPermissions ToApiGlobalPerms(this UserGlobalPermissions? globalPermsModel)
     {
-        if (globalPermsModel == null) return new GagSpeakAPI.Data.Permissions.UserGlobalPermissions();
+        if (globalPermsModel == null) return new GagspeakAPI.Data.Permissions.UserGlobalPermissions();
 
-        GagSpeakAPI.Data.Permissions.UserGlobalPermissions result = new GagSpeakAPI.Data.Permissions.UserGlobalPermissions();
+        GagspeakAPI.Data.Permissions.UserGlobalPermissions result = new GagspeakAPI.Data.Permissions.UserGlobalPermissions();
 
         result.Safeword = globalPermsModel.Safeword;
         result.SafewordUsed = globalPermsModel.SafewordUsed;
@@ -43,13 +43,13 @@ public static class ClientPairPermissionExtensions
     }
 
 
-    public static GagSpeakAPI.Data.Permissions.UserPairPermissions ToApiUserPairPerms(this ClientPairPermissions? clientPairPermsModel)
+    public static GagspeakAPI.Data.Permissions.UserPairPermissions ToApiUserPairPerms(this ClientPairPermissions? clientPairPermsModel)
     {
         // if null, return a fresh UserPermissionsComposite object.
-        if (clientPairPermsModel == null) return new GagSpeakAPI.Data.Permissions.UserPairPermissions();
+        if (clientPairPermsModel == null) return new GagspeakAPI.Data.Permissions.UserPairPermissions();
 
         // create a new UserPermissionsComposite object
-        GagSpeakAPI.Data.Permissions.UserPairPermissions result = new GagSpeakAPI.Data.Permissions.UserPairPermissions();
+        GagspeakAPI.Data.Permissions.UserPairPermissions result = new GagspeakAPI.Data.Permissions.UserPairPermissions();
 
         // set the variables
         result.ExtendedLockTimes = clientPairPermsModel.ExtendedLockTimes;
@@ -98,12 +98,12 @@ public static class ClientPairPermissionExtensions
         return result;
     }
 
-    public static GagSpeakAPI.Data.Permissions.UserEditAccessPermissions ToApiUserPairEditAccessPerms(this ClientPairPermissionAccess pairAccessPermsModel)
+    public static GagspeakAPI.Data.Permissions.UserEditAccessPermissions ToApiUserPairEditAccessPerms(this ClientPairPermissionAccess pairAccessPermsModel)
     {
-        if (pairAccessPermsModel == null) return new GagSpeakAPI.Data.Permissions.UserEditAccessPermissions();
+        if (pairAccessPermsModel == null) return new GagspeakAPI.Data.Permissions.UserEditAccessPermissions();
 
         // create new UserPermissionsEditAccessComposite object
-        GagSpeakAPI.Data.Permissions.UserEditAccessPermissions result = new GagSpeakAPI.Data.Permissions.UserEditAccessPermissions();
+        GagspeakAPI.Data.Permissions.UserEditAccessPermissions result = new GagspeakAPI.Data.Permissions.UserEditAccessPermissions();
 
         // set all subaccess perms to defaults
         result.CommandsFromFriendsAllowed = pairAccessPermsModel.CommandsFromFriendsAllowed;

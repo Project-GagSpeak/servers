@@ -1,6 +1,6 @@
 using Discord;
 using Discord.Interactions;
-using GagSpeakAPI.Data.Enum;
+using GagspeakAPI.Data.Enum;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;

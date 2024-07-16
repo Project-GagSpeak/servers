@@ -1,6 +1,6 @@
-using GagSpeakAPI.Data.Enum;
-using GagSpeakAPI.SignalR;
-using GagSpeakAPI.Dto.Connection;
+using GagspeakAPI.Data.Enum;
+using GagspeakAPI.SignalR;
+using GagspeakAPI.Dto.Connection;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;
@@ -142,7 +142,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
-            UserGlobalPermissions = new GagSpeakAPI.Data.Permissions.UserGlobalPermissions()
+            UserGlobalPermissions = new GagspeakAPI.Data.Permissions.UserGlobalPermissions()
             {
                 Safeword = clientCallerGlobalPerms.Safeword,
                 SafewordUsed = clientCallerGlobalPerms.SafewordUsed,
@@ -166,7 +166,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 ToyIntensity = clientCallerGlobalPerms.ToyIntensity,
                 SpatialVibratorAudio = clientCallerGlobalPerms.SpatialVibratorAudio,
             },
-            CharacterAppearanceData = new GagSpeakAPI.Data.Character.CharacterAppearanceData()
+            CharacterAppearanceData = new GagspeakAPI.Data.Character.CharacterAppearanceData()
             {
                 SlotOneGagType = clientCallerAppearanceData.SlotOneGagType == "" ? "None" : clientCallerAppearanceData.SlotOneGagType,
                 SlotOneGagPadlock = clientCallerAppearanceData.SlotOneGagPadlock == "" ? "None" : clientCallerAppearanceData.SlotOneGagPadlock,

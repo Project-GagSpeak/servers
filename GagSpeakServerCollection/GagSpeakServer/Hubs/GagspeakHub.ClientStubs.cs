@@ -1,8 +1,8 @@
-﻿using GagSpeakAPI.Data.Enum;
-using GagSpeakAPI.Dto.User;
-using GagSpeakAPI.Dto.Connection;
-using GagSpeakAPI.Dto.Permissions;
-using GagSpeakAPI.Dto.UserPair;
+﻿using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Dto.User;
+using GagspeakAPI.Dto.Connection;
+using GagspeakAPI.Dto.Permissions;
+using GagspeakAPI.Dto.UserPair;
 
 namespace GagspeakServer.Hubs
 {

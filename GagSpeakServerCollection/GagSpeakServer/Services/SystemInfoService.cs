@@ -1,5 +1,5 @@
-using GagSpeakAPI.SignalR;
-using GagSpeakAPI.Dto.Connection;
+using GagspeakAPI.SignalR;
+using GagspeakAPI.Dto.Connection;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;

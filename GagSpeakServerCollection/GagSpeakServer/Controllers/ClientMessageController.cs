@@ -1,4 +1,4 @@
-﻿using GagSpeakAPI.SignalR;
+﻿using GagspeakAPI.SignalR;
 using GagspeakServer.Hubs;
 using GagspeakShared.Utils;
 using Microsoft.AspNetCore.Authorization;

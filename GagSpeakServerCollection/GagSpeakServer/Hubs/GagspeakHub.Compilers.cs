@@ -1,4 +1,4 @@
-﻿using GagSpeakAPI.Data.Character;
+﻿using GagspeakAPI.Data.Character;
 using GagspeakShared.Models;
 
 namespace GagspeakServer.Hubs;
@@ -14,9 +14,9 @@ public partial class GagspeakHub
     /// Compiles a globalPermissions DTO with the data provided from the DbContext's UserGlobalPermissions 
     /// </summary>
     /// <returns> A GlobalPermissionsDto object </returns>
-    private GagSpeakAPI.Data.Permissions.UserGlobalPermissions CompileGlobalPerms(UserGlobalPermissions userGlobalPermissions)
+    private GagspeakAPI.Data.Permissions.UserGlobalPermissions CompileGlobalPerms(UserGlobalPermissions userGlobalPermissions)
     {
-        return new GagSpeakAPI.Data.Permissions.UserGlobalPermissions()
+        return new GagspeakAPI.Data.Permissions.UserGlobalPermissions()
         {
             Safeword = userGlobalPermissions.Safeword,
             SafewordUsed = userGlobalPermissions.SafewordUsed,

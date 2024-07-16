@@ -1,7 +1,7 @@
-using GagSpeakAPI.Data.Enum;
-using GagSpeakAPI.SignalR;
-using GagSpeakAPI.Dto.Connection;
-using GagSpeakAPI.Dto.Toybox;
+using GagspeakAPI.Data.Enum;
+using GagspeakAPI.SignalR;
+using GagspeakAPI.Dto.Connection;
+using GagspeakAPI.Dto.Toybox;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;

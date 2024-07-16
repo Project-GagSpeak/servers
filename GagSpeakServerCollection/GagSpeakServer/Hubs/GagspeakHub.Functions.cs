@@ -1,4 +1,4 @@
-﻿using GagSpeakAPI.Dto;
+﻿using GagspeakAPI.Dto;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
