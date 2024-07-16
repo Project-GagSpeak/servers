@@ -1,4 +1,4 @@
-﻿using Gagspeak.API.Dto;
+﻿using GagSpeakAPI.Dto;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
@@ -101,7 +101,7 @@ public partial class GagspeakHub
     private async Task<Dictionary<string, string>> GetOnlineUsers(List<string> uids)
     {
         var result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
-        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["UID:" + u], StringComparer.Ordinal);
+        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["GagspeakHub:UID:" + u], StringComparer.Ordinal);
     }
 
     /// <summary> Helper function to get the user's identity from the redis by their UID </summary>

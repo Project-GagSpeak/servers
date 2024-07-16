@@ -1,7 +1,7 @@
-using Gagspeak.API.Data.Enum;
-using Gagspeak.API.SignalR;
-using GagSpeak.API.Data.Permissions;
-using GagSpeak.API.Dto.Permissions;
+using GagSpeakAPI.Data.Enum;
+using GagSpeakAPI.SignalR;
+using GagSpeakAPI.Data.Permissions;
+using GagSpeakAPI.Dto.Permissions;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -252,7 +252,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // callback the updated info to the client caller as well so it can update properly.
         await Clients.User(UserUID).Client_UserUpdateSelfPairPerms(dto).ConfigureAwait(false);
         // send a callback to the userpair we updated our permission for, so they get the updated info
-        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPerms(new UserPairPermChangeDto(new Gagspeak.API.Data.UserData(user!.UID, user.Alias), dto.ChangedPermission)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPerms(new UserPairPermChangeDto(new GagSpeakAPI.Data.UserData(user!.UID, user.Alias), dto.ChangedPermission)).ConfigureAwait(false);
 
         // grab the other players pair perms for you
         var pairData = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
@@ -408,7 +408,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         GagspeakShared.Models.User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // send a callback to the userpair we updated our permission for, so they get the updated info (we update the user so that when the pair receives it they know who to update this for)
-        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPermAccess(new UserPairAccessChangeDto(new Gagspeak.API.Data.UserData(user!.UID, user.Alias), dto.ChangedAccessPermission)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPermAccess(new UserPairAccessChangeDto(new GagSpeakAPI.Data.UserData(user!.UID, user.Alias), dto.ChangedAccessPermission)).ConfigureAwait(false);
         // callback the updated info to the client caller as well so it can update properly.
         await Clients.Caller.Client_UserUpdateSelfPairPermAccess(dto).ConfigureAwait(false);
     }

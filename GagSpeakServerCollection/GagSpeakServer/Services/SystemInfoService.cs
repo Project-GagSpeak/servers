@@ -1,5 +1,5 @@
-using Gagspeak.API.SignalR;
-using GagSpeak.API.Dto.Connection;
+using GagSpeakAPI.SignalR;
+using GagSpeakAPI.Dto.Connection;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
@@ -54,12 +54,12 @@ public class SystemInfoService : IHostedService, IDisposable
             _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
 
             var gagspeakOnlineUsers = (_redis.SearchKeysAsync("GagspeakHub:UID:*").GetAwaiter().GetResult()).Count();
-            var powerPlugOnlineUsers = (_redis.SearchKeysAsync("PowerPlugHub:UID:*").GetAwaiter().GetResult()).Count();
+            var toyboxOnlineUsers = (_redis.SearchKeysAsync("ToyboxHub:UID:*").GetAwaiter().GetResult()).Count();
 
             SystemInfoDto = new SystemInfoDto()
             {
                 OnlineUsers = gagspeakOnlineUsers, // Specific to GagspeakHub
-                OnlineToyboxUsers = powerPlugOnlineUsers, // Specific to PowerPlugHub
+                OnlineToyboxUsers = toyboxOnlineUsers, // Specific to ToyboxHub
             };
 
             if (_config.IsMain)

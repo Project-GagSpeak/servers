@@ -1,4 +1,4 @@
-﻿using Gagspeak.API.SignalR;
+﻿using GagSpeakAPI.SignalR;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Models;

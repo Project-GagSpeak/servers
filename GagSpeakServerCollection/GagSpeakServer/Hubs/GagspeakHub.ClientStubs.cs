@@ -1,8 +1,8 @@
-﻿using Gagspeak.API.Data.Enum;
-using Gagspeak.API.Dto.User;
-using GagSpeak.API.Dto.Connection;
-using GagSpeak.API.Dto.Permissions;
-using GagSpeak.API.Dto.UserPair;
+﻿using GagSpeakAPI.Data.Enum;
+using GagSpeakAPI.Dto.User;
+using GagSpeakAPI.Dto.Connection;
+using GagSpeakAPI.Dto.Permissions;
+using GagSpeakAPI.Dto.UserPair;
 
 namespace GagspeakServer.Hubs
 {
@@ -16,6 +16,7 @@ namespace GagspeakServer.Hubs
     public partial class GagspeakHub
     {
         public Task Client_ReceiveServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_ReceiveHardReconnectMessage(MessageSeverity messageSeverity, string message, ServerState state) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UpdateSystemInfo(SystemInfoDto systemInfo) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserAddClientPair(UserPairDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserRemoveClientPair(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");

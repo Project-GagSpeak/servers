@@ -1,6 +1,6 @@
-using Gagspeak.API.Data.Enum;
-using Gagspeak.API.SignalR;
-using GagSpeak.API.Dto.Connection;
+using GagSpeakAPI.Data.Enum;
+using GagSpeakAPI.SignalR;
+using GagSpeakAPI.Dto.Connection;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;
@@ -142,7 +142,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
-            UserGlobalPermissions = new GagSpeak.API.Data.Permissions.UserGlobalPermissions()
+            UserGlobalPermissions = new GagSpeakAPI.Data.Permissions.UserGlobalPermissions()
             {
                 Safeword = clientCallerGlobalPerms.Safeword,
                 SafewordUsed = clientCallerGlobalPerms.SafewordUsed,
@@ -166,22 +166,22 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 ToyIntensity = clientCallerGlobalPerms.ToyIntensity,
                 SpatialVibratorAudio = clientCallerGlobalPerms.SpatialVibratorAudio,
             },
-            CharacterAppearanceData = new GagSpeak.API.Data.Character.CharacterAppearanceData()
+            CharacterAppearanceData = new GagSpeakAPI.Data.Character.CharacterAppearanceData()
             {
-                SlotOneGagType = clientCallerAppearanceData.SlotOneGagType,
-                SlotOneGagPadlock = clientCallerAppearanceData.SlotOneGagPadlock,
+                SlotOneGagType = clientCallerAppearanceData.SlotOneGagType == "" ? "None" : clientCallerAppearanceData.SlotOneGagType,
+                SlotOneGagPadlock = clientCallerAppearanceData.SlotOneGagPadlock == "" ? "None" : clientCallerAppearanceData.SlotOneGagPadlock,
                 SlotOneGagPassword = clientCallerAppearanceData.SlotOneGagPassword,
-                SlotOneGagTimer = clientCallerAppearanceData.SlotOneGagTimer,
+                SlotOneGagTimer = clientCallerAppearanceData.SlotOneGagTimer == DateTimeOffset.MinValue ? DateTimeOffset.MinValue : clientCallerAppearanceData.SlotOneGagTimer,
                 SlotOneGagAssigner = clientCallerAppearanceData.SlotOneGagAssigner,
-                SlotTwoGagType = clientCallerAppearanceData.SlotTwoGagType,
-                SlotTwoGagPadlock = clientCallerAppearanceData.SlotTwoGagPadlock,
+                SlotTwoGagType = clientCallerAppearanceData.SlotTwoGagType == "" ? "None" : clientCallerAppearanceData.SlotTwoGagType,
+                SlotTwoGagPadlock = clientCallerAppearanceData.SlotTwoGagPadlock == "" ? "None" : clientCallerAppearanceData.SlotTwoGagPadlock,
                 SlotTwoGagPassword = clientCallerAppearanceData.SlotTwoGagPassword,
-                SlotTwoGagTimer = clientCallerAppearanceData.SlotTwoGagTimer,
+                SlotTwoGagTimer = clientCallerAppearanceData.SlotTwoGagTimer == DateTimeOffset.MinValue ? DateTimeOffset.MinValue : clientCallerAppearanceData.SlotTwoGagTimer,
                 SlotTwoGagAssigner = clientCallerAppearanceData.SlotTwoGagAssigner,
-                SlotThreeGagType = clientCallerAppearanceData.SlotThreeGagType,
-                SlotThreeGagPadlock = clientCallerAppearanceData.SlotThreeGagPadlock,
+                SlotThreeGagType = clientCallerAppearanceData.SlotThreeGagType == "" ? "None" : clientCallerAppearanceData.SlotThreeGagType,
+                SlotThreeGagPadlock = clientCallerAppearanceData.SlotThreeGagPadlock == "" ? "None" : clientCallerAppearanceData.SlotThreeGagPadlock,
                 SlotThreeGagPassword = clientCallerAppearanceData.SlotThreeGagPassword,
-                SlotThreeGagTimer = clientCallerAppearanceData.SlotThreeGagTimer,
+                SlotThreeGagTimer = clientCallerAppearanceData.SlotThreeGagTimer == DateTimeOffset.MinValue ? DateTimeOffset.MinValue : clientCallerAppearanceData.SlotThreeGagTimer,
                 SlotThreeGagAssigner = clientCallerAppearanceData.SlotThreeGagAssigner,
             }
         };
@@ -299,9 +299,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // otherwise, this is a new connection, so lets establish it.
         else
         {
-            /* _metrics.IncGaugeWithLabels(MetricsAPI.GaugeConnections, lebels: Continent); 
-             * ^^^^^ Leave this out if possible, requires grabbing IP just to set, not ok with that */
-
             // next up, try and log the connection attempt with the user details
             try
             {

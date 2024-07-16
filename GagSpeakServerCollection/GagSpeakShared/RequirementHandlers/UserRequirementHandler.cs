@@ -27,7 +27,7 @@ public class UserRequirementHandler : AuthorizationHandler<UserRequirement, HubI
     protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, UserRequirement requirement, HubInvocationContext resource)
     {
         // output the requirements to the logger
-        _logger.LogTrace("Requirements for access to function: {requirements}", requirement.Requirements);
+        //_logger.LogInformation("Requirements for access to function: {requirements}", requirement.Requirements);
         // first before anything we should see if the context user contains the claims for temporary access. If they do, we should set the user requirements to identify them as a temporary access connection.
         if ((requirement.Requirements & UserRequirements.TemporaryAccess) is UserRequirements.TemporaryAccess)
         {
@@ -42,20 +42,30 @@ public class UserRequirementHandler : AuthorizationHandler<UserRequirement, HubI
         // if the requirement is Identified, check if the UID is in the Redis database
         if ((requirement.Requirements & UserRequirements.Identified) is UserRequirements.Identified)
         {
-
+            //_logger.LogInformation("Validating Identified requirement");
             // Get the UID from the context claim
             var uid = context.User.Claims.SingleOrDefault(g => string.Equals(g.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))?.Value;
             // if the UID is null, fail the context
+            //_logger.LogInformation("GagspeakHub:UID: {uid}", uid);
+
             if (uid == null) context.Fail();
             // fetch the ident(ity) from the Redis database
+            
+            //_logger.LogInformation("Fetching ident from Redis");
+            
+            // ar ident = await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
             var ident = await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
             if (ident == RedisValue.EmptyString)
             {
+                // _logger.LogInformation("Ident not found in Redis");
                 // allow people on the toybox hub to also be authorized.
                 ident = await _redis.GetAsync<string>("ToyboxHub:UID:" + uid).ConfigureAwait(false);
+                if (ident == RedisValue.EmptyString)
+                {
+                    _logger.LogInformation("Ident not found in ToyboxHub");
+                    context.Fail();
+                }
             }
-            
-            context.Fail();
         }
 
         // otherwise, succeed the context requirement.

@@ -1,9 +1,9 @@
-﻿using Gagspeak.API.Data;
-using Gagspeak.API.Data.Enum;
-using Gagspeak.API.Dto.User;
-using GagSpeak.API.Dto.Connection;
-using GagSpeak.API.Dto.Permissions;
-using GagSpeak.API.Dto.UserPair;
+﻿using GagSpeakAPI.Data;
+using GagSpeakAPI.Data.Enum;
+using GagSpeakAPI.Dto.User;
+using GagSpeakAPI.Dto.Connection;
+using GagSpeakAPI.Dto.Permissions;
+using GagSpeakAPI.Dto.UserPair;
 using GagspeakServer.Utils;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
@@ -175,12 +175,12 @@ public partial class GagspeakHub
         var otherPermissionsAccess = existingData?.otherPairPermissionAccess ?? null;
 
         // grab our own permissions and other permissions and compile them into the objects meant to be attached to the userPairDto
-        GagSpeak.API.Data.Permissions.UserGlobalPermissions ownGlobalPerms = globalPerms.ToApiGlobalPerms();
-        GagSpeak.API.Data.Permissions.UserPairPermissions ownPairPerms = ownPairPermissions.ToApiUserPairPerms();
-        GagSpeak.API.Data.Permissions.UserEditAccessPermissions ownAccessPerms = ownPairPermissionsAccess.ToApiUserPairEditAccessPerms();
-        GagSpeak.API.Data.Permissions.UserGlobalPermissions otherGlobalPerms = otherGlobalPermissions.ToApiGlobalPerms();
-        GagSpeak.API.Data.Permissions.UserPairPermissions otherPerms = otherPermissions.ToApiUserPairPerms();
-        GagSpeak.API.Data.Permissions.UserEditAccessPermissions otherPermsAccess = otherPermissionsAccess.ToApiUserPairEditAccessPerms();
+        GagSpeakAPI.Data.Permissions.UserGlobalPermissions ownGlobalPerms = globalPerms.ToApiGlobalPerms();
+        GagSpeakAPI.Data.Permissions.UserPairPermissions ownPairPerms = ownPairPermissions.ToApiUserPairPerms();
+        GagSpeakAPI.Data.Permissions.UserEditAccessPermissions ownAccessPerms = ownPairPermissionsAccess.ToApiUserPairEditAccessPerms();
+        GagSpeakAPI.Data.Permissions.UserGlobalPermissions otherGlobalPerms = otherGlobalPermissions.ToApiGlobalPerms();
+        GagSpeakAPI.Data.Permissions.UserPairPermissions otherPerms = otherPermissions.ToApiUserPairPerms();
+        GagSpeakAPI.Data.Permissions.UserEditAccessPermissions otherPermsAccess = otherPermissionsAccess.ToApiUserPairEditAccessPerms();
 
         // construct a new UserPairDto based on the response
         UserPairDto userPairResponse = new UserPairDto(

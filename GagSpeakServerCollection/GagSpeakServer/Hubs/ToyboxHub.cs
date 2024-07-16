@@ -1,6 +1,6 @@
-using Gagspeak.API.Data.Enum;
-using Gagspeak.API.SignalR;
-using GagSpeak.API.Dto.Connection;
+using GagSpeakAPI.Data.Enum;
+using GagSpeakAPI.SignalR;
+using GagSpeakAPI.Dto.Connection;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;
@@ -87,7 +87,7 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
     /// Will not send back a system info dto
     /// </summary>
     [Authorize(Policy = "Identified")]
-    public async Task<ToyboxConnectionDto> GetConnectionDto()
+    public async Task<ToyboxConnectionDto> GetToyboxConnectionDto()
     {
         // log the caller who requested this method
         _logger.LogCallInfo();
@@ -99,18 +99,16 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
         var userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
         if (!userExists)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error,
+            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Error,
                 $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
             return null;
         }
 
         // Grab the user from the database whose UID reflects the UID of the client callers claims, and update last login time.
         User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
-        dbUser.LastLoggedIn = DateTime.UtcNow;
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
-        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
+        await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Information,
             "Connected to CK's Toybox Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
             " Horny users are connected. Enjoy yourselves~").ConfigureAwait(false);
 
@@ -133,16 +131,6 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
     /// <summary> Called when client caller connects to the toybox hub. </summary>
     public override async Task OnConnectedAsync()
     {
-        /* -------------------- Temporary Connection -------------------- */
-        // perform a check to see if the connection being made is from a user requesting a one-time temp access
-        if (string.Equals(UserHasTempAccess, "LocalContent", StringComparison.Ordinal))
-        {
-            // allow the connection but dont store the user connection
-            _logger.LogMessage("Temp Access Connection Established.");
-            await base.OnConnectedAsync().ConfigureAwait(false);
-            return;
-        }
-        /* -------------------- Regular Connection -------------------- */
         // Attempt to retrieve an existing connection ID for the user UID.
         // If it exists, it means they are already connected.
         if (_toyboxUserConnections.TryGetValue(UserUID, out var oldId))

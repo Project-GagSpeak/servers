@@ -1,4 +1,4 @@
-﻿using Gagspeak.API.Routes;
+﻿using GagSpeakAPI.Routes;
 using GagspeakAuthentication.Services;
 using GagspeakShared.Data;
 using GagspeakShared.Models;

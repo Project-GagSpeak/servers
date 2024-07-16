@@ -380,7 +380,7 @@ internal class DiscordBot : IHostedService
             // grab the endpoint from the connection multiplexer
             var endPoint = _connectionMultiplexer.GetEndPoints().First();
             // fetch the total number of online users connected to the redis server
-            var onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "UID:*").CountAsync();
+            var onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "GagspeakHub:UID:*").CountAsync();
 
             // log the status
             _logger.LogTrace("Kinksters online: {onlineUsers}", onlineUsers);

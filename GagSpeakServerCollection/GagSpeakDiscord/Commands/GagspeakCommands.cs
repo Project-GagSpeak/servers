@@ -1,6 +1,6 @@
 using Discord;
 using Discord.Interactions;
-using Gagspeak.API.Data.Enum;
+using GagSpeakAPI.Data.Enum;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
@@ -192,9 +192,64 @@ public class GagspeakCommands : InteractionModuleBase
         await FollowupAsync($"Purge completed for users inactive for {timeFrame}.");
     }
 
+    [SlashCommand("forceReconnect", "ADMIN ONLY: forcibly reconnects all online connected clients")]
+    public async Task ForceReconnectOnlineUsers([Summary("message", "Message to send with reconnection notification")] string message,
+    [Summary("severity", "Severity of the message")] MessageSeverity messageType = MessageSeverity.Information)
+    {
+        _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}:{uid}", Context.Interaction.User.Id, nameof(ForceReconnectOnlineUsers), message, messageType);
 
+        var user = await Context.Guild.GetUserAsync(Context.User.Id);
+        var isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
 
-    [SlashCommand("updateroles", "Updates roles for users with 'Distinguished Conisuir', 'Server Booster', or 'Esteemed Patron' roles")]
+        using var scope = _services.CreateScope();
+        using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
+
+        if (!isAdminOrOwner)
+        {
+            await RespondAsync("You do not have permission to use this command.", ephemeral: true).ConfigureAwait(false);
+            return;
+        }
+
+        try
+        {
+            using HttpClient c = new HttpClient();
+            await c.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>
+                (nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), 
+                new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect))
+                .ConfigureAwait(false);
+
+            var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
+            if (discordChannelForMessages != null)
+            {
+                var discordChannel = await Context.Guild.GetChannelAsync(discordChannelForMessages.Value) as IMessageChannel;
+                if (discordChannel != null)
+                {
+                    var embedColor = messageType switch
+                    {
+                        MessageSeverity.Information => Color.Blue,
+                        MessageSeverity.Warning => new Color(255, 255, 0),
+                        MessageSeverity.Error => Color.Red,
+                        _ => Color.Blue
+                    };
+
+                    EmbedBuilder eb = new();
+                    eb.WithTitle(messageType + " server message");
+                    eb.WithColor(embedColor);
+                    eb.WithDescription(message);
+
+                    await discordChannel.SendMessageAsync(embed: eb.Build());
+                }
+            }
+
+            await RespondAsync("Forced Hard Reconnection to all Online Users", ephemeral: true).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            await RespondAsync("Failed to force reconnection message: " + ex.ToString(), ephemeral: true).ConfigureAwait(false);
+        }
+    }
+
+    [SlashCommand("updateroles", "Updates roles for users with 'Distinguished Connoisseur', 'Server Booster', or 'Esteemed Patron' roles")]
     public async Task UpdateRoles()
     {
         // log the used slash command
@@ -415,7 +470,7 @@ public class GagspeakCommands : InteractionModuleBase
         var auth = await db.Auth.Include(u => u.PrimaryUser).SingleOrDefaultAsync(u => u.UserUID == dbUser.UID).ConfigureAwait(false);
 
         // Fetch the identity from the database.
-        var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("UID:" + dbUser.UID).ConfigureAwait(false);
+        var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("GagspeakHub:UID:" + dbUser.UID).ConfigureAwait(false);
 
         // Set the title and description of the embed builder.
         eb.WithTitle("User Information");

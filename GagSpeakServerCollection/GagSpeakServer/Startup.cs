@@ -1,4 +1,4 @@
-using Gagspeak.API.SignalR;
+using GagSpeakAPI.SignalR;
 using GagspeakServer.Controllers;
 using GagspeakServer.Hubs;
 using GagspeakServer.Services;
@@ -457,7 +457,6 @@ public class Startup
                 // configure the transports to be websockets, server sent events, and long polling
                 options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
             });*/
-
             // map the health checks to the health endpoint
             endpoints.MapHealthChecks("/health").AllowAnonymous(); // allow anonymous access to the health checks
             

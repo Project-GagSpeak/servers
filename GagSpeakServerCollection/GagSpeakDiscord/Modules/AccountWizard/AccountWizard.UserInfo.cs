@@ -53,7 +53,7 @@ public partial class AccountWizard
 
         var dbUser = await db.Users.SingleOrDefaultAsync(u => u.UID == uid).ConfigureAwait(false);
 
-        var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("UID:" + dbUser.UID).ConfigureAwait(false);
+        var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("GagspeakHub:UID:" + dbUser.UID).ConfigureAwait(false);
 
         eb.WithDescription("This is the user info for your selected UID. You can check other UIDs or go back using the menu below.");
         if (!string.IsNullOrEmpty(dbUser.Alias))
