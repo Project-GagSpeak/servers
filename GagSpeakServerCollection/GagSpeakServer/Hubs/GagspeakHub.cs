@@ -133,6 +133,26 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             clientCallerAppearanceData = new UserGagAppearanceData() { UserUID = UserUID };
             DbContext.UserAppearanceData.Add(clientCallerAppearanceData);
         }
+        if(string.IsNullOrEmpty(clientCallerAppearanceData.SlotOneGagType))
+        {
+            clientCallerAppearanceData.SlotOneGagType = "None";
+            clientCallerAppearanceData.SlotOneGagPadlock = "None";
+            clientCallerAppearanceData.SlotOneGagPassword = "";
+            clientCallerAppearanceData.SlotOneGagTimer = DateTimeOffset.UtcNow;
+            clientCallerAppearanceData.SlotOneGagAssigner = "";
+            clientCallerAppearanceData.SlotTwoGagType = "None";
+            clientCallerAppearanceData.SlotTwoGagPadlock = "None";
+            clientCallerAppearanceData.SlotTwoGagPassword = "";
+            clientCallerAppearanceData.SlotTwoGagTimer = DateTimeOffset.UtcNow;
+            clientCallerAppearanceData.SlotTwoGagAssigner = "";
+            clientCallerAppearanceData.SlotThreeGagType = "None";
+            clientCallerAppearanceData.SlotThreeGagPadlock = "None";
+            clientCallerAppearanceData.SlotThreeGagPassword = "";
+            clientCallerAppearanceData.SlotThreeGagTimer = DateTimeOffset.UtcNow;
+            clientCallerAppearanceData.SlotThreeGagAssigner = "";
+            // full reset incase they happen to have malformed data.
+            DbContext.UserAppearanceData.Update(clientCallerAppearanceData);
+        }
 
         // Save the DbContext (never know if it was added or not so always good to be safe.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -168,20 +188,20 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             },
             CharacterAppearanceData = new GagspeakAPI.Data.Character.CharacterAppearanceData()
             {
-                SlotOneGagType = clientCallerAppearanceData.SlotOneGagType == "" ? "None" : clientCallerAppearanceData.SlotOneGagType,
-                SlotOneGagPadlock = clientCallerAppearanceData.SlotOneGagPadlock == "" ? "None" : clientCallerAppearanceData.SlotOneGagPadlock,
+                SlotOneGagType = clientCallerAppearanceData.SlotOneGagType,
+                SlotOneGagPadlock = clientCallerAppearanceData.SlotOneGagPadlock,
                 SlotOneGagPassword = clientCallerAppearanceData.SlotOneGagPassword,
-                SlotOneGagTimer = clientCallerAppearanceData.SlotOneGagTimer == DateTimeOffset.MinValue ? DateTimeOffset.MinValue : clientCallerAppearanceData.SlotOneGagTimer,
+                SlotOneGagTimer = clientCallerAppearanceData.SlotOneGagTimer,
                 SlotOneGagAssigner = clientCallerAppearanceData.SlotOneGagAssigner,
-                SlotTwoGagType = clientCallerAppearanceData.SlotTwoGagType == "" ? "None" : clientCallerAppearanceData.SlotTwoGagType,
-                SlotTwoGagPadlock = clientCallerAppearanceData.SlotTwoGagPadlock == "" ? "None" : clientCallerAppearanceData.SlotTwoGagPadlock,
+                SlotTwoGagType = clientCallerAppearanceData.SlotTwoGagType,
+                SlotTwoGagPadlock = clientCallerAppearanceData.SlotTwoGagPadlock,
                 SlotTwoGagPassword = clientCallerAppearanceData.SlotTwoGagPassword,
-                SlotTwoGagTimer = clientCallerAppearanceData.SlotTwoGagTimer == DateTimeOffset.MinValue ? DateTimeOffset.MinValue : clientCallerAppearanceData.SlotTwoGagTimer,
+                SlotTwoGagTimer = clientCallerAppearanceData.SlotTwoGagTimer,
                 SlotTwoGagAssigner = clientCallerAppearanceData.SlotTwoGagAssigner,
-                SlotThreeGagType = clientCallerAppearanceData.SlotThreeGagType == "" ? "None" : clientCallerAppearanceData.SlotThreeGagType,
-                SlotThreeGagPadlock = clientCallerAppearanceData.SlotThreeGagPadlock == "" ? "None" : clientCallerAppearanceData.SlotThreeGagPadlock,
+                SlotThreeGagType = clientCallerAppearanceData.SlotThreeGagType,
+                SlotThreeGagPadlock = clientCallerAppearanceData.SlotThreeGagPadlock,
                 SlotThreeGagPassword = clientCallerAppearanceData.SlotThreeGagPassword,
-                SlotThreeGagTimer = clientCallerAppearanceData.SlotThreeGagTimer == DateTimeOffset.MinValue ? DateTimeOffset.MinValue : clientCallerAppearanceData.SlotThreeGagTimer,
+                SlotThreeGagTimer = clientCallerAppearanceData.SlotThreeGagTimer,
                 SlotThreeGagAssigner = clientCallerAppearanceData.SlotThreeGagAssigner,
             }
         };
