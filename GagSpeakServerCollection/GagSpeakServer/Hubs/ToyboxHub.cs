@@ -165,15 +165,6 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
     /// <summary> Called when client caller disconnects from the toybox hub. </summary>
     public override async Task OnDisconnectedAsync(Exception exception)
     {
-        /* -------------------- Temporary Connection -------------------- */
-        // if its a temp connection disconnecting, simply call the base and exit
-        if (string.Equals(UserHasTempAccess, "LocalContent", StringComparison.Ordinal))
-        {
-            _logger.LogMessage("Temp Access Connection Disconnected.");
-            await base.OnDisconnectedAsync(exception).ConfigureAwait(false);
-            return;
-        }
-
         /* -------------------- Regular Connection -------------------- */
         // Attempt to retrieve an existing connection ID for the user UID.
         if (_toyboxUserConnections.TryGetValue(UserUID, out var connectionId)
