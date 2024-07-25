@@ -46,6 +46,8 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
 
     // Service for managing online synced pairs. This ensures existing communications made between a client caller,
     // and their paired users are maintained. This is VERY VERY BENIFICIAL FOR REALTIME UPDATES.
+    // However, it's worth noting that this already contains our connected clients, as a requirement to be connected here is
+    // to be established on the GagSpeak hub.
     private readonly OnlineSyncedPairCacheService _onlineSyncedPairCacheService;
 
     // Lazy initialization of GagSpeakDbContext
@@ -120,7 +122,7 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
     /// Updates the client caller user on the redi's server
     /// </summary>
     [Authorize(Policy = "Authenticated")]
-    public async Task<bool> CheckClientHealth()
+    public async Task<bool> CheckToyboxClientHealth()
     {
         await UpdateUserOnRedis().ConfigureAwait(false);
 
@@ -147,10 +149,17 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
             {
                 // display IP of client who just connected, and initialize player into the online synced pair cache service.
                 _logger.LogCallInfo(ToyboxHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
-                await _onlineSyncedPairCacheService.InitPlayer(UserUID).ConfigureAwait(false);
-                // Finally, update the user onto the redi's server, then set their connection ID in the concurrent dictionary.
+                // Update User on Redi's, sending them online for client health checks and for discord monitoring of toybox hub.
                 await UpdateUserOnRedis().ConfigureAwait(false);
+                // Add the user to the concurrent dictionary of user connections.
                 _toyboxUserConnections[UserUID] = Context.ConnectionId;
+                // try and loopup if the user is a part of any PrivateRooms
+                var userRoom = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync(pru => pru.PrivateRoomUserUID == UserUID).ConfigureAwait(false);
+                // see if they are currently connected to that groups hubcontext group.
+                if (userRoom != null)
+                {
+                    await Groups.AddToGroupAsync(Context.ConnectionId, userRoom.PrivateRoomNameID).ConfigureAwait(false);
+                }
             }
             catch
             {
@@ -163,7 +172,7 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
 
 
     /// <summary> Called when client caller disconnects from the toybox hub. </summary>
-    public override async Task OnDisconnectedAsync(Exception exception)
+    public override async Task OnDisconnectedAsync(Exception? exception)
     {
         /* -------------------- Regular Connection -------------------- */
         // Attempt to retrieve an existing connection ID for the user UID.
@@ -171,13 +180,10 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
             && string.Equals(connectionId, Context.ConnectionId, StringComparison.Ordinal))
         {
             // if they were already in the dictionary, log that we have a user disconnecting from the current connection total
-            _logger.LogMessage("Removing Connection of 1 user.");
+            _logger.LogMessage("Removing Connection of 1 user from ToyboxHub Only. (Still online in main server).");
 
             try
             {
-                // dispose the player from the online synced pair cache service
-                await _onlineSyncedPairCacheService.DisposePlayer(UserUID).ConfigureAwait(false);
-
                 // log the call info of the user who disconnected
                 _logger.LogCallInfo(ToyboxHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
 
@@ -187,14 +193,23 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
                     _logger.LogCallWarning(ToyboxHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, exception.Message, exception.StackTrace));
                 }
 
-                // remove the users from the redis database (if it is critical to the discord bot)
+                // Remove User from Redi's, sending them offline for client health checks and for discord monitoring.
                 await RemoveUserFromRedis().ConfigureAwait(false);
             }
             catch { /* Consume */ }
             finally
             {
-                // finally, remove this user from the concurrent dictionary of connected users.
+                // remove the user from the toybox concurrent dictionary.
                 _toyboxUserConnections.Remove(UserUID, out _);
+                // remove them from the group room they were in
+                // try and loopup if the user is a part of any PrivateRooms
+                var userRoom = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync(pru => pru.PrivateRoomUserUID == UserUID).ConfigureAwait(false);
+                // see if they are currently connected to that groups hubcontext group.
+                if (userRoom != null)
+                {
+                    await Groups.RemoveFromGroupAsync(Context.ConnectionId, userRoom.PrivateRoomNameID).ConfigureAwait(false);
+                }
+
             }
         }
         // if we reach here, we should log a warning that the user disconnecting was not in the dictionary of connected users.

@@ -46,6 +46,8 @@ public class UserCleanupService : IHostedService
 
             await PurgeUnusedAccounts(dbContext).ConfigureAwait(false);
 
+            await CleanUpOldRooms(dbContext).ConfigureAwait(false);
+
             dbContext.SaveChanges();
 
             var now = DateTime.Now;
@@ -57,6 +59,38 @@ public class UserCleanupService : IHostedService
             await Task.Delay(span, ct).ConfigureAwait(false);
         }
     }
+
+    private async Task CleanUpOldRooms(GagspeakDbContext dbContext)
+    {
+        try
+        {
+            _logger.LogInformation("Cleaning up rooms older than 12 hours");
+
+            var twelveHoursAgo = DateTime.UtcNow - TimeSpan.FromHours(12);
+            var oldRooms = await dbContext.PrivateRooms
+                .Where(r => r.TimeMade < twelveHoursAgo)
+                .ToListAsync().ConfigureAwait(false);
+
+            foreach (var room in oldRooms)
+            {
+                _logger.LogInformation("Removing room: {roomName}", room.NameID);
+
+                var roomUsers = dbContext.PrivateRoomPairs
+                    .Where(pru => pru.PrivateRoomNameID == room.NameID)
+                    .ToList();
+
+                dbContext.PrivateRoomPairs.RemoveRange(roomUsers);
+                dbContext.PrivateRooms.Remove(room);
+            }
+
+            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during old rooms cleanup");
+        }
+    }
+
 
     private async Task PurgeUnusedAccounts(GagspeakDbContext dbContext)
     {

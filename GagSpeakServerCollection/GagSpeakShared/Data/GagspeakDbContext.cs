@@ -1,5 +1,6 @@
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
 namespace GagspeakShared.Data;
 
@@ -42,7 +43,12 @@ public class GagspeakDbContext : DbContext
     public DbSet<ClientPairPermissions> ClientPairPermissions { get; set; } // the unique permissions a user has for each of their client pairs.
     public DbSet<ClientPairPermissionAccess> ClientPairPermissionAccess { get; set; } // determines what permissions the client pair can change on the client.
 
+    
+    /* Tables that structure the toybox Private Room System */
+    public DbSet<PrivateRoom> PrivateRooms { get; set; } // The set of created private rooms.
+    public DbSet<PrivateRoomPair> PrivateRoomPairs { get; set; } // users who exist in a particular private room.
 
+    
     /*  Tables that handle what defines a user, their profile, the information, and settings associated with them.    */
     public DbSet<User> Users { get; set; } // Reflects a User profile. UID, last login time, timestamp of creation, alias, and vanity tier are defined here.
     public DbSet<UserGlobalPermissions> UserGlobalPermissions { get; set; } // permissions that when changed are globally modified
@@ -70,6 +76,15 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<ClientPairPermissionAccess>().HasKey(u => new { u.UserUID, u.OtherUserUID });
         modelBuilder.Entity<ClientPairPermissionAccess>().HasIndex(c => c.UserUID);
         modelBuilder.Entity<ClientPairPermissionAccess>().HasIndex(c => c.OtherUserUID);
+        modelBuilder.Entity<PrivateRoom>().ToTable("private_rooms"); // Key == RoomName
+        modelBuilder.Entity<PrivateRoom>().HasIndex(c => c.NameID).IsUnique(true); // insure only one room of the same ID can exist.
+        modelBuilder.Entity<PrivateRoom>().HasIndex(c => c.HostUID); // index by the room host when searching for searching hosts.
+        modelBuilder.Entity<PrivateRoomPair>().ToTable("private_room_users");
+        modelBuilder.Entity<PrivateRoomPair>().HasKey(u => new { u.PrivateRoomNameID, u.PrivateRoomUserUID });
+        modelBuilder.Entity<PrivateRoomPair>().HasIndex(c => c.PrivateRoomNameID);
+        modelBuilder.Entity<PrivateRoomPair>().HasOne(c => c.PrivateRoom);
+        modelBuilder.Entity<PrivateRoomPair>().HasIndex(c => c.PrivateRoomUserUID);
+        modelBuilder.Entity<PrivateRoomPair>().HasOne(c => c.PrivateRoomUser);
         modelBuilder.Entity<User>().ToTable("users");
         modelBuilder.Entity<UserGlobalPermissions>().ToTable("user_global_permissions");
         modelBuilder.Entity<UserGlobalPermissions>().HasKey(c => c.UserUID);

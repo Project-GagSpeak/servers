@@ -276,7 +276,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// </para>
     /// </summary>
     [Authorize(Policy = "Authenticated")]
-    public async Task<bool> CheckClientHealth()
+    public async Task<bool> CheckMainClientHealth()
     {
         // _logger.LogMessage("CheckingClientHealth -- Also Updating User on Redis"); <--- Terrible idea to log this because it will log once for every user online lol.
         await UpdateUserOnRedis().ConfigureAwait(false);
