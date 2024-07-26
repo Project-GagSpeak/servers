@@ -124,7 +124,7 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
         var hostedRoom = await DbContext.PrivateRooms.SingleOrDefaultAsync(pr => pr.HostUID == UserUID).ConfigureAwait(false);
 
         // create the hostedRoom RoomInfoDto object
-        RoomInfoDto hostedRoomDto = null!;
+        RoomInfoDto hostedRoomDto = new();
 
         // if hostedRooms is not empty, then we are hosting a room.
         if (hostedRoom != null)
