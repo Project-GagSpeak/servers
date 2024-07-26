@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
+using GagspeakAPI.Data.VibeServer;
+using GagspeakAPI.Dto.Toybox;
 
 namespace GagspeakServer.Hubs;
 
@@ -109,19 +111,90 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
         {
             await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Error,
                 $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
-            return null;
+            return null!;
         }
 
         // Grab the user from the database whose UID reflects the UID of the client callers claims, and update last login time.
         User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
+
+        // grab the list of rooms that our privateroompair's UserUID == our client callers UserUID
+        var userRooms = await DbContext.PrivateRoomPairs.Where(pru => pru.PrivateRoomUserUID == UserUID).ToListAsync().ConfigureAwait(false);
+
+        // see if we are a host of any of the PrivateRooms by looking for where a rooms HostUID == our UserUID
+        var hostedRoom = await DbContext.PrivateRooms.SingleOrDefaultAsync(pr => pr.HostUID == UserUID).ConfigureAwait(false);
+
+        // create the hostedRoom RoomInfoDto object
+        RoomInfoDto hostedRoomDto = null!;
+
+        // if hostedRooms is not empty, then we are hosting a room.
+        if (hostedRoom != null)
+        {
+            _logger.LogDebug("User is hosting a room.");
+            // fetch the list of all others users currently in the room (active or not)
+            var RoomParticipants = await DbContext.PrivateRoomPairs
+                .Where(pru => pru.PrivateRoomNameID == hostedRoom.NameID)
+                .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            // fetch the user that is the roomHost (this is us)
+            var roomHost = await DbContext.PrivateRoomPairs.SingleOrDefaultAsync(pru => pru.PrivateRoomNameID == hostedRoom.NameID && pru.PrivateRoomUserUID == hostedRoom.HostUID).ConfigureAwait(false);
+            if (roomHost != null)
+            {
+                hostedRoomDto = new RoomInfoDto
+                {
+                    NewRoomName = hostedRoom.NameID,
+                    RoomHost = new PrivateRoomUser(hostedRoom.HostUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
+                    ConnectedUsers = RoomParticipants
+                };
+            }
+        }
+
+        // now we need to compile the list of RoomInfoDto's for each room that we are a part of that we are not a host of.
+        var connectedRooms = new List<RoomInfoDto>();
+
+        // loop through each room we are a part of
+        foreach (var room in userRooms)
+        {
+            // fetch the room from the database
+            var roomData = await DbContext.PrivateRooms.SingleOrDefaultAsync(pr => pr.NameID == room.PrivateRoomNameID).ConfigureAwait(false);
+            // if the room is not null, then we can proceed
+            if (roomData != null)
+            {
+                // fetch the list of all others users currently in the room (active or not)
+                var RoomParticipants = await DbContext.PrivateRoomPairs
+                    .Where(pru => pru.PrivateRoomNameID == room.PrivateRoomNameID)
+                    .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+                    .ToListAsync()
+                    .ConfigureAwait(false);
+
+                // get the PrivateRoomPair of the pair who is the host of that room.
+                var roomHost = await DbContext.PrivateRoomPairs.SingleOrDefaultAsync(pru => pru.PrivateRoomNameID == room.PrivateRoomNameID && pru.PrivateRoomUserUID == roomData.HostUID).ConfigureAwait(false);
+                if(roomHost == null) continue;
+
+                // add the room to the list of connected rooms
+                connectedRooms.Add(new RoomInfoDto
+                {
+                    NewRoomName = roomData.NameID,
+                    RoomHost = new PrivateRoomUser(roomData.HostUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
+                    ConnectedUsers = RoomParticipants
+                });
+            }
+        }
 
         // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
         await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Information,
             "Connected to CK's Toybox Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
             " Horny users are connected. Enjoy yourselves~").ConfigureAwait(false);
 
-        // now we can create the connectionDto object and return it to the client caller.
-        return new ToyboxConnectionDto(dbUser.ToUserData()) { ServerVersion = IGagspeakHub.ApiVersion };
+        // construct the finalized connectionDto to return to the client caller
+        var connectionDto = new ToyboxConnectionDto(dbUser.ToUserData())
+        {
+            ServerVersion = IGagspeakHub.ApiVersion,
+            HostedRoom = hostedRoomDto,
+            ConnectedRooms = connectedRooms
+        };
+        return connectionDto;
     }
 
     /// <summary> 

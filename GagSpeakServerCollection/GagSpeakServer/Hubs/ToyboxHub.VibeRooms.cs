@@ -94,11 +94,12 @@ public partial class ToyboxHub
             .ConfigureAwait(false);
 
         // Compile RoomInfoDto for the client caller.
-        var roomInfo = new RoomInfoDto(
-            dto.NewRoomName,
-            new PrivateRoomUser(UserUID, newRoomUser.ChatAlias, newRoomUser.InRoom, newRoomUser.AllowingVibe),
-            privateRoomUsers
-        );
+        var roomInfo = new RoomInfoDto
+        {
+            NewRoomName = dto.NewRoomName,
+            RoomHost = new PrivateRoomUser(UserUID, newRoomUser.ChatAlias, newRoomUser.InRoom, newRoomUser.AllowingVibe),
+            ConnectedUsers = privateRoomUsers
+        };
         await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
         return true;
     }
@@ -207,11 +208,12 @@ public partial class ToyboxHub
             .Client_PrivateRoomOtherUserJoined(new RoomParticipantDto(newJoinedUser, userJoining.RoomName)).ConfigureAwait(false);
 
         // compile RoomInfoDto to send to the client caller.
-        var roomInfo = new RoomInfoDto(
-            userJoining.RoomName,
-            new PrivateRoomUser(roomHost.PrivateRoomUserUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
-            RoomParticipants.Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe)).ToList()
-        );
+        var roomInfo = new RoomInfoDto
+        {
+            NewRoomName = userJoining.RoomName,
+            RoomHost = new PrivateRoomUser(roomHost.PrivateRoomUserUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
+            ConnectedUsers = RoomParticipants.Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe)).ToList()
+        };
         // send the room info to the client caller.
         await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
     }
