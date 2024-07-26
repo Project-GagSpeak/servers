@@ -77,7 +77,7 @@ public partial class ToyboxHub
             .Client_UserReceiveRoomInvite(new RoomInviteDto(user.ToUserData(), dto.RoomName)).ConfigureAwait(false);
     }
 
-    public async Task UserJoinRoom(string roomName)
+    public async Task UserJoinRoom(RoomParticipantDto userJoining)
     {
         // Ensure the user is not already in another room
         var existingRoomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync(pru => pru.PrivateRoomUserUID == UserUID).ConfigureAwait(false);
@@ -90,11 +90,11 @@ public partial class ToyboxHub
         }
 
         // Check if the room exists
-        var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == roomName).ConfigureAwait(false);
+        var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == userJoining.RoomName).ConfigureAwait(false);
         if (room == null)
         {
             await Clients.Caller.Client_ReceiveToyboxServerMessage
-                (MessageSeverity.Error, $"Room {roomName} does not exist.").ConfigureAwait(false);
+                (MessageSeverity.Error, $"Room {userJoining.RoomName} does not exist.").ConfigureAwait(false);
             return;
         }
 
@@ -103,23 +103,23 @@ public partial class ToyboxHub
         if(roomHost == null)
         {
             await Clients.Caller.Client_ReceiveToyboxServerMessage
-                (MessageSeverity.Error, $"Room {roomName} does not have a host. This should never happen. What did you do?").ConfigureAwait(false);
+                (MessageSeverity.Error, $"Room {userJoining.RoomName} does not have a host. This should never happen. What did you do?").ConfigureAwait(false);
             return;
         }
 
         // Add the user to the room
         var newRoomUser = new PrivateRoomPair
         {
-            PrivateRoomNameID = roomName,
-            PrivateRoomUserUID = UserUID,
-            ChatAlias = "Anonymous Kinkster"
+            PrivateRoomNameID = userJoining.RoomName,
+            PrivateRoomUserUID = userJoining.User.UserUID,
+            ChatAlias = userJoining.User.ChatAlias
         };
         DbContext.PrivateRoomPairs.Add(newRoomUser);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // Add the user to the SignalR group
-        await Groups.AddToGroupAsync(Context.ConnectionId, roomName).ConfigureAwait(false);
-        await Clients.OthersInGroup(roomName).Client_ReceiveToyboxServerMessage
+        await Groups.AddToGroupAsync(Context.ConnectionId, userJoining.RoomName).ConfigureAwait(false);
+        await Clients.OthersInGroup(userJoining.RoomName).Client_ReceiveToyboxServerMessage
             (MessageSeverity.Information, $"{newRoomUser.ChatAlias} has joined the room.").ConfigureAwait(false);
 
         // grab our user from db
@@ -127,17 +127,17 @@ public partial class ToyboxHub
         if (user == null) return;
 
         // grab the list of users connected to the room
-        var roomUsers = await DbContext.PrivateRoomPairs.Where(pru => pru.PrivateRoomNameID == roomName).ToListAsync().ConfigureAwait(false);
+        var roomUsers = await DbContext.PrivateRoomPairs.Where(pru => pru.PrivateRoomNameID == userJoining.RoomName).ToListAsync().ConfigureAwait(false);
 
         // create a list of PrivateRoomUser objects from these, containing the UID of the user and the chatalias.
         var privateRoomUsers = roomUsers.Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias)).ToList();
 
 
         // send an update to other connected group clients that a new user has joined the room.
-        await Clients.OthersInGroup(roomName).Client_OtherUserJoinedRoom(new RoomParticipantDto(user.ToUserData(), roomName)).ConfigureAwait(false);
+        await Clients.OthersInGroup(userJoining.RoomName).Client_OtherUserJoinedRoom(userJoining).ConfigureAwait(false);
         // send update to the client that they have joined the room.
         await Clients.Caller.Client_UserJoinedRoom
-            (new RoomInfoDto(roomName, new PrivateRoomUser(roomHost.PrivateRoomUserUID, roomHost.ChatAlias), privateRoomUsers)).ConfigureAwait(false);
+            (new RoomInfoDto(userJoining.RoomName, new PrivateRoomUser(roomHost.PrivateRoomUserUID, roomHost.ChatAlias), privateRoomUsers)).ConfigureAwait(false);
     }
 
     /// <summary> Send a message to the users in the room you are in. </summary>
@@ -207,7 +207,7 @@ public partial class ToyboxHub
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomName).ConfigureAwait(false);
 
             await Clients.Group(roomName).Client_OtherUserLeftRoom
-                (new RoomParticipantDto(roomUser.PrivateRoomUser.ToUserData(), roomName)).ConfigureAwait(false);
+                (new RoomParticipantDto(new PrivateRoomUser(roomUser.PrivateRoomUserUID, roomUser.ChatAlias), roomName)).ConfigureAwait(false);
 
             await Clients.OthersInGroup(roomName).Client_ReceiveToyboxServerMessage
                 (MessageSeverity.Information, $"{UserUID} has left the room.").ConfigureAwait(false);
