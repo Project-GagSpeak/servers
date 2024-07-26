@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
+using GagspeakAPI.Dto.Toybox;
 
 namespace GagspeakServer.Hubs;
 

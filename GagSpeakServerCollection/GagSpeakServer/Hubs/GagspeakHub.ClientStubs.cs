@@ -3,6 +3,7 @@ using GagspeakAPI.Dto.User;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.Permissions;
 using GagspeakAPI.Dto.UserPair;
+using GagspeakAPI.Dto.Toybox;
 
 namespace GagspeakServer.Hubs
 {
