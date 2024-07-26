@@ -22,11 +22,17 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
 {
     /// <summary>
     /// Thread-safe dictionary to store user connections.
-    /// (Shared across ALL instances of created gagspeak hub connections)
-    ///
-    /// We do this because HubContext returns client-proxy objects instead of nulls, so we should use this for comparison stuff.
+    /// Key = UserUID, Value = ConnectionId
     /// </summary>
     private static readonly ConcurrentDictionary<string, string> _toyboxUserConnections = new(StringComparer.Ordinal);
+    
+    // Key = RoomName, Value = HashSet of UserUIDs
+    private static readonly ConcurrentDictionary<string, HashSet<string>> RoomContextGroupVibeUsers = new(StringComparer.Ordinal);
+
+    // Key = RoomName, Value = Host UserUID
+    private static readonly ConcurrentDictionary<string, string> RoomHosts = new(StringComparer.Ordinal);
+
+
 
     // The Metrics for the GagSpeak web server
     private readonly GagspeakMetrics _metrics;

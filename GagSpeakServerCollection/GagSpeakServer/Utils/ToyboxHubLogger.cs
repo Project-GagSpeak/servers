@@ -42,4 +42,24 @@ public class ToyboxHubLogger
     {
         _logger.LogInformation("DEBUG MESSAGE: {message}", message);
     }
+
+    public void LogError(Exception ex)
+    {
+        _logger.LogError(ex, "ERROR: {message}", ex.Message);
+    }
+
+    public void LogWarning(string message)
+    {
+        _logger.LogWarning("WARNING: {message}", message);
+    }
+
+    public void LogDebug(string message)
+    {
+        _logger.LogDebug("DEBUG: {message}", message);
+    }
+
+    public void LogTrace(string message)
+    {
+        _logger.LogTrace("TRACE: {message}", message);
+    }
 }

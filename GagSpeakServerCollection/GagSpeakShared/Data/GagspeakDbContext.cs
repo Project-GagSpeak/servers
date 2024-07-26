@@ -82,9 +82,7 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<PrivateRoomPair>().ToTable("private_room_users");
         modelBuilder.Entity<PrivateRoomPair>().HasKey(u => new { u.PrivateRoomNameID, u.PrivateRoomUserUID });
         modelBuilder.Entity<PrivateRoomPair>().HasIndex(c => c.PrivateRoomNameID);
-        modelBuilder.Entity<PrivateRoomPair>().HasOne(c => c.PrivateRoom);
         modelBuilder.Entity<PrivateRoomPair>().HasIndex(c => c.PrivateRoomUserUID);
-        modelBuilder.Entity<PrivateRoomPair>().HasOne(c => c.PrivateRoomUser);
         modelBuilder.Entity<User>().ToTable("users");
         modelBuilder.Entity<UserGlobalPermissions>().ToTable("user_global_permissions");
         modelBuilder.Entity<UserGlobalPermissions>().HasKey(c => c.UserUID);

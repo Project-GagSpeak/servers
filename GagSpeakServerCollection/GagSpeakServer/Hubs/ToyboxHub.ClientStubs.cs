@@ -10,12 +10,13 @@ namespace GagspeakServer.Hubs
     {
         public Task Client_ReceiveToyboxServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveRoomInvite(RoomInviteDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserJoinedRoom(RoomInfoDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_OtherUserJoinedRoom(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_OtherUserLeftRoom(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveRoomMessage(RoomMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDeviceInfo(UserCharaDeviceInfoMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserDeviceUpdate(UpdateDeviceDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_ReceiveRoomClosedMessage(string roomName) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomJoined(RoomInfoDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomOtherUserJoined(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomOtherUserLeft(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomUpdateUser(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomMessage(RoomMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomReceiveUserDevice(UserCharaDeviceInfoMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomDeviceUpdate(UpdateDeviceDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomClosed(string roomName) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
     }
 }

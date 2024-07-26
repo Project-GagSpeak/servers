@@ -8,6 +8,7 @@ using GagspeakShared.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace GagspeakServer.Hubs;
 
@@ -16,214 +17,480 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class ToyboxHub
 {
-    // Key: PrivateRoomNameID, Value: HashSet of UserUIDs
-    private static readonly ConcurrentDictionary<string, HashSet<string>> Rooms = new(StringComparer.Ordinal);
-    // Key: PrivateRoomNameID, Value: Host UserUID
-    private static readonly ConcurrentDictionary<string, string> RoomHosts = new(StringComparer.Ordinal);
     /// <summary> Create a new room. </summary>
-    public async Task UserCreateNewRoom(RoomCreateDto dto)
+    public async Task<bool> PrivateRoomCreate(RoomCreateDto dto)
     {
         _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
 
-        // Check if the room name already exists in the database
-        var roomExists = DbContext.PrivateRooms.Any(r => r.NameID == dto.NewRoomName);
-        if(roomExists)
+        // if the user is already a host of any room, we must inform them they have to close it first.
+        var existingRoomsMadeByHost = await DbContext.PrivateRooms.AnyAsync(r => r.HostUID == UserUID).ConfigureAwait(false);
+        if (existingRoomsMadeByHost)
         {
-            await Clients.Caller.Client_ReceiveToyboxServerMessage
-                (MessageSeverity.Warning, "Room already in use.").ConfigureAwait(false);
-            return;
+            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
+                $"Already a Host of another Room. Close it before creating a new one!").ConfigureAwait(false);
+            return false;
         }
 
-        // create a new private room
+        // see if we are InRoom for any other room.
+        var isActivelyInRoom = await DbContext.PrivateRoomPairs
+            .AnyAsync(pru => pru.PrivateRoomUserUID == UserUID && pru.InRoom).ConfigureAwait(false);
+
+        if (isActivelyInRoom)
+        {
+            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
+                $"Already in a Room. Leave it before creating a new one!").ConfigureAwait(false);
+            return false;
+        }
+
+        // Check if the room name already exists in the database
+        var roomExists = DbContext.PrivateRooms.Any(r => r.NameID == dto.NewRoomName);
+        if (roomExists)
+        {
+            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning, "Room already in use.").ConfigureAwait(false);
+            return false;
+        }
+
+        // At this point we are valid and can create a new room. So begin.
+        var user = await DbContext.Users.FirstOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+
+        // Create new Private Room, set creation time, & add to database
         var newRoom = new PrivateRoom
         {
             NameID = dto.NewRoomName,
             HostUID = UserUID,
+            Host = user,
             TimeMade = DateTime.UtcNow
         };
-        // add the room to the database
         DbContext.PrivateRooms.Add(newRoom);
 
-        // add the host as the private room user
+        // Make new PrivateRoomPair, with the Client Caller as the first user in the room.
         var newRoomUser = new PrivateRoomPair
         {
             PrivateRoomNameID = dto.NewRoomName,
+            PrivateRoom = newRoom,
             PrivateRoomUserUID = UserUID,
-            ChatAlias = "Room Host"
+            PrivateRoomUser = user,
+            ChatAlias = dto.HostChatAlias,
+            InRoom = true,
+            AllowingVibe = false
         };
-        // add the user to the database
         DbContext.PrivateRoomPairs.Add(newRoomUser);
 
-        // save the changes to the database
+        // Save changes to the database
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // Add the user to the SignalR Group
-        await Groups.AddToGroupAsync(Context.ConnectionId, dto.NewRoomName).ConfigureAwait(false);
+        // add the user as a host of the room in the concurrent dictionary
+        RoomHosts.TryAdd(dto.NewRoomName, UserUID);
+
+        // Notify client caller in notifcations that room has been created.
         await Clients.Caller.Client_ReceiveToyboxServerMessage
             (MessageSeverity.Information, $"Room {dto.NewRoomName} created.").ConfigureAwait(false);
+
+        // Collect and map the list of PrivateRoomPairs in the room to PrivateRoomUsers
+        var privateRoomUsers = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == dto.NewRoomName)
+            .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // Compile RoomInfoDto for the client caller.
+        var roomInfo = new RoomInfoDto(
+            dto.NewRoomName,
+            new PrivateRoomUser(UserUID, newRoomUser.ChatAlias, newRoomUser.InRoom, newRoomUser.AllowingVibe),
+            privateRoomUsers
+        );
+        await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
+        return true;
     }
 
-    public async Task UserRoomInvite(RoomInviteDto dto)
+    /// <summary> Recieve a room invite from an added userpair. </summary>
+    public async Task<bool> PrivateRoomInviteUser(RoomInviteDto dto)
     {
-        // check if the user inviting is the host of the room.
+        // ensure the client caller inviting the user is the host of the room they are inviting.
         var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == dto.RoomName).ConfigureAwait(false);
-        if (room == null || room.HostUID != UserUID) return;
+        // if not valid, return.
+        if (room == null || !string.Equals(room.HostUID, UserUID, StringComparison.Ordinal)) return false;
 
         // grab the caller from the db
         var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if(user == null) return;
+        if (user == null) return false;
+
         // send the invite to the user.
-        await Clients.User(dto.UserInvited.UID)
-            .Client_UserReceiveRoomInvite(new RoomInviteDto(user.ToUserData(), dto.RoomName)).ConfigureAwait(false);
+        await Clients.User(dto.UserInvited.UID).Client_UserReceiveRoomInvite
+            (new RoomInviteDto(user.ToUserData(), dto.RoomName)).ConfigureAwait(false);
+        // return successful.
+        return true;
     }
 
-    public async Task UserJoinRoom(RoomParticipantDto userJoining)
+    /// <summary> A User attempting to join a room. </summary>
+    public async Task PrivateRoomJoin(RoomParticipantDto userJoining)
     {
-        // Ensure the user is not already in another room
-        var existingRoomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync(pru => pru.PrivateRoomUserUID == UserUID).ConfigureAwait(false);
-        if (existingRoomUser != null)
+        // check to see if the client caller is currently active in any other rooms.
+        var isActivelyInRoom = await DbContext.PrivateRoomPairs
+            .AnyAsync(pru => pru.PrivateRoomUserUID == UserUID && pru.InRoom).ConfigureAwait(false);
+
+        if (isActivelyInRoom)
         {
-            await Clients.Caller.Client_ReceiveToyboxServerMessage
-                (MessageSeverity.Error, $"You are already in a room ({existingRoomUser.PrivateRoomNameID}). "+
-                "Leave the current room before joining another.").ConfigureAwait(false);
-            return;
+            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
+                $"Already in a Room. Leave it before creating a new one!").ConfigureAwait(false);
+            throw new Exception($"You are already in a Private Room. You must leave the current Room to join a new one!");
         }
 
-        // Check if the room exists
+        // Ensure the room exists.
         var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == userJoining.RoomName).ConfigureAwait(false);
         if (room == null)
         {
             await Clients.Caller.Client_ReceiveToyboxServerMessage
-                (MessageSeverity.Error, $"Room {userJoining.RoomName} does not exist.").ConfigureAwait(false);
-            return;
+                (MessageSeverity.Error, $"Room {userJoining.RoomName} does not exist, aborting join.").ConfigureAwait(false);
+            throw new Exception($"Room {userJoining.RoomName} does not exist, aborting join.");
         }
 
-        // search the PrivateRoomPairs table to find the pair with the PrivateRoomUserUID that matches the rooms room.HostUID
-        var roomHost = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync(pru => pru.PrivateRoomUserUID == room.HostUID).ConfigureAwait(false);
-        if(roomHost == null)
-        {
-            await Clients.Caller.Client_ReceiveToyboxServerMessage
-                (MessageSeverity.Error, $"Room {userJoining.RoomName} does not have a host. This should never happen. What did you do?").ConfigureAwait(false);
-            return;
-        }
-
-        // Add the user to the room
-        var newRoomUser = new PrivateRoomPair
-        {
-            PrivateRoomNameID = userJoining.RoomName,
-            PrivateRoomUserUID = userJoining.User.UserUID,
-            ChatAlias = userJoining.User.ChatAlias
-        };
-        DbContext.PrivateRoomPairs.Add(newRoomUser);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // Add the user to the SignalR group
-        await Groups.AddToGroupAsync(Context.ConnectionId, userJoining.RoomName).ConfigureAwait(false);
-        await Clients.OthersInGroup(userJoining.RoomName).Client_ReceiveToyboxServerMessage
-            (MessageSeverity.Information, $"{newRoomUser.ChatAlias} has joined the room.").ConfigureAwait(false);
-
-        // grab our user from db
-        var user = await DbContext.Users.FirstOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        // grab the caller from the db
+        var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         if (user == null) return;
 
-        // grab the list of users connected to the room
-        var roomUsers = await DbContext.PrivateRoomPairs.Where(pru => pru.PrivateRoomNameID == userJoining.RoomName).ToListAsync().ConfigureAwait(false);
 
-        // create a list of PrivateRoomUser objects from these, containing the UID of the user and the chatalias.
-        var privateRoomUsers = roomUsers.Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias)).ToList();
+        // if the user joining already has a pair for the privateroompairs of this room, simply set InRoom to true
+        var existingRoomUser = await DbContext.PrivateRoomPairs
+            .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == userJoining.RoomName && pru.PrivateRoomUserUID == UserUID)
+            .ConfigureAwait(false);
+
+        PrivateRoomPair currentRoomUser;
+        if (existingRoomUser != null)
+        {
+            existingRoomUser.InRoom = true;
+            DbContext.PrivateRoomPairs.Update(existingRoomUser);
+            currentRoomUser = existingRoomUser;
+        }
+        else
+        {
+            // they did not exist, so make a new pair for them.
+            var newRoomUser = new PrivateRoomPair
+            {
+                PrivateRoomNameID = userJoining.RoomName,
+                PrivateRoom = room,
+                PrivateRoomUserUID = user.UID,
+                PrivateRoomUser = user,
+                ChatAlias = userJoining.User.ChatAlias,
+                InRoom = true,
+                AllowingVibe = false
+            };
+            DbContext.PrivateRoomPairs.Add(newRoomUser);
+            currentRoomUser = newRoomUser;
+        }
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // fetch the list of all others users currently in the room (active or not)
+        var RoomParticipants = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == userJoining.RoomName)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // fetch the list of all active users currently in the same  room we just fetched above
+        var ActiveParticipants = RoomParticipants
+            .Where(pru => pru.InRoom)
+            .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+            .ToList();
+
+        // find the host of the room that is in the private room pairs.
+        var roomHost = RoomParticipants.FirstOrDefault(pru => string.Equals(pru.PrivateRoomUserUID, room.HostUID, StringComparison.Ordinal));
+        if (roomHost == null) return;
 
 
-        // send an update to other connected group clients that a new user has joined the room.
-        await Clients.OthersInGroup(userJoining.RoomName).Client_OtherUserJoinedRoom(userJoining).ConfigureAwait(false);
-        // send update to the client that they have joined the room.
-        await Clients.Caller.Client_UserJoinedRoom
-            (new RoomInfoDto(userJoining.RoomName, new PrivateRoomUser(roomHost.PrivateRoomUserUID, roomHost.ChatAlias), privateRoomUsers)).ConfigureAwait(false);
+        // Send a notification to the active users in the room that a new user has joined
+        await Clients.Users(ActiveParticipants.Select(u => u.UserUID).ToList()).Client_ReceiveToyboxServerMessage
+            (MessageSeverity.Information, $"{currentRoomUser.ChatAlias} has joined the room.").ConfigureAwait(false);
+
+        // send a OtherUserJoinedRoom update to all room participants, so their room information is updated.
+        var newJoinedUser = new PrivateRoomUser(currentRoomUser.PrivateRoomUserUID, currentRoomUser.ChatAlias, currentRoomUser.InRoom, currentRoomUser.AllowingVibe);
+        await Clients.Users(RoomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
+            .Client_PrivateRoomOtherUserJoined(new RoomParticipantDto(newJoinedUser, userJoining.RoomName)).ConfigureAwait(false);
+
+        // compile RoomInfoDto to send to the client caller.
+        var roomInfo = new RoomInfoDto(
+            userJoining.RoomName,
+            new PrivateRoomUser(roomHost.PrivateRoomUserUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
+            RoomParticipants.Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe)).ToList()
+        );
+        // send the room info to the client caller.
+        await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
     }
 
     /// <summary> Send a message to the users in the room you are in. </summary>
-    public async Task UserSendMessageToRoom(RoomMessageDto dto)
+    public async Task PrivateRoomSendMessage(RoomMessageDto dto)
     {
-        // Check if the user is in the room
-        var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync
-            (pru => pru.PrivateRoomNameID == dto.RoomName && pru.PrivateRoomUserUID == UserUID).ConfigureAwait(false);
+        // Ensure the user is in the room they are trying to send a message to, and that they are active in it.
+        var isActivelyInRoom = await IsActiveInRoom(dto.RoomName).ConfigureAwait(false);
 
-        if (roomUser == null) return;
+        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
 
-        // Send the message to everyone in the group
-        await Clients.Group(dto.RoomName).Client_UserReceiveRoomMessage(dto).ConfigureAwait(false);
+        // grab the list of active participants in the room.
+        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == dto.RoomName && pru.InRoom)
+            .Select(u => u.PrivateRoomUserUID)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // Send the message to active participants in the private room
+        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomMessage(dto).ConfigureAwait(false);
     }
 
-
-    /// <summary> Update the device of a particular user with new instructions . </summary>
-    public async Task UserUpdateDevice(UpdateDeviceDto dto)
-    {
-        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-        // see if the person calling the order is the host of the room they are calling it for
-        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || roomHost != UserUID) return;
-        // if the room does not exist, return.
-        if (!Rooms.ContainsKey(dto.RoomName)) return;
-
-        // update the user device with the new instructions.
-        await Clients.Users(dto.User.UID).Client_UserDeviceUpdate(dto).ConfigureAwait(false);
-    }
-
-
-
-    /// <summary> Update the devices of a group of users with new instructions. </summary>
-    public async Task UserUpdateGroupDevices(UpdateDeviceDto dto)
+    /// <summary> Push new device info to the participants in the room. </summary>
+    public async Task PrivateRoomPushDevice(UserCharaDeviceInfoMessageDto dto)
     {
         _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-        // see if the person calling the order is the host of the room they are calling it for
-        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || roomHost != UserUID) return;
-        // if the room does not exist, return.
-        if (!Rooms.ContainsKey(dto.RoomName)) return;
 
-        // update all other users in the room with the new instructions
-        await Clients.OthersInGroup(dto.RoomName).Client_UserDeviceUpdate(dto).ConfigureAwait(false);
+        // ensure we are actively in the room we are trying to send the device info to.
+        var isActivelyInRoom = await IsActiveInRoom(dto.RoomName).ConfigureAwait(false);
+
+        if(!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
+
+        // if valid, send the updated device info to the users active in the room
+        // grab the list of active participants in the room.
+        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == dto.RoomName && pru.InRoom)
+            .Select(u => u.PrivateRoomUserUID)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // Send the message to active participants in the private room
+        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomReceiveUserDevice(dto).ConfigureAwait(false);
     }
 
-    public async Task UserLeaveRoom()
+    /// <summary> Adds client caller to the rooms group. </summary>
+    public async Task PrivateRoomAllowVibes(string roomName)
     {
         _logger.LogCallInfo();
+        // verify the user is active in a room.
+        var isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
+
+        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
+
+        // add the user to the group for the room.
+        await Groups.AddToGroupAsync(Context.ConnectionId, roomName).ConfigureAwait(false);
+        // add the user to the RoomContextGroupVibeUsers for the RoomName 
+        RoomContextGroupVibeUsers[roomName].Add(UserUID);
+
+        // grab the privateroompair that just allowed this
+        var roomPair = await DbContext.PrivateRoomPairs
+            .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == roomName && pru.PrivateRoomUserUID == UserUID)
+            .ConfigureAwait(false);
+        if (roomPair == null) return;
+
+        // update the pair to allow vibes & save the changes.
+        roomPair.AllowingVibe = true;
+
+        DbContext.PrivateRoomPairs.Update(roomPair);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // export the update.
+        var roomuser = new PrivateRoomUser(
+            roomPair.PrivateRoomUserUID,
+            roomPair.ChatAlias,
+            roomPair.InRoom,
+            roomPair.AllowingVibe
+         );
+
+        // send the update to the user that they have been added to the group.
+        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == roomName && pru.InRoom)
+            .Select(u => u.PrivateRoomUserUID)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // Send the message to active participants in the private room
+        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomUpdateUser
+            (new RoomParticipantDto(roomuser, roomName)).ConfigureAwait(false);
+    }
+
+    /// <summary> Adds client caller to the rooms group. </summary>
+    public async Task PrivateRoomDenyVibes(string roomName)
+    {
+        _logger.LogCallInfo();
+        // verify the user is active in a room.
+        var isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
+
+        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
+
+        // add the user to the group for the room.
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomName).ConfigureAwait(false);
+        // add the user to the RoomContextGroupVibeUsers for the RoomName 
+        RoomContextGroupVibeUsers[roomName].Remove(UserUID);
+
+        // grab the privateroompair that just allowed this
+        var roomPair = await DbContext.PrivateRoomPairs
+            .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == roomName && pru.PrivateRoomUserUID == UserUID)
+            .ConfigureAwait(false);
+        if (roomPair == null) return;
+
+        // update the pair to allow vibes & save the changes.
+        roomPair.AllowingVibe = false;
+
+        DbContext.PrivateRoomPairs.Update(roomPair);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // export the update.
+        var roomuser = new PrivateRoomUser(
+            roomPair.PrivateRoomUserUID,
+            roomPair.ChatAlias,
+            roomPair.InRoom,
+            roomPair.AllowingVibe
+         );
+
+        // send the update to the user that they have been added to the group.
+        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == roomName && pru.InRoom)
+            .Select(u => u.PrivateRoomUserUID)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // Send the message to active participants in the private room
+        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomUpdateUser
+            (new RoomParticipantDto(roomuser, roomName)).ConfigureAwait(false);
+    }
+
+
+    /// <summary> 
+    /// This call spesifically is called in a streamlined mannor, meaning processing time for it
+    /// should be very minimal.
+    /// 
+    /// To account for this, interactions for this only occur for connected users in a hub context group.
+    /// Updates can only be called by the host of the room. 
+    /// </summary>
+    public async Task PrivateRoomUpdateUserDevice(UpdateDeviceDto dto)
+    {
+        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
+        // make sure we are the host of the room we are sending the update to.
+        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || roomHost != UserUID)
+        {
+            throw new Exception("Not host of room, cannot send");
+        }
+
+        // we are the host, so ensure that the UserUID we are sending it to is in RoomContextGroupVibeUsers
+        if (!RoomContextGroupVibeUsers.TryGetValue(dto.RoomName, out var roomContextGroupVibeUsers))
+        {
+            throw new Exception("Room does not exist in the RoomContextGroupVibeUsers.");
+        }
+
+        // send the update to the user.
+        await Clients.Users(dto.User).Client_PrivateRoomDeviceUpdate(dto).ConfigureAwait(false);
+    }
+
+
+
+    /// <summary> 
+    /// Sends a vibe update to all connected vibe users except the host.
+    /// </summary>
+    public async Task PrivateRoomUpdateAllUserDevices(UpdateDeviceDto dto)
+    {
+        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
+        // make sure we are the host of the room we are sending the update to.
+        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || roomHost != UserUID)
+        {
+            throw new Exception("Not host of room, cannot send");
+        }
+
+        // Use GroupExcept to send the update
+        await Clients.OthersInGroup(dto.RoomName).Client_PrivateRoomDeviceUpdate(dto).ConfigureAwait(false);
+    }
+
+    // Leaving a room simply marks our user as false for inroom and updates the roomparticipants.
+    public async Task PrivateRoomLeave(RoomParticipantDto dto)
+    {
+        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
 
         // Find the room the user is in
         var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync(pru => pru.PrivateRoomUserUID == UserUID).ConfigureAwait(false);
         if (roomUser == null) return;
 
-        var roomName = roomUser.PrivateRoomNameID;
+        // find the list of room participants associated with the same PrivateRoomNameID
+        var roomParticipants = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == dto.RoomName)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // mark us as false for InRoom & vibe access
+        roomUser.InRoom = false;
+        roomUser.AllowingVibe = false;
+        // update our table
+        DbContext.PrivateRoomPairs.Update(roomUser);
+        // save changes
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // remove themselves from the vibe group
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, dto.RoomName).ConfigureAwait(false);
+        // remove themselves from the concurrent dictionary of consenting users
+        RoomContextGroupVibeUsers[dto.RoomName].Remove(UserUID);
+
+        // inform other room participants that we have left the room.
+        var updatedPrivateRoomUser = new PrivateRoomUser(dto.User.UserUID, dto.User.ChatAlias, false, false);
+
+        // push update to users
+        await Clients.Users(roomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
+            .Client_PrivateRoomOtherUserLeft(new RoomParticipantDto(updatedPrivateRoomUser, dto.RoomName)).ConfigureAwait(false);
+    }
+
+    // Completely removes a room from existance.
+    public async Task PrivateRoomRemove(string roomToRemove)
+    {
+        _logger.LogCallInfo();
+
+        // Ensure the user is the host of the room
+        if (!RoomHosts.TryGetValue(UserUID, out var roomName) || roomName != roomToRemove)
+        {
+            throw new Exception("You are not the host of this room.");
+        }
+
+        // Retrieve all participants in the room
+        var roomParticipants = await DbContext.PrivateRoomPairs
+            .Where(pru => pru.PrivateRoomNameID == roomName)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // Inform all users that the room is closing
+        var userUIDs = roomParticipants.Select(pru => pru.PrivateRoomUserUID).ToList();
+        await Clients.Users(userUIDs).Client_PrivateRoomClosed(roomName).ConfigureAwait(false);
+
+        // Batch remove all users from the group
+        var tasks = userUIDs
+            .Select(userUID => _toyboxUserConnections.TryGetValue(userUID, out var connectionId)
+                ? Groups.RemoveFromGroupAsync(connectionId, roomName)
+                : Task.CompletedTask)
+            .ToArray();
+        await Task.WhenAll(tasks).ConfigureAwait(false);
+
+        // Remove the key-value pair for the room in RoomHosts
+        RoomHosts.TryRemove(UserUID, out _);
+
+        // Remove all PrivateRoomPairs associated with the room
+        DbContext.PrivateRoomPairs.RemoveRange(roomParticipants);
+
+        // Remove the room itself
         var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == roomName).ConfigureAwait(false);
-
-        // If the user is the host, delete the room
-        if (room != null && string.Equals(room.HostUID, UserUID, StringComparison.Ordinal))
+        if (room != null)
         {
-            await Clients.Group(roomName).Client_ReceiveRoomClosedMessage(roomName).ConfigureAwait(false);
             DbContext.PrivateRooms.Remove(room);
-            DbContext.PrivateRoomPairs.RemoveRange(DbContext.PrivateRoomPairs.Where(pru => pru.PrivateRoomNameID == roomName));
-        }
-        else
-        {
-            // Remove the user from the room
-            DbContext.PrivateRoomPairs.Remove(roomUser);
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomName).ConfigureAwait(false);
-
-            await Clients.Group(roomName).Client_OtherUserLeftRoom
-                (new RoomParticipantDto(new PrivateRoomUser(roomUser.PrivateRoomUserUID, roomUser.ChatAlias), roomName)).ConfigureAwait(false);
-
-            await Clients.OthersInGroup(roomName).Client_ReceiveToyboxServerMessage
-                (MessageSeverity.Information, $"{UserUID} has left the room.").ConfigureAwait(false);
         }
 
+        // Save changes to the database
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
     }
 
-    public async Task UserPushDeviceInfo(UserCharaDeviceInfoMessageDto dto)
-    {
-        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-        // see if valid for the room they are sending info to
-        if (!Rooms.ContainsKey(dto.RoomName) || !Rooms[dto.RoomName].Contains(UserUID)) return;
 
-        // if valid, send the device info to the room.
-        await Clients.OthersInGroup(dto.RoomName).Client_UserReceiveDeviceInfo(dto).ConfigureAwait(false);
+
+    // Helper function that determines if the user is active in the room they are trying to communicate with.
+    public async Task<bool> IsActiveInRoom(string roomName)
+    {
+        return await DbContext.PrivateRoomPairs.AnyAsync(
+            pru => pru.PrivateRoomUserUID == UserUID &&
+            pru.PrivateRoomNameID == roomName &&
+            pru.InRoom
+         ).ConfigureAwait(false);
     }
+
+    // Same helper function but for any room at all.
+    public async Task<bool> IsActiveInAnyRoom(string roomName)
+        => await DbContext.PrivateRoomPairs.AnyAsync(pru => pru.PrivateRoomUserUID == UserUID && pru.InRoom).ConfigureAwait(false);
+
 }
 
