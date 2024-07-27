@@ -2,13 +2,10 @@ using GagspeakAPI.Data.Enum;
 using GagspeakAPI.Data.VibeServer;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.Toybox;
-using GagspeakAPI.Dto.User;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 
 namespace GagspeakServer.Hubs;
 
@@ -71,7 +68,7 @@ public partial class ToyboxHub
             PrivateRoomUserUID = UserUID,
             PrivateRoomUser = user,
             ChatAlias = dto.HostChatAlias,
-            InRoom = true,
+            InRoom = false,
             AllowingVibe = false
         };
         DbContext.PrivateRoomPairs.Add(newRoomUser);
@@ -82,7 +79,7 @@ public partial class ToyboxHub
         // add the user as a host of the room in the concurrent dictionary
         RoomHosts.TryAdd(dto.NewRoomName, UserUID);
 
-        // Notify client caller in notifcations that room has been created.
+        // Notify client caller in notifications that room has been created.
         await Clients.Caller.Client_ReceiveToyboxServerMessage
             (MessageSeverity.Information, $"Room {dto.NewRoomName} created.").ConfigureAwait(false);
 
@@ -204,6 +201,9 @@ public partial class ToyboxHub
 
         // send a OtherUserJoinedRoom update to all room participants, so their room information is updated.
         var newJoinedUser = new PrivateRoomUser(currentRoomUser.PrivateRoomUserUID, currentRoomUser.ChatAlias, currentRoomUser.InRoom, currentRoomUser.AllowingVibe);
+        // extact our client caller (current room user) from the list of room participants.
+        RoomParticipants.Remove(currentRoomUser);
+        // here.
         await Clients.Users(RoomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
             .Client_PrivateRoomOtherUserJoined(new RoomParticipantDto(newJoinedUser, userJoining.RoomName)).ConfigureAwait(false);
 
@@ -245,7 +245,7 @@ public partial class ToyboxHub
         // ensure we are actively in the room we are trying to send the device info to.
         var isActivelyInRoom = await IsActiveInRoom(dto.RoomName).ConfigureAwait(false);
 
-        if(!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
+        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
 
         // if valid, send the updated device info to the users active in the room
         // grab the list of active participants in the room.
@@ -421,10 +421,13 @@ public partial class ToyboxHub
 
         // remove themselves from the vibe group
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, dto.RoomName).ConfigureAwait(false);
-        // remove themselves from the concurrent dictionary of consenting users
-        RoomContextGroupVibeUsers[dto.RoomName].Remove(UserUID);
+        // if the user existed in the concurrent dictionary of contextgroupvibeusers, remove them.
+        if (RoomContextGroupVibeUsers.TryGetValue(dto.RoomName, out var roomContextGroupVibeUsers))
+        {
+            roomContextGroupVibeUsers.Remove(UserUID);
+        }
 
-        // inform other room participants that we have left the room.
+        // inform other room participants that we have become inactive in the room.
         var updatedPrivateRoomUser = new PrivateRoomUser(dto.User.UserUID, dto.User.ChatAlias, false, false);
 
         // push update to users
@@ -432,50 +435,84 @@ public partial class ToyboxHub
             .Client_PrivateRoomOtherUserLeft(new RoomParticipantDto(updatedPrivateRoomUser, dto.RoomName)).ConfigureAwait(false);
     }
 
-    // Completely removes a room from existance.
+    // Completely removes a room from existence. If you are the host calling this, it will remove the room.
     public async Task PrivateRoomRemove(string roomToRemove)
     {
         _logger.LogCallInfo();
 
-        // Ensure the user is the host of the room
-        if (!RoomHosts.TryGetValue(UserUID, out var roomName) || roomName != roomToRemove)
-        {
-            throw new Exception("You are not the host of this room.");
-        }
+        // Find the room the user is in
+        var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync
+            (pru => pru.PrivateRoomUserUID == UserUID && pru.PrivateRoomNameID == roomToRemove).ConfigureAwait(false);
 
-        // Retrieve all participants in the room
+        if (roomUser == null) return;
+
+        // check if the user is the host of the room they are calling this on
+        var isHost = RoomHosts.TryGetValue(UserUID, out var roomName) && roomName == roomToRemove;
+
+        // grab all participants in the room
         var roomParticipants = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == roomName)
+            .Where(pru => pru.PrivateRoomNameID == roomToRemove)
             .ToListAsync()
             .ConfigureAwait(false);
 
-        // Inform all users that the room is closing
-        var userUIDs = roomParticipants.Select(pru => pru.PrivateRoomUserUID).ToList();
-        await Clients.Users(userUIDs).Client_PrivateRoomClosed(roomName).ConfigureAwait(false);
 
-        // Batch remove all users from the group
-        var tasks = userUIDs
-            .Select(userUID => _toyboxUserConnections.TryGetValue(userUID, out var connectionId)
-                ? Groups.RemoveFromGroupAsync(connectionId, roomName)
-                : Task.CompletedTask)
-            .ToArray();
-        await Task.WhenAll(tasks).ConfigureAwait(false);
-
-        // Remove the key-value pair for the room in RoomHosts
-        RoomHosts.TryRemove(UserUID, out _);
-
-        // Remove all PrivateRoomPairs associated with the room
-        DbContext.PrivateRoomPairs.RemoveRange(roomParticipants);
-
-        // Remove the room itself
-        var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == roomName).ConfigureAwait(false);
-        if (room != null)
+        // if the user is NOT THE HOST, simply remove them from the PrivateRoom and respective Pair listing.
+        if (!isHost)
         {
-            DbContext.PrivateRooms.Remove(room);
-        }
+            // remove the privateRoomPair from the database associated with this room
+            DbContext.PrivateRoomPairs.Remove(roomUser);
+            // save changes
+            await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // Save changes to the database
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+            // remove the user from the vibe group if they were in it.
+            if (RoomContextGroupVibeUsers.TryGetValue(roomToRemove, out var roomContextGroupVibeUsers))
+            {
+                roomContextGroupVibeUsers.Remove(UserUID);
+            }
+            // get the respective connection id from the user
+            if (_toyboxUserConnections.TryGetValue(UserUID, out var connectionId))
+            {
+                // attempt removing the user from the vibe group for the particular room.
+                await Groups.RemoveFromGroupAsync(connectionId, roomToRemove).ConfigureAwait(false);
+            }
+
+            // Notify other participants that the user has been removed
+            var updatedPrivateRoomUser = new PrivateRoomUser(roomUser.PrivateRoomUserUID, roomUser.ChatAlias, false, false);
+
+            await Clients.Users(roomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
+                .Client_PrivateRoomRemovedUser(new RoomParticipantDto(updatedPrivateRoomUser, roomToRemove)).ConfigureAwait(false);
+            // perform an early return.
+            return;
+        }
+        else
+        {
+            // IF WE REACH HERE, THE HOST OF THE ROOM HAS CALLED THIS, SO WE MUST DESTROY THE ROOM
+
+            // Inform all users that the room is closing
+            var userUIDs = roomParticipants.Select(pru => pru.PrivateRoomUserUID).ToList();
+            await Clients.Users(userUIDs).Client_PrivateRoomClosed(roomName).ConfigureAwait(false);
+
+            // Batch remove all users from the group in the serverEndconnections.
+            var tasks = userUIDs.Select(userUID => _toyboxUserConnections.TryGetValue(userUID, out var connectionId)
+                    ? Groups.RemoveFromGroupAsync(connectionId, roomName) : Task.CompletedTask).ToArray();
+            await Task.WhenAll(tasks).ConfigureAwait(false);
+
+            // remove the roomhost from the roomhost dictionary
+            RoomHosts.TryRemove(UserUID, out _);
+
+            // remove all PrivateRoomPairs associated with the room
+            DbContext.PrivateRoomPairs.RemoveRange(roomParticipants);
+
+            // remove the room itself
+            var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == roomToRemove).ConfigureAwait(false);
+            if (room != null)
+            {
+                DbContext.PrivateRooms.Remove(room);
+            }
+
+            // Save changes to the database
+            await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
     }
 
 

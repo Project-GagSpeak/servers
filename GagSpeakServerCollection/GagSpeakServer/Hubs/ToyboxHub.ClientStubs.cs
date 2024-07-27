@@ -13,6 +13,7 @@ namespace GagspeakServer.Hubs
         public Task Client_PrivateRoomJoined(RoomInfoDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_PrivateRoomOtherUserJoined(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_PrivateRoomOtherUserLeft(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PrivateRoomRemovedUser(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_PrivateRoomUpdateUser(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_PrivateRoomMessage(RoomMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_PrivateRoomReceiveUserDevice(UserCharaDeviceInfoMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
