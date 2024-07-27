@@ -86,7 +86,13 @@ public partial class ToyboxHub
         // Collect and map the list of PrivateRoomPairs in the room to PrivateRoomUsers
         var privateRoomUsers = await DbContext.PrivateRoomPairs
             .Where(pru => pru.PrivateRoomNameID == dto.NewRoomName)
-            .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+            .Select(pru => new PrivateRoomUser
+            { 
+                UserUID = pru.PrivateRoomUserUID, 
+                ChatAlias = pru.ChatAlias, 
+                ActiveInRoom = pru.InRoom, 
+                VibeAccess = pru.AllowingVibe 
+            })
             .ToListAsync()
             .ConfigureAwait(false);
 
@@ -94,7 +100,13 @@ public partial class ToyboxHub
         var roomInfo = new RoomInfoDto
         {
             NewRoomName = dto.NewRoomName,
-            RoomHost = new PrivateRoomUser(UserUID, newRoomUser.ChatAlias, newRoomUser.InRoom, newRoomUser.AllowingVibe),
+            RoomHost = new PrivateRoomUser
+            { 
+                UserUID = UserUID, 
+                ChatAlias = newRoomUser.ChatAlias, 
+                ActiveInRoom = newRoomUser.InRoom, 
+                VibeAccess = newRoomUser.AllowingVibe 
+            },
             ConnectedUsers = privateRoomUsers
         };
         await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
@@ -187,7 +199,13 @@ public partial class ToyboxHub
         // fetch the list of all active users currently in the same  room we just fetched above
         var ActiveParticipants = RoomParticipants
             .Where(pru => pru.InRoom)
-            .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+            .Select(pru => new PrivateRoomUser
+            {
+                UserUID = pru.PrivateRoomUserUID,
+                ChatAlias = pru.ChatAlias,
+                ActiveInRoom = pru.InRoom,
+                VibeAccess = pru.AllowingVibe
+            })
             .ToList();
 
         // find the host of the room that is in the private room pairs.
@@ -200,7 +218,13 @@ public partial class ToyboxHub
             (MessageSeverity.Information, $"{currentRoomUser.ChatAlias} has joined the room.").ConfigureAwait(false);
 
         // send a OtherUserJoinedRoom update to all room participants, so their room information is updated.
-        var newJoinedUser = new PrivateRoomUser(currentRoomUser.PrivateRoomUserUID, currentRoomUser.ChatAlias, currentRoomUser.InRoom, currentRoomUser.AllowingVibe);
+        var newJoinedUser = new PrivateRoomUser
+        {
+            UserUID = currentRoomUser.PrivateRoomUserUID,
+            ChatAlias = currentRoomUser.ChatAlias,
+            ActiveInRoom = currentRoomUser.InRoom,
+            VibeAccess = currentRoomUser.AllowingVibe
+        };
         // extact our client caller (current room user) from the list of room participants.
         RoomParticipants.Remove(currentRoomUser);
         // here.
@@ -211,8 +235,20 @@ public partial class ToyboxHub
         var roomInfo = new RoomInfoDto
         {
             NewRoomName = userJoining.RoomName,
-            RoomHost = new PrivateRoomUser(roomHost.PrivateRoomUserUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
-            ConnectedUsers = RoomParticipants.Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe)).ToList()
+            RoomHost = new PrivateRoomUser
+            {
+                UserUID = roomHost.PrivateRoomUserUID,
+                ChatAlias = roomHost.ChatAlias,
+                ActiveInRoom = roomHost.InRoom,
+                VibeAccess = roomHost.AllowingVibe
+            },
+            ConnectedUsers = RoomParticipants.Select(pru => new PrivateRoomUser
+            {
+                UserUID = pru.PrivateRoomUserUID,
+                ChatAlias = pru.ChatAlias,
+                ActiveInRoom = pru.InRoom,
+                VibeAccess = pru.AllowingVibe
+            }).ToList()
         };
         // send the room info to the client caller.
         await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
@@ -286,12 +322,13 @@ public partial class ToyboxHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // export the update.
-        var roomuser = new PrivateRoomUser(
-            roomPair.PrivateRoomUserUID,
-            roomPair.ChatAlias,
-            roomPair.InRoom,
-            roomPair.AllowingVibe
-         );
+        var roomuser = new PrivateRoomUser
+        {
+            UserUID = roomPair.PrivateRoomUserUID,
+            ChatAlias = roomPair.ChatAlias,
+            ActiveInRoom = roomPair.InRoom,
+            VibeAccess = roomPair.AllowingVibe
+        };
 
         // send the update to the user that they have been added to the group.
         var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
@@ -332,12 +369,13 @@ public partial class ToyboxHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // export the update.
-        var roomuser = new PrivateRoomUser(
-            roomPair.PrivateRoomUserUID,
-            roomPair.ChatAlias,
-            roomPair.InRoom,
-            roomPair.AllowingVibe
-         );
+        var roomuser = new PrivateRoomUser
+        {
+            UserUID = roomPair.PrivateRoomUserUID,
+            ChatAlias = roomPair.ChatAlias,
+            ActiveInRoom = roomPair.InRoom,
+            VibeAccess = roomPair.AllowingVibe
+        };
 
         // send the update to the user that they have been added to the group.
         var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
@@ -428,7 +466,13 @@ public partial class ToyboxHub
         }
 
         // inform other room participants that we have become inactive in the room.
-        var updatedPrivateRoomUser = new PrivateRoomUser(dto.User.UserUID, dto.User.ChatAlias, false, false);
+        var updatedPrivateRoomUser = new PrivateRoomUser
+        {
+            UserUID = dto.User.UserUID,
+            ChatAlias = dto.User.ChatAlias,
+            ActiveInRoom = false,
+            VibeAccess = false
+        };
 
         // push update to users
         await Clients.Users(roomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
@@ -477,7 +521,13 @@ public partial class ToyboxHub
             }
 
             // Notify other participants that the user has been removed
-            var updatedPrivateRoomUser = new PrivateRoomUser(roomUser.PrivateRoomUserUID, roomUser.ChatAlias, false, false);
+            var updatedPrivateRoomUser = new PrivateRoomUser
+            {
+                UserUID = roomUser.PrivateRoomUserUID,
+                ChatAlias = roomUser.ChatAlias,
+                ActiveInRoom = false,
+                VibeAccess = false
+            };
 
             await Clients.Users(roomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
                 .Client_PrivateRoomRemovedUser(new RoomParticipantDto(updatedPrivateRoomUser, roomToRemove)).ConfigureAwait(false);

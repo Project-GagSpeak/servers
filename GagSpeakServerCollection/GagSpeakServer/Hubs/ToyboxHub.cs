@@ -133,7 +133,13 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
             // fetch the list of all others users currently in the room (active or not)
             var RoomParticipants = await DbContext.PrivateRoomPairs
                 .Where(pru => pru.PrivateRoomNameID == hostedRoom.NameID)
-                .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+                .Select(pru => new PrivateRoomUser
+                { 
+                    UserUID = pru.PrivateRoomUserUID, 
+                    ChatAlias = pru.ChatAlias, 
+                    ActiveInRoom = pru.InRoom, 
+                    VibeAccess = pru.AllowingVibe 
+                })
                 .ToListAsync()
                 .ConfigureAwait(false);
 
@@ -144,7 +150,13 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
                 hostedRoomDto = new RoomInfoDto
                 {
                     NewRoomName = hostedRoom.NameID,
-                    RoomHost = new PrivateRoomUser(hostedRoom.HostUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
+                    RoomHost = new PrivateRoomUser
+                    {
+                        UserUID = hostedRoom.HostUID, 
+                        ChatAlias = roomHost.ChatAlias, 
+                        ActiveInRoom = roomHost.InRoom, 
+                        VibeAccess = roomHost.AllowingVibe 
+                    },
                     ConnectedUsers = RoomParticipants
                 };
             }
@@ -164,7 +176,13 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
                 // fetch the list of all others users currently in the room (active or not)
                 var RoomParticipants = await DbContext.PrivateRoomPairs
                     .Where(pru => pru.PrivateRoomNameID == room.PrivateRoomNameID)
-                    .Select(pru => new PrivateRoomUser(pru.PrivateRoomUserUID, pru.ChatAlias, pru.InRoom, pru.AllowingVibe))
+                    .Select(pru => new PrivateRoomUser
+                    {
+                        UserUID = pru.PrivateRoomUserUID, 
+                        ChatAlias = pru.ChatAlias, 
+                        ActiveInRoom = pru.InRoom, 
+                        VibeAccess = pru.AllowingVibe 
+                    })
                     .ToListAsync()
                     .ConfigureAwait(false);
 
@@ -176,7 +194,13 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
                 connectedRooms.Add(new RoomInfoDto
                 {
                     NewRoomName = roomData.NameID,
-                    RoomHost = new PrivateRoomUser(roomData.HostUID, roomHost.ChatAlias, roomHost.InRoom, roomHost.AllowingVibe),
+                    RoomHost = new PrivateRoomUser
+                    {
+                        UserUID = roomData.HostUID, 
+                        ChatAlias = roomHost.ChatAlias, 
+                        ActiveInRoom = roomHost.InRoom, 
+                        VibeAccess = roomHost.AllowingVibe 
+                    },
                     ConnectedUsers = RoomParticipants
                 });
             }
