@@ -298,6 +298,9 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
 
                 // Remove User from Redi's, sending them offline for client health checks and for discord monitoring.
                 await RemoveUserFromRedis().ConfigureAwait(false);
+
+                // send a function call to all connected pairs of this user that they have gone offline.
+                await SendOfflineToAllPairedUsers().ConfigureAwait(false);
             }
             catch { /* Consume */ }
             finally
