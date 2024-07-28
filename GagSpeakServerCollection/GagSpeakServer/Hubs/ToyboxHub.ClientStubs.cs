@@ -9,8 +9,8 @@ namespace GagspeakServer.Hubs
     public partial class ToyboxHub
     {
         public Task Client_ReceiveToyboxServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserSendOffline(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserSendOnline(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_ToyboxUserSendOffline(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_ToyboxUserSendOnline(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveRoomInvite(RoomInviteDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_PrivateRoomJoined(RoomInfoDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_PrivateRoomOtherUserJoined(RoomParticipantDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");

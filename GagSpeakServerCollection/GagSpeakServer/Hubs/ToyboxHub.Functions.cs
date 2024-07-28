@@ -36,7 +36,7 @@ public partial class ToyboxHub
     }
 
 
-    public async Task<List<UserData>> UserGetOnlinePairs(List<string> uids)
+    public async Task<List<UserData>> ToyboxUserGetOnlinePairs(List<string> uids)
     {
         _logger.LogCallInfo();
 
@@ -55,7 +55,7 @@ public partial class ToyboxHub
         // grab all paired unpaused users, our user object, and send our offlineIdentDTO to the list of unpaused paired users.
         var usersToSendDataTo = await GetSyncedUnpausedOnlinePairs(UserUID).ConfigureAwait(false);
         var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        await Clients.Users(usersToSendDataTo).Client_UserSendOffline(new(self.ToUserData())).ConfigureAwait(false);
+        await Clients.Users(usersToSendDataTo).Client_ToyboxUserSendOffline(new(self.ToUserData())).ConfigureAwait(false);
         return usersToSendDataTo;
     }
 
@@ -64,7 +64,7 @@ public partial class ToyboxHub
         // grab all paired unpaused users, our user object, and send our onlineIdentDTO to the list of unpaused paired users.
         var usersToSendDataTo = await GetSyncedUnpausedOnlinePairs(UserUID).ConfigureAwait(false);
         var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        await Clients.Users(usersToSendDataTo).Client_UserSendOnline(new(self.ToUserData())).ConfigureAwait(false);
+        await Clients.Users(usersToSendDataTo).Client_ToyboxUserSendOnline(new(self.ToUserData())).ConfigureAwait(false);
         // return the list of UID strings that we sent the online message to.
         return usersToSendDataTo;
     }
