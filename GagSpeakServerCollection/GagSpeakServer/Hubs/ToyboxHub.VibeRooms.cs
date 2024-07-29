@@ -14,7 +14,11 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class ToyboxHub
 {
-    /// <summary> Create a new room. </summary>
+    /// <summary> 
+    /// Create a new room. 
+    /// (potentially rework this to throw exceptions instead of returning 
+    /// false, as its better for catching errors.)
+    /// </summary>
     public async Task<bool> PrivateRoomCreate(RoomCreateDto dto)
     {
         _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
@@ -23,6 +27,7 @@ public partial class ToyboxHub
         var existingRoomsMadeByHost = await DbContext.PrivateRooms.AnyAsync(r => r.HostUID == UserUID).ConfigureAwait(false);
         if (existingRoomsMadeByHost)
         {
+            _logger.LogWarning("User is already a host of another room.");
             await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
                 $"Already a Host of another Room. Close it before creating a new one!").ConfigureAwait(false);
             return false;
@@ -34,6 +39,7 @@ public partial class ToyboxHub
 
         if (isActivelyInRoom)
         {
+            _logger.LogWarning("User is already in a room.");
             await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
                 $"Already in a Room. Leave it before creating a new one!").ConfigureAwait(false);
             return false;
@@ -43,6 +49,7 @@ public partial class ToyboxHub
         var roomExists = DbContext.PrivateRooms.Any(r => r.NameID == dto.NewRoomName);
         if (roomExists)
         {
+            _logger.LogWarning("Room already exists.");
             await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning, "Room already in use.").ConfigureAwait(false);
             return false;
         }
@@ -491,7 +498,7 @@ public partial class ToyboxHub
         if (roomUser == null) return;
 
         // check if the user is the host of the room they are calling this on
-        var isHost = RoomHosts.TryGetValue(UserUID, out var roomName) && roomName == roomToRemove;
+        var isHost = RoomHosts.TryGetValue(roomToRemove, out var hostUID) && hostUID == UserUID;
 
         // grab all participants in the room
         var roomParticipants = await DbContext.PrivateRoomPairs
@@ -503,6 +510,7 @@ public partial class ToyboxHub
         // if the user is NOT THE HOST, simply remove them from the PrivateRoom and respective Pair listing.
         if (!isHost)
         {
+            _logger.LogDebug("User is not the host, removing user from room.");
             // remove the privateRoomPair from the database associated with this room
             DbContext.PrivateRoomPairs.Remove(roomUser);
             // save changes
@@ -537,14 +545,14 @@ public partial class ToyboxHub
         else
         {
             // IF WE REACH HERE, THE HOST OF THE ROOM HAS CALLED THIS, SO WE MUST DESTROY THE ROOM
-
+            _logger.LogDebug("User is the host, removing room.");
             // Inform all users that the room is closing
             var userUIDs = roomParticipants.Select(pru => pru.PrivateRoomUserUID).ToList();
-            await Clients.Users(userUIDs).Client_PrivateRoomClosed(roomName).ConfigureAwait(false);
+            await Clients.Users(userUIDs).Client_PrivateRoomClosed(roomToRemove).ConfigureAwait(false);
 
             // Batch remove all users from the group in the serverEndconnections.
             var tasks = userUIDs.Select(userUID => _toyboxUserConnections.TryGetValue(userUID, out var connectionId)
-                    ? Groups.RemoveFromGroupAsync(connectionId, roomName) : Task.CompletedTask).ToArray();
+                    ? Groups.RemoveFromGroupAsync(connectionId, roomToRemove) : Task.CompletedTask).ToArray();
             await Task.WhenAll(tasks).ConfigureAwait(false);
 
             // remove the roomhost from the roomhost dictionary
