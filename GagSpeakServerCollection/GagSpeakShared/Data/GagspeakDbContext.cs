@@ -53,10 +53,9 @@ public class GagspeakDbContext : DbContext
     public DbSet<User> Users { get; set; } // Reflects a User profile. UID, last login time, timestamp of creation, alias, and vanity tier are defined here.
     public DbSet<UserGlobalPermissions> UserGlobalPermissions { get; set; } // permissions that when changed are globally modified
     public DbSet<UserGagAppearanceData> UserAppearanceData { get; set; } // appearance data should be stored server side, as even when offline, it should display to your profile data, or be accessible to be viewed.
+    public DbSet<UserActiveStateData> UserActiveStateData { get; set; } // contains generic info about the user's current state that should be stored in the database for reference.
     public DbSet<UserProfileData> UserProfileData { get; set; } // every user has a profile associated with them, this contains information unique to the profile.
-
-    /* Information regarding patterns and triggers are sent over DTO's and not stored on the server as it would require too much. 
-     * When or if we ever get to alias lists and how we can store them on the client, will get to it when it comes to it */
+    public DbSet<UserProfileDataReport> UserProfileReports { get; set; } // Holds info about reported profiles for assistancts to overview.
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -88,7 +87,10 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserGlobalPermissions>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserGagAppearanceData>().ToTable("user_appearance_data");
         modelBuilder.Entity<UserGagAppearanceData>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<UserActiveStateData>().ToTable("user_active_state_data");
+        modelBuilder.Entity<UserActiveStateData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
         modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<UserProfileDataReport>().ToTable("user_profile_data_reports");
     }
 }

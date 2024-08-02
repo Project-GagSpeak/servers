@@ -27,7 +27,6 @@ public partial class GagspeakHub
             WardrobeEnabled = userGlobalPermissions.WardrobeEnabled,
             ItemAutoEquip = userGlobalPermissions.ItemAutoEquip,
             RestraintSetAutoEquip = userGlobalPermissions.RestraintSetAutoEquip,
-            LockGagStorageOnGagLock = userGlobalPermissions.LockGagStorageOnGagLock,
             PuppeteerEnabled = userGlobalPermissions.PuppeteerEnabled,
             GlobalTriggerPhrase = userGlobalPermissions.GlobalTriggerPhrase,
             GlobalAllowSitRequests = userGlobalPermissions.GlobalAllowSitRequests,

@@ -446,9 +446,11 @@ public partial class ToyboxHub
     {
         _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
 
-        // Find the room the user is in
-        var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync(pru => pru.PrivateRoomUserUID == UserUID).ConfigureAwait(false);
-        if (roomUser == null) return;
+        // find the room the user is in that matches the room name of the dto room they are wishing to leave.
+        var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync
+            (pru => pru.PrivateRoomUserUID == UserUID && pru.PrivateRoomNameID == dto.RoomName && pru.InRoom).ConfigureAwait(false);
+        if (roomUser == null) throw new Exception("User is not in a room.");
+
 
         // find the list of room participants associated with the same PrivateRoomNameID
         var roomParticipants = await DbContext.PrivateRoomPairs

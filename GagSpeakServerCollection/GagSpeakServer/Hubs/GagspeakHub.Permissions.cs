@@ -19,6 +19,54 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 {
+    /// <summary>
+    /// Pushes an updated state of all the client pairs permissions for a defined user
+    /// to that user. This is used when the client caller selected a permission preset.
+    /// </summary>
+    public async Task UserPushAllPerms(UserPairUpdateAllPermsDto dto)
+    {
+        _logger.LogCallInfo();
+        // Throw exception if we try to update ourselves
+        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Don't modify own perms on a UpdateOther call").ConfigureAwait(false);
+            return;
+        }
+
+        // grab our global permissions
+        var globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+
+        // grab our pair permissions for this user.
+        var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        if(pairPerms == null) throw new InvalidOperationException("Pair permission not found");
+
+        // grab the pair permission access for this user.
+        var pairAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        if(pairAccess == null) throw new InvalidOperationException("Pair permission access not found");
+
+        // We have reached here, which means we can bulk update our permissions for this pair.
+
+        // Update the global permissions, pair permissions, and editAccess permissions with the new values.
+        globalPerms = dto.GlobalPermissions.ToModelGlobalPerms();
+        pairPerms = dto.PairPermissions.ToModelUserPairPerms();
+        pairAccess = dto.EditAccessPermissions.ToModelUserPairEditAccessPerms();
+
+        // update the database with the new permissions & save DB changes
+        DbContext.Update(globalPerms);
+        DbContext.Update(pairPerms);
+        DbContext.Update(pairAccess);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // callback to the user we pushed the permissions for that we have our permissions updated
+        await Clients.User(dto.User.UID).Client_UserUpdateOtherAllPairPerms(
+            new UserPairUpdateAllPermsDto(dto.User, dto.GlobalPermissions, dto.PairPermissions, dto.EditAccessPermissions, false)).ConfigureAwait(false);
+        // callback to the client caller that we have updated our permissions
+        await Clients.Caller.Client_UserUpdateOtherAllPairPerms(
+            new UserPairUpdateAllPermsDto(dto.User, dto.GlobalPermissions, dto.PairPermissions, dto.EditAccessPermissions, true)).ConfigureAwait(false);
+    }
+
+
+
     /// <summary> 
     /// Updates a global permission of the client caller to a new value.
     /// If successful, function will send update to client caller and their paired users.
@@ -42,7 +90,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             return;
         }
 
-        // establish the keyvalue pair from the Dto so we know what is changing.
+        // establish the key-value pair from the Dto so we know what is changing.
         string propertyName = dto.ChangedPermission.Key;
         object newValue = dto.ChangedPermission.Value;
         // Get the PropertyInfo object for the property with the matching name in globalPerms
@@ -247,7 +295,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         DbContext.Update(pairPerms);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         // fetch our user
-        GagspeakShared.Models.User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // callback the updated info to the client caller as well so it can update properly.
         await Clients.User(UserUID).Client_UserUpdateSelfPairPerms(dto).ConfigureAwait(false);
@@ -405,7 +453,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // fetch our user
-        GagspeakShared.Models.User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // send a callback to the userpair we updated our permission for, so they get the updated info (we update the user so that when the pair receives it they know who to update this for)
         await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPermAccess(new UserPairAccessChangeDto(new GagspeakAPI.Data.UserData(user!.UID, user.Alias), dto.ChangedAccessPermission)).ConfigureAwait(false);

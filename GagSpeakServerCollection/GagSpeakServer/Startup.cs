@@ -367,14 +367,14 @@ public class Startup
             MetricsAPI.CounterUserPushDataAppearance,       // add the user push data appearance counter
             MetricsAPI.CounterUserPushDataWardrobe,         // add the user push data wardrobe counter
             MetricsAPI.CounterUserPushDataAlias,            // add the user push data alias counter
-            MetricsAPI.CounterUserPushDataPattern,          // add the user push data pattern counter
+            MetricsAPI.CounterUserPushDataToybox,          // add the user push data pattern counter
             
             MetricsAPI.CounterUserPushDataCompositeTo,      // add the user push data composite to counter
             MetricsAPI.CounterUserPushDataIpcTo,            // add the user push data ipc to counter
             MetricsAPI.CounterUserPushDataAppearanceTo,     // add the user push data appearance to counter
             MetricsAPI.CounterUserPushDataWardrobeTo,       // add the user push data wardrobe to counter
             MetricsAPI.CounterUserPushDataAliasTo,          // add the user push data alias to counter
-            MetricsAPI.CounterUserPushDataPatternTo,        // add the user push data pattern to counter
+            MetricsAPI.CounterUserPushDataToyboxTo,        // add the user push data pattern to counter
 
             MetricsAPI.CounterUsersRegisteredDeleted,       // add the users registered deleted counter
             
@@ -383,10 +383,6 @@ public class Startup
             MetricsAPI.CounterAuthenticationRequests,       // add the authentication requests counter
             MetricsAPI.CounterAuthenticationSuccesses,      // add the authentication successes counter
             
-            MetricsAPI.CounterUserPairCacheHit,             // add the user pair cache hit counter
-            MetricsAPI.CounterUserPairCacheMiss,            // add the user pair cache miss counter
-            MetricsAPI.CounterUserPairCacheNewEntries,      // add the user pair cache new entries counter
-            MetricsAPI.CounterUserPairCacheUpdatedEntries,  // add the user pair cache updated entries counter
         }, new List<string>
         {
             MetricsAPI.GaugeAuthorizedConnections,          // add the authorized connections gauge

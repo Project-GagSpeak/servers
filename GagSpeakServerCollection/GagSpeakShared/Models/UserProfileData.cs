@@ -5,12 +5,6 @@ namespace GagspeakShared.Models;
 
 public class UserProfileData
 {
-    public string Base64ProfilePic { get; set; } // the base64 string of the user's profile picture
-    public bool FlaggedForReport { get; set; }   // is the profile flagged for report?  
-    public bool ProfileDisabled { get; set; }    // if the profile is disabled
-    public User User { get; set; }               // the user profile this profiledata is for         
-    public string UserDescription { get; set; }  // the user's description
-
     // the UserUID is a foreign key to the User table
     // this means that the UserUID must be a primary key in the User table,
     // and also that the UserUID must be unique in the User table
@@ -19,4 +13,14 @@ public class UserProfileData
     [Key]
     [ForeignKey(nameof(User))]
     public string UserUID { get; set; }
+    public User User { get; set; }
+
+    /* ---------- Profile Data ---------- */
+    public string Base64ProfilePic { get; set; } // the base64 string of the user's profile picture
+    public bool FlaggedForReport { get; set; }   // TODO: / REFLECT: Flagged profiles should be tagged as something to lookup for review when reported.
+    public bool ProfileDisabled { get; set; }    // If profile is disabled. 
+    public string UserDescription { get; set; }  // the user's description
+
+    // TODO: Add customization / Cosmetic feature presets below here:
+
 }

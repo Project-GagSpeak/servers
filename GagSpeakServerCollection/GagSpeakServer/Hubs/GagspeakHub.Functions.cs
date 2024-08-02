@@ -5,6 +5,7 @@ using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
 using System.Runtime.CompilerServices;
 
 namespace GagspeakServer.Hubs;
@@ -373,7 +374,12 @@ public partial class GagspeakHub
                             join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
                                 // Filter to include only pairs where the main user is involved
-                            where user.UserUID == uid && u.UID == user.OtherUserUID
+                            where user.UserUID == uid 
+                                && u.UID == user.OtherUserUID
+                                && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
+                                && ownaccess.UserUID == user.UserUID && ownaccess.OtherUserUID == user.OtherUserUID
+                                && (otherperm == null || (otherperm.UserUID == user.OtherUserUID && otherperm.OtherUserUID == user.UserUID))
+                                && (otheraccess == null || (otheraccess.UserUID == user.OtherUserUID && otheraccess.OtherUserUID == user.UserUID))
                             // Select the final projection of data to include in the results
                             select new
                             {
@@ -393,21 +399,26 @@ public partial class GagspeakHub
         var resultList = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
         _logger.LogMessage($"resultList count: {resultList.Count}");
         // Example of logging the first few items
-        // resultList.ForEach(item => _logger.LogMessage($"Item: {item.UserUID}, {item.OtherUserUID}"));
+        //resultList.Take(15).ToList().ForEach(item => _logger.LogWarning($"Item: {JsonConvert.SerializeObject(item)}"));
+
 
         // Group results by OtherUserUID and convert to dictionary for return
         return resultList.GroupBy(g => g.OtherUserUID, StringComparer.Ordinal).ToDictionary(g => g.Key, g =>
         {
-            return new UserInfo(
-                resultList[0].OtherUserAlias, // the alias of the user.
-                resultList.Max(p => p.Synced), // if they are synced.
-                resultList[0].OwnGlobalPerms,
-                resultList[0].OwnPermissions,
-                resultList[0].OwnPermissionsAccess,
-                resultList[0].OtherGlobalPerms,
-                resultList[0].OtherPermissions,
-                resultList[0].OtherPermissionsAccess
-                );
+            // for some unexplainable reason, putting a return where the var is makes this no longer work. I dont fucking know why, it just doesnt.
+            var userInfo = new UserInfo(
+                g.First().OtherUserAlias, // the alias of the user.
+                g.Max(p => p.Synced), // if they are synced.
+                g.First().OwnGlobalPerms,
+                g.First().OwnPermissions,
+                g.First().OwnPermissionsAccess,
+                g.First().OtherGlobalPerms,
+                g.First().OtherPermissions,
+                g.First().OtherPermissionsAccess
+            );
+
+            //_logger.LogWarning($"UserInfo for {g.Key}: {JsonConvert.SerializeObject(userInfo)}");
+            return userInfo;
         }, StringComparer.Ordinal);
     }
 

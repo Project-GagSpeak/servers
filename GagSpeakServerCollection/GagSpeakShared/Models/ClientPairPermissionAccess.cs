@@ -23,6 +23,8 @@ public class ClientPairPermissionAccess
     public bool CommandsFromPartyAllowed { get; set; } = false; // Global
     public bool LiveChatGarblerActiveAllowed { get; set; } = false; // Global
     public bool LiveChatGarblerLockedAllowed { get; set; } = false; // Global
+    public bool GagFeaturesAllowed { get; set; } = false; 
+    public bool OwnerLocksAllowed { get; set; } = false;
     public bool ExtendedLockTimesAllowed { get; set; } = false;
     public bool MaxLockTimeAllowed { get; set; } = false;
 
@@ -30,10 +32,10 @@ public class ClientPairPermissionAccess
     public bool WardrobeEnabledAllowed { get; set; } = false; // Global
     public bool ItemAutoEquipAllowed { get; set; } = false; // Global
     public bool RestraintSetAutoEquipAllowed { get; set; } = false; // Global
-    public bool LockGagStorageOnGagLockAllowed { get; set; } = false; // Global
     public bool ApplyRestraintSetsAllowed { get; set; } = false;
     public bool LockRestraintSetsAllowed { get; set; } = false;
     public bool MaxAllowedRestraintTimeAllowed { get; set; } = false;
+    public bool UnlockRestraintSetsAllowed { get; set; } = false;
     public bool RemoveRestraintSetsAllowed { get; set; } = false;
 
     // unique permissions for the puppeteer
@@ -51,6 +53,7 @@ public class ClientPairPermissionAccess
     public bool PairCanApplyYourMoodlesToYouAllowed { get; set; } = false;
     public bool MaxMoodleTimeAllowed { get; set; } = false;
     public bool AllowPermanentMoodlesAllowed { get; set; } = false;
+    public bool AllowRemovingMoodlesAllowed { get; set; } = false;
 
     // unique permissions for the toybox
     public bool ToyboxEnabledAllowed { get; set; } = false; // Global
@@ -60,9 +63,9 @@ public class ClientPairPermissionAccess
     public bool ChangeToyStateAllowed { get; set; } = false;
     public bool CanControlIntensityAllowed { get; set; } = false;
     public bool VibratorAlarmsAllowed { get; set; } = false;
+    public bool VibratorAlarmsToggleAllowed { get; set; } = false;
     public bool CanUseRealtimeVibeRemoteAllowed { get; set; } = false;
     public bool CanExecutePatternsAllowed { get; set; } = false;
     public bool CanExecuteTriggersAllowed { get; set; } = false;
-    public bool CanCreateTriggersAllowed { get; set; } = false;
     public bool CanSendTriggersAllowed { get; set; } = false;
 }

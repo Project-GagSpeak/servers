@@ -20,26 +20,20 @@ public class MetricsAPI
     public const string CounterUserPushDataAppearance = "gagspeak_user_push_appearance";
     public const string CounterUserPushDataWardrobe = "gagspeak_user_push_wardrobe";
     public const string CounterUserPushDataAlias = "gagspeak_user_push_alias";
-    public const string CounterUserPushDataPattern = "gagspeak_user_push_pattern";
+    public const string CounterUserPushDataToybox = "gagspeak_user_push_toybox";
 
     public const string CounterUserPushDataCompositeTo = "gagspeak_user_push_composite_to";
     public const string CounterUserPushDataIpcTo = "gagspeak_user_push_ipc_to";
     public const string CounterUserPushDataAppearanceTo = "gagspeak_user_push_appearance_to";
     public const string CounterUserPushDataWardrobeTo = "gagspeak_user_push_wardrobe_to";
     public const string CounterUserPushDataAliasTo = "gagspeak_user_push_alias_to";
-    public const string CounterUserPushDataPatternTo = "gagspeak_user_push_pattern_to";
+    public const string CounterUserPushDataToyboxTo = "gagspeak_user_push_toybox_to";
 
     public const string CounterAuthenticationRequests = "gagspeak_auth_requests";
     public const string CounterAuthenticationCacheHits = "gagspeak_auth_requests_cachehit";
     public const string CounterAuthenticationFailures = "gagspeak_auth_requests_fail";
     public const string CounterAuthenticationSuccesses = "gagspeak_auth_requests_success";
     public const string GaugeAuthenticationCacheEntries = "gagspeak_auth_cache";
-
-    public const string GaugeCurrentDownloads = "gagspeak_current_downloads";
-
-    public const string GaugeQueueFree = "gagspeak_download_queue_free";
-    public const string GaugeQueueActive = "gagspeak_download_queue_active";
-    public const string GaugeQueueInactive = "gagspeak_download_queue_inactive";
 
     public const string CounterUserPairCacheHit = "gagspeak_pairscache_hit";
     public const string CounterUserPairCacheMiss = "gagspeak_pairscache_miss";

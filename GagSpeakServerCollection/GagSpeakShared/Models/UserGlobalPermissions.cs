@@ -19,7 +19,6 @@ public class UserGlobalPermissions
     public bool WardrobeEnabled { get; set; } = false;          // PROFILE VIEWABLE OPT-IN || If the user's wardrobe component is active
     public bool ItemAutoEquip { get; set; } = false;            // if the user allows items to be auto-equipped
     public bool RestraintSetAutoEquip { get; set; } = false;    // if the user allows restraint sets to be auto-equipped
-    public bool LockGagStorageOnGagLock { get; set; } = false;  // if the user's wardrobe UI is locked
 
 
     // global puppeteer modifiable permissions.

@@ -42,4 +42,9 @@ public class GagspeakHubLogger
     {
         _logger.LogInformation("DEBUG MESSAGE: {message}", message);
     }
+
+    public void LogWarning(string message)
+    {
+        _logger.LogWarning("WARNING: {message}", message);
+    }
 }

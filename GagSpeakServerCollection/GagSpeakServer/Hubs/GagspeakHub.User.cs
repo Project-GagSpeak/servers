@@ -17,22 +17,16 @@ using GagspeakAPI.Dto.Toybox;
 namespace GagspeakServer.Hubs;
 
 /// <summary> 
-/// 
 /// This partial class of the GagSpeakHub contains all the user related methods 
-/// 
 /// </summary>
 public partial class GagspeakHub
 {
 
     /// <summary> 
-    /// 
     /// Called by a connected client who wishes to add another User as a pair.
-    /// 
     /// <para>
-    /// 
-    /// Creates a new initial clientpair object for 2 users within the database 
+    /// Creates a new initial client pair object for 2 users within the database 
     /// and returns the successful object to the clients.
-    /// 
     /// </para>
     /// </summary>
     /// <param name="dto">The User Dto of the player they desire to add.</param>
@@ -203,9 +197,8 @@ public partial class GagspeakHub
         // send push with update to other user if other user is online
 
         // send the push update to the other user informing them to update the permissions of the client caller in bulk.
-        await Clients.User(otherUser.UID)
-            .Client_UserUpdateOtherAllPairPerms(new UserPairUpdateAllPermsDto(
-                user.ToUserData(), ownGlobalPerms, ownPairPerms, ownAccessPerms)).ConfigureAwait(false);
+        await Clients.User(otherUser.UID).Client_UserUpdateOtherAllPairPerms(
+            new UserPairUpdateAllPermsDto(user.ToUserData(), ownGlobalPerms, ownPairPerms, ownAccessPerms, false)).ConfigureAwait(false);
 
         // and then also request them to update the individual pairing status.
         await Clients.User(otherUser.UID)
@@ -221,14 +214,68 @@ public partial class GagspeakHub
     }
 
     /// <summary> 
-    /// 
+    /// Called by a connected client who wishes to remove a user from their paired list.
+    /// </summary>>
+    [Authorize(Policy = "Identified")]
+    public async Task UserRemovePair(UserDto dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        // Dont allow removing self
+        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) return;
+
+        // See if clientPair exists at all in the database
+        var callerPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == UserUID && w.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        if (callerPair == null) throw new Exception("ClientPair was null, this should not happen.");
+
+        // Get pair info of the user we are removing
+        var pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
+        if (pairData == null) throw new Exception("PairData was null, this should not happen.");
+
+        // remove the client pair from the database and update changes
+        DbContext.ClientPairs.Remove(callerPair);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto, "Success"));
+
+        // return to the client callers callback functions that we should remove them from the client callers pair manager.
+        await Clients.User(UserUID).Client_UserRemoveClientPair(dto).ConfigureAwait(false);
+
+        // If the pair was not individually paired, then we can return here.
+        if (!pairData.IsSynced) return;
+
+        // check if other user is online, if no then there is no need to do anything further
+        var otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
+        if (otherIdent == null) return;
+
+        // check to see if the client caller had the user they removed paused.
+        bool callerHadPaused = pairData.ownPairPermissions?.IsPaused ?? false;
+
+        // send updated individual pair status to the other user in this case.
+        await Clients.User(dto.User.UID).Client_UpdateUserIndividualPairStatusDto(new(new(UserUID), IndividualPairStatus.OneSided)).ConfigureAwait(false);
+
+        // fetch the other pair permissions to see if they had us paused
+        ClientPairPermissions? otherPairPermissions = pairData.otherPairPermissions;
+        bool otherHadPaused = otherPairPermissions?.IsPaused ?? true;
+
+        // if the either had paused, do nothing
+        if (callerHadPaused && otherHadPaused) return;
+
+        // but if not, then fetch the new pair data
+        var currentPairData = await GetPairInfo(dto.User.UID, UserUID).ConfigureAwait(false);
+
+        // if the now current pair data is no longer synced, then send offline to both ends
+        await Clients.User(UserUID).Client_UserSendOffline(dto).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserSendOffline(new(new(UserUID))).ConfigureAwait(false);
+    }
+
+
+
+    /// <summary> 
     /// Called by a connected client who wishes to delete their account from the server.
-    /// 
     /// <para> 
-    /// 
     /// Method will remove all associated things with the user and delete their profile from 
     /// the server, along with all other profiles under their account.
-    /// 
     /// </para>
     /// </summary>
     [Authorize(Policy = "Identified")]
@@ -252,9 +299,7 @@ public partial class GagspeakHub
     }
 
     /// <summary> 
-    /// 
     /// Requested by the client caller upon login, asking to get all current client pairs of them that are online.
-    /// 
     /// </summary>
     /// <returns> The list of OnlineUserIdentDto objects for all client pairs that are currently connected. </returns>
     [Authorize(Policy = "Identified")]
@@ -274,11 +319,8 @@ public partial class GagspeakHub
         return pairs.Select(p => new OnlineUserIdentDto(new UserData(p.Key), p.Value)).ToList();
     }
 
-
     /// <summary> 
-    /// 
     /// Called by a connected client who wishes to retrieve the list of paired clients via a list of UserPairDto's.
-    /// 
     /// </summary>
     /// <returns> A list of UserPair DTO's containing the client pairs  of the client caller </returns>
     [Authorize(Policy = "Identified")]
@@ -356,6 +398,13 @@ public partial class GagspeakHub
         // fetch all the pair information of the client caller
         var pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
 
+
+        foreach(var pair in pairs)
+        {
+            _logger.LogWarning($"Other Pair Access ApplyRestraintSetsAllowed {pair.Key}: {pair.Value.otherPairPermissionAccess.ApplyRestraintSetsAllowed}");
+        }
+
+
         var userPairDtos = new List<UserPairDto>();
 
         // return the list of UserPair DTO's containing the paired clients of the client caller
@@ -373,9 +422,7 @@ public partial class GagspeakHub
 
 
     /// <summary>
-    /// 
     /// Called by a connected client who wishes to retrieve the profile of another user.
-    /// 
     /// </summary>
     /// <returns> The UserProfileDto of the user requested </returns>
     [Authorize(Policy = "Identified")]
@@ -383,255 +430,27 @@ public partial class GagspeakHub
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(user));
 
-        // fetch all the paired un-paused users of the client caller
+        // Grab all users Client Caller is paired with.
         var allUserPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
 
-        // if all user pairs do not contain the user UID of the user requested, and the user UID is not the client caller.
+        // If requested User Profile is not in list of pairs, and is not self, return blank profile update.
         if (!allUserPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
         {
-            // returns to the client caller that they cannot view profile because they have been paused by the user.
             return new UserProfileDto(user.User, false, null, "Due to the pause status you cannot access this users profile.");
         }
 
-        // otherwise we are valid to fetch the profile of the user requested, so attempt to locate the profile in the database.
+        // Grab the requested user's profile data from the database
         UserProfileData? data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
-
-        // if the profile of the user requested is null, return a empty profile to the client caller.
-        if (data == null) return new UserProfileDto(user.User, false, null, null);
-
-        // if the profile is disabled, return a disabled profile to the client caller.
+        if (data == null) return new UserProfileDto(user.User, false, null, null); // return a null profile if invalid.
         if (data.ProfileDisabled) return new UserProfileDto(user.User, true, null, "This profile is currently disabled");
 
-        // otherwise, it is a valid profile, so return it.
+        // Return the valid profile. (nothing necessary to push to other pairs).
         return new UserProfileDto(user.User, false, data.Base64ProfilePic, data.UserDescription);
     }
 
-
     /// <summary> 
-    /// 
-    /// Called by a connected client that desires to push the latest updates for their character COMBINED data
-    /// 
-    /// </summary>
-    [Authorize(Policy = "Identified")]
-    public async Task UserPushData(UserCharaCompositeDataMessageDto dto)
-    {
-        _logger.LogCallInfo();
-
-        // fetch the recipient UID list from the recipient list of the dto
-        var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        // check to see if all the recipients are cached within the cache service. If not, then cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            // fetch all the paired users of the client caller
-            var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            // see which of the paired users are in the recipient list, and cache them.
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataComposite(
-            new OnlineUserCharaCompositeDataDto(new UserData(UserUID), dto.CompositeData)).ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataComposite);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataCompositeTo, recipientUids.Count);
-    }
-
-    /// <summary> 
-    /// 
-    /// Called by a connected client that desires to push the latest updates for their character's IPC Data
-    /// 
-    /// </summary>
-    public async Task UserPushDataIpc(UserCharaIpcDataMessageDto dto)
-    {
-        _logger.LogCallInfo();
-
-        var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataIpc(
-            new OnlineUserCharaIpcDataDto(new UserData(UserUID), dto.IPCData)).ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpc);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpcTo, recipientUids.Count);
-    }
-
-    /// <summary> 
-    /// 
-    /// Called by a connected client that desires to push the latest updates for their character's APPEARANCE Data
-    /// 
-    /// </summary>
-    public async Task UserPushDataAppearance(UserCharaAppearanceDataMessageDto dto)
-    {
-        _logger.LogCallInfo();
-
-        var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataAppearance(
-            new OnlineUserCharaAppearanceDataDto(new UserData(UserUID), dto.AppearanceData)).ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearanceTo, recipientUids.Count);
-    }
-
-    /// <summary> 
-    /// 
-    /// Called by a connected client that desires to push the latest updates for their character's WARDROBE Data
-    /// 
-    /// </summary>
-    public async Task UserPushDataWardrobe(UserCharaWardrobeDataMessageDto dto)
-    {
-        _logger.LogCallInfo();
-
-        var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataWardrobe(
-            new OnlineUserCharaWardrobeDataDto(new UserData(UserUID), dto.WardrobeData)).ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, recipientUids.Count);
-    }
-
-    /// <summary> 
-    /// 
-    /// Called by a connected client that desires to push the latest updates for their character's ALIAS Data
-    /// 
-    /// </summary>
-    public async Task UserPushDataAlias(UserCharaAliasDataMessageDto dto)
-    {
-        _logger.LogCallInfo();
-
-        var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataAlias(
-            new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData)).ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataAlias);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataAliasTo, recipientUids.Count);
-    }
-
-    /// <summary> 
-    /// 
-    /// Called by a connected client that desires to push the latest updates for their character's PATTERN Data
-    /// 
-    /// </summary>
-    public async Task UserPushDataPattern(UserCharaPatternDataMessageDto dto)
-    {
-        _logger.LogCallInfo();
-
-        var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataPattern(
-            new OnlineUserCharaPatternDataDto(new UserData(UserUID), dto.PatternInfo)).ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataPattern);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataPatternTo, recipientUids.Count);
-    }
-
-
-    /// <summary> 
-    /// 
-    /// Called by a connected client who wishes to remove a user from their paired list.
-    /// 
-    /// </summary>>
-    [Authorize(Policy = "Identified")]
-    public async Task UserRemovePair(UserDto dto)
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        // Dont allow removing self
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) return;
-
-        // See if clientPair exists at all in the database
-        var callerPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == UserUID && w.OtherUserUID == dto.User.UID).ConfigureAwait(false);
-        if (callerPair == null) return;
-
-        // Get pair info of the user we are removing
-        var pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
-
-        // remove the client pair from the database and update changes
-        DbContext.ClientPairs.Remove(callerPair);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto, "Success"));
-
-        // return to the client callers callback functions that we should remove them from the client callers pair manager.
-        await Clients.User(UserUID).Client_UserRemoveClientPair(dto).ConfigureAwait(false);
-
-        // If the pair was not individually paired, then we can return here.
-        if (!pairData.IsSynced) return;
-
-        // check if other user is online, if no then there is no need to do anything further
-        var otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
-        if (otherIdent == null) return;
-
-        // check to see if the client caller had the user they removed paused.
-        bool callerHadPaused = pairData.ownPairPermissions?.IsPaused ?? false;
-
-        // send updated individual pair status to the other user in this case.
-        await Clients.User(dto.User.UID).Client_UpdateUserIndividualPairStatusDto(new(new(UserUID), IndividualPairStatus.OneSided)).ConfigureAwait(false);
-
-        // fetch the other pair permissions to see if they had us paused
-        ClientPairPermissions? otherPairPermissions = pairData.otherPairPermissions;
-        bool otherHadPaused = otherPairPermissions?.IsPaused ?? true;
-
-        // if the either had paused, do nothing
-        if (callerHadPaused && otherHadPaused) return;
-
-        // but if not, then fetch the new pair data
-        var currentPairData = await GetPairInfo(dto.User.UID, UserUID).ConfigureAwait(false);
-
-        // if the now current pair data is no longer synced, then send offline to both ends
-        await Clients.User(UserUID).Client_UserSendOffline(dto).ConfigureAwait(false);
-        await Clients.User(dto.User.UID).Client_UserSendOffline(new(new(UserUID))).ConfigureAwait(false);
-    }
-
-    /// <summary> 
-    /// 
     /// Called by a connected client who wishes to set or update their profile data.
-    /// 
     /// </summary>
-    /// <param name="dto">the userProfile Dto, containing both the content of the profile, the and UID of the person it belongs to. </param>
     [Authorize(Policy = "Identified")]
     public async Task UserSetProfile(UserProfileDto dto)
     {
@@ -639,94 +458,131 @@ public partial class GagspeakHub
 
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new HubException("Cannot modify profile data for anyone but yourself");
 
-        // fetch the existing profile data of the client from the DB
+        // Grab Client Callers current profile data from the database
         var existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-
-        // if the profile is disabled, return a error message to the client caller and return. (remove later maybe? idk)
-        if (existingData?.ProfileDisabled ?? false)
+        if (existingData?.ProfileDisabled ?? false) 
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your profile was permanently disabled and cannot be edited").ConfigureAwait(false);
+            // possibly not do this, but rather just ban the user outright if they are disabled? Idk
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your profile was disabled and cannot be edited").ConfigureAwait(false);
             return;
         }
 
-        // if the profile picture base64 string is not empty, then we need to validate the image.
+        // Grab the new ProfilePictureData if it exists
         if (!string.IsNullOrEmpty(dto.ProfilePictureBase64))
         {
-            // convert the base64 string to a byte array
+            // Convert from the base64 into raw image data bytes.
             byte[] imageData = Convert.FromBase64String(dto.ProfilePictureBase64);
-            // load the image into a memory stream
+            
+            // Load the image into a memory stream
             using MemoryStream ms = new(imageData);
-            // detect the format the image
+            
+            // Detect format of the image
             var format = await Image.DetectFormatAsync(ms).ConfigureAwait(false);
-            // if the file format is not a png, reject the image and return.
+            
+            // Ensure it is a png format, throw exception if it is not.
             if (!format.FileExtensions.Contains("png", StringComparer.OrdinalIgnoreCase))
             {
-                // invoke a function call to the client caller containing a server message letting them know that they provided a non-png image.
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your provided image file is not in PNG format").ConfigureAwait(false);
                 return;
             }
 
-            // the image is a png, load the image into a memory stream
+            // Temporarily load the image into memory from the image data to check its ImageSize & FileSize.
             using var image = Image.Load<Rgba32>(imageData);
 
-            // THIS CHECKS TO SEE IF THE IMAGE IS LARGER THAN THE PARMAETERS WE WANT, MANIPULATE THIS LATER FOR SUPPORTERS????
+            // Ensure Image meets required parameters.
             if (image.Width > 256 || image.Height > 256 || (imageData.Length > 250 * 1024))
             {
-                // invoke a function call to the client caller containing a server message letting them know that they provided a large image.
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your provided image file is larger than 256x256 or more than 250KiB.").ConfigureAwait(false);
                 return;
             }
         }
 
-        // if the existing data is not null, then we need to update the existing data with the new data.
+        // Validate the rest of the profile data.
         if (existingData != null)
         {
-            // if the incoming profile picture is empty, set it to null.
+            // Set ProfilePictureBase64 to null if string is not provided.
             if (string.Equals("", dto.ProfilePictureBase64, StringComparison.OrdinalIgnoreCase))
             {
                 existingData.Base64ProfilePic = null;
             }
-            // see if the new profile image is not null, if it is not, then update it
+            // If string is provided, set the new Base64ProfilePic.
             else if (dto.ProfilePictureBase64 != null)
             {
                 existingData.Base64ProfilePic = dto.ProfilePictureBase64;
             }
-            // finally, if the description is not null, update it.
+            // If description contains content, updated the description.
             if (dto.Description != null)
             {
                 existingData.UserDescription = dto.Description;
             }
         }
-        else // hitting this else means that the existing data was null, so we need to construct a new UserProfileData object for it.
+        else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
         {
-            // create a new UserProfileData object with the user UID of the client caller
             UserProfileData userProfileData = new()
             {
                 UserUID = dto.User.UID,
                 Base64ProfilePic = dto.ProfilePictureBase64 ?? null,
                 UserDescription = dto.Description ?? null,
             };
-
-            // add the userProfileData to the database.
             await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
 
-        // save the changes to the database
+        // Save DB Changes
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // fetch all paired users of the client caller
+        // Fetch all paired user's of the client caller
         var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        // get all the online pairs of the client callers paired list 
+        // Get Online users.
         var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
 
-        // invokes the Client_UserUpdateProfile method on all connected clients whose user IDs are specified
-        // in the pairs collection, and sends the updated user profile information (dto.User) to the clients.
+        // Inform the client caller and all their pairs that their profile has been updated.
         await Clients.Users(pairs.Select(p => p.Key)).Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
-        // invoke the client_userUpdateProfile method at the client caller that made the request.
         await Clients.Caller.Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
     }
 
-    /// <summary> A small helper function to get the opposite entry of a client pair (how its viewed from the other side) </summary>
+
+    [Authorize(Policy = "Identified")]
+    public async Task UserReportProfile(UserProfileReportDto dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        // if the client caller has already reported this profile, inform them and return.
+        UserProfileDataReport? report = await DbContext.UserProfileReports.SingleOrDefaultAsync(u => u.ReportedUserUID == dto.User.UID && u.ReportingUserUID == UserUID).ConfigureAwait(false);
+        if (report != null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "You already reported this profile and it's pending validation").ConfigureAwait(false);
+            return;
+        }
+
+        // grab the profile of the user being reported. If it doesn't exist, inform the client caller and return.
+        UserProfileData? profile = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (profile == null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "This user has no profile").ConfigureAwait(false);
+            return;
+        }
+
+        // Reporting if valid, so construct new report object.
+        UserProfileDataReport reportToAdd = new()
+        {
+            ReportTime = DateTime.UtcNow,
+            ReportingUserUID = UserUID,
+            ReportReason = dto.ProfileReport,
+            ReportedUserUID = dto.User.UID,
+        };
+
+        // mark the profile as flagged for report (possibly remove this as i dont see much purpose)
+        profile.FlaggedForReport = true;
+
+        // add it to the table of reports in the database & save changes.
+        await DbContext.UserProfileReports.AddAsync(reportToAdd).ConfigureAwait(false);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        // log the report
+        _logger.LogWarning($"User {UserUID} reported user {dto.User.UID} for {dto.ProfileReport}");
+    }
+
+
+        /// <summary> A small helper function to get the opposite entry of a client pair (how its viewed from the other side) </summary>
     private ClientPair OppositeEntry(string otherUID) =>
-                    DbContext.ClientPairs.AsNoTracking().SingleOrDefault(w => w.User.UID == otherUID && w.OtherUser.UID == UserUID);
+        DbContext.ClientPairs.AsNoTracking().SingleOrDefault(w => w.User.UID == otherUID && w.OtherUser.UID == UserUID);
 }

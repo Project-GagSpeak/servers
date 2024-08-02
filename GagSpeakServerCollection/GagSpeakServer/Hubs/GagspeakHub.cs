@@ -135,23 +135,31 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         }
         if(string.IsNullOrEmpty(clientCallerAppearanceData.SlotOneGagType))
         {
-            clientCallerAppearanceData.SlotOneGagType = "None";
-            clientCallerAppearanceData.SlotOneGagPadlock = "None";
+            clientCallerAppearanceData.SlotOneGagType = None;
+            clientCallerAppearanceData.SlotOneGagPadlock = None;
             clientCallerAppearanceData.SlotOneGagPassword = "";
             clientCallerAppearanceData.SlotOneGagTimer = DateTimeOffset.UtcNow;
             clientCallerAppearanceData.SlotOneGagAssigner = "";
-            clientCallerAppearanceData.SlotTwoGagType = "None";
-            clientCallerAppearanceData.SlotTwoGagPadlock = "None";
+            clientCallerAppearanceData.SlotTwoGagType = None;
+            clientCallerAppearanceData.SlotTwoGagPadlock = None;
             clientCallerAppearanceData.SlotTwoGagPassword = "";
             clientCallerAppearanceData.SlotTwoGagTimer = DateTimeOffset.UtcNow;
             clientCallerAppearanceData.SlotTwoGagAssigner = "";
-            clientCallerAppearanceData.SlotThreeGagType = "None";
-            clientCallerAppearanceData.SlotThreeGagPadlock = "None";
+            clientCallerAppearanceData.SlotThreeGagType = None;
+            clientCallerAppearanceData.SlotThreeGagPadlock = None;
             clientCallerAppearanceData.SlotThreeGagPassword = "";
             clientCallerAppearanceData.SlotThreeGagTimer = DateTimeOffset.UtcNow;
             clientCallerAppearanceData.SlotThreeGagAssigner = "";
             // full reset incase they happen to have malformed data.
             DbContext.UserAppearanceData.Update(clientCallerAppearanceData);
+        }
+
+        // we should also perform a check for the current active-state-data. It is server-side only, but we need to create it if it does not exist,.
+        var clientCallerActiveStateData = await DbContext.UserActiveStateData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        if (clientCallerActiveStateData == null)
+        {
+            clientCallerActiveStateData = new UserActiveStateData() { UserUID = UserUID };
+            DbContext.UserActiveStateData.Add(clientCallerActiveStateData);
         }
 
         // Save the DbContext (never know if it was added or not so always good to be safe.
@@ -162,30 +170,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
-            UserGlobalPermissions = new GagspeakAPI.Data.Permissions.UserGlobalPermissions()
-            {
-                Safeword = clientCallerGlobalPerms.Safeword,
-                SafewordUsed = clientCallerGlobalPerms.SafewordUsed,
-                CommandsFromFriends = clientCallerGlobalPerms.CommandsFromFriends,
-                CommandsFromParty = clientCallerGlobalPerms.CommandsFromParty,
-                LiveChatGarblerActive = clientCallerGlobalPerms.LiveChatGarblerActive,
-                LiveChatGarblerLocked = clientCallerGlobalPerms.LiveChatGarblerLocked,
-                WardrobeEnabled = clientCallerGlobalPerms.WardrobeEnabled,
-                ItemAutoEquip = clientCallerGlobalPerms.ItemAutoEquip,
-                RestraintSetAutoEquip = clientCallerGlobalPerms.RestraintSetAutoEquip,
-                LockGagStorageOnGagLock = clientCallerGlobalPerms.LockGagStorageOnGagLock,
-                PuppeteerEnabled = clientCallerGlobalPerms.PuppeteerEnabled,
-                GlobalTriggerPhrase = clientCallerGlobalPerms.GlobalTriggerPhrase,
-                GlobalAllowSitRequests = clientCallerGlobalPerms.GlobalAllowSitRequests,
-                GlobalAllowMotionRequests = clientCallerGlobalPerms.GlobalAllowMotionRequests,
-                GlobalAllowAllRequests = clientCallerGlobalPerms.GlobalAllowAllRequests,
-                MoodlesEnabled = clientCallerGlobalPerms.MoodlesEnabled,
-                ToyboxEnabled = clientCallerGlobalPerms.ToyboxEnabled,
-                LockToyboxUI = clientCallerGlobalPerms.LockToyboxUI,
-                ToyIsActive = clientCallerGlobalPerms.ToyIsActive,
-                ToyIntensity = clientCallerGlobalPerms.ToyIntensity,
-                SpatialVibratorAudio = clientCallerGlobalPerms.SpatialVibratorAudio,
-            },
+            UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
             CharacterAppearanceData = new GagspeakAPI.Data.Character.CharacterAppearanceData()
             {
                 SlotOneGagType = clientCallerAppearanceData.SlotOneGagType,
@@ -208,15 +193,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     }
 
     /// <summary> 
-    /// 
     /// Creates a new secret key and user for a client, which is called upon by their one time use request. 
-    /// 
     /// </summary>
-    /// <returns>
-    /// 
-    /// A tuple containing the UID and the hashed secret key for the one-time generation.
-    /// 
-    /// </returns>
+    /// <returns> A tuple containing the UID and the hashed secret key for the one-time generation. </returns>
     [Authorize(Policy = "TemporaryAccess")]
     public async Task<(string, string)> OneTimeUseAccountGeneration()
     {
