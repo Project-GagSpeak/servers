@@ -56,9 +56,7 @@ public partial class GagspeakHub
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataCompositeTo, recipientUids.Count);
     }
 
-    /// <summary> 
-    /// Called by a connected client that desires to push the latest updates for their character's IPC Data
-    /// </summary>
+    /// <summary> Called by a connected client to push own latest IPC Data to other paired clients. </summary>
     public async Task UserPushDataIpc(UserCharaIpcDataMessageDto dto)
     {
         _logger.LogCallInfo();
@@ -73,9 +71,11 @@ public partial class GagspeakHub
         }
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataIpc(
+        // fetch the new Dto to send (with Client Caller's userData as the attached User) to other paired clients.
+        await Clients.Users(recipientUids).Client_UserReceiveOwnDataIpc(
             new OnlineUserCharaIpcDataDto(new UserData(UserUID), dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
 
+        // update metrics.
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpc);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpcTo, recipientUids.Count);
     }
@@ -97,7 +97,7 @@ public partial class GagspeakHub
         }
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataAppearance(
+        await Clients.Users(recipientUids).Client_UserReceiveOwnDataAppearance(
             new OnlineUserCharaAppearanceDataDto(new UserData(UserUID), dto.AppearanceData, dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
@@ -121,7 +121,7 @@ public partial class GagspeakHub
         }
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataWardrobe(
+        await Clients.Users(recipientUids).Client_UserReceiveOwnDataWardrobe(
             new OnlineUserCharaWardrobeDataDto(new UserData(UserUID), dto.WardrobeData, dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
@@ -148,11 +148,11 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-
         // push the notification to the recipient user
-        await Clients.User(recipientUid).Client_UserReceiveCharacterDataAlias(new OnlineUserCharaAliasDataDto(dto.RecipientUser, dto.AliasData)).ConfigureAwait(false);
+        await Clients.User(recipientUid).Client_UserReceiveOtherDataAlias(
+            new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData)).ConfigureAwait(false);
         // push the notification to the client caller
-        await Clients.Caller.Client_UserReceiveCharacterDataAlias(new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOwnDataAlias(new OnlineUserCharaAliasDataDto(dto.RecipientUser, dto.AliasData)).ConfigureAwait(false);
 
         // inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAlias);
@@ -162,7 +162,7 @@ public partial class GagspeakHub
     /// <summary> 
     /// Called by a connected client that desires to push the latest updates for their character's PATTERN Data
     /// </summary>
-    public async Task UserPushDataToybox(UserCharaPatternToyboxMessageDto dto)
+    public async Task UserPushDataToybox(UserCharaToyboxDataMessageDto dto)
     {
         _logger.LogCallInfo();
 
@@ -176,7 +176,7 @@ public partial class GagspeakHub
         }
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataToybox(
+        await Clients.Users(recipientUids).Client_UserReceiveOwnDataToybox(
             new OnlineUserCharaToyboxDataDto(new UserData(UserUID), dto.PatternInfo, dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
@@ -267,8 +267,17 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+        // also grab our client callers userData from the pairPermissions table, preventing a need for a 3rd DB call.
+        var clientCallerUserData = pairPermissions.OtherUser.ToUserData();
+
+        // send them a self update message.
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataIpc(
+            new OnlineUserCharaIpcDataDto(clientCallerUserData, dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
+
         // Push the updated IPC data out to all the online pairs of the affected pair.
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveCharacterDataIpc(
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataIpc(
             new OnlineUserCharaIpcDataDto(dto.User, dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Inc the metrics
@@ -497,8 +506,17 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+        // also grab our client callers userData from the pairPermissions table, preventing a need for a 3rd DB call.
+        var clientCallerUserData = pairPermissions.OtherUser.ToUserData();
+
+        // send them a self update message.
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAppearance(
+            new OnlineUserCharaAppearanceDataDto(clientCallerUserData, updatedAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+
         // Push the updated IPC data out to all the online pairs of the affected pair.
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveCharacterDataAppearance(
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataAppearance(
             new OnlineUserCharaAppearanceDataDto(dto.User, dto.AppearanceData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Inc the metrics
@@ -602,8 +620,17 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        // Push the updated IPC data out to all the online pairs of the affected pair.
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveCharacterDataWardrobe(
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+        // also grab our client callers userData from the pairPermissions table, preventing a need for a 3rd DB call.
+        var clientCallerUserData = pairPermissions.OtherUser.ToUserData();
+
+        // send them a self update message.
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(
+            new OnlineUserCharaWardrobeDataDto(clientCallerUserData, dto.WardrobeData, dto.UpdateKind)).ConfigureAwait(false);
+
+        // Push the updated wardrobe data out to all the online pairs of the affected pair.
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataWardrobe(
             new OnlineUserCharaWardrobeDataDto(dto.User, dto.WardrobeData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Inc the metrics
@@ -699,8 +726,18 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+
+        // also grab our client callers userData from the pairPermissions table, preventing a need for a 3rd DB call.
+        var clientCallerUserData = pairPermissions.OtherUser.ToUserData();
+
+        // send them a self update message.
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataToybox(
+            new OnlineUserCharaToyboxDataDto(clientCallerUserData, dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
+
         // Push the updated IPC data out to all the online pairs of the affected pair.
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveCharacterDataToybox(
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataToybox(
             new OnlineUserCharaToyboxDataDto(dto.User, dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
 
         // Inc the metrics
