@@ -65,6 +65,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         _onlineSyncedPairCacheService = onlineSyncedPairCacheService;
         _logger = new GagspeakHubLogger(this, logger);
         _dbContextLazy = new Lazy<GagspeakDbContext>(() => GagSpeakDbContextFactory.CreateDbContext());
+
+        _logger.LogWarning($"Total connections: {_metrics.}")
     }
 
     /// <summary> Disposes of the database context if created upon the GagSpeak hub's disposal.</summary>
@@ -188,7 +190,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 SlotThreeGagPassword = clientCallerAppearanceData.SlotThreeGagPassword,
                 SlotThreeGagTimer = clientCallerAppearanceData.SlotThreeGagTimer,
                 SlotThreeGagAssigner = clientCallerAppearanceData.SlotThreeGagAssigner,
-            }
+            },
+            WardrobeActiveSetName = clientCallerActiveStateData.WardrobeActiveSetName,
+            WardrobeActiveSetAssigner = clientCallerActiveStateData.WardrobeActiveSetAssigner,
+            WardrobeActiveSetLocked = clientCallerActiveStateData.WardrobeActiveSetLocked,
+            WardrobeActiveSetLockAssigner = clientCallerActiveStateData.WardrobeActiveSetLockAssigner,
+            ToyboxActivePatternName = clientCallerActiveStateData.ToyboxActivePatternName,
         };
     }
 

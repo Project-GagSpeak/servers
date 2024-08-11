@@ -59,7 +59,7 @@ public partial class GagspeakHub
     /// <summary> Called by a connected client to push own latest IPC Data to other paired clients. </summary>
     public async Task UserPushDataIpc(UserCharaIpcDataMessageDto dto)
     {
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
         bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
@@ -72,8 +72,7 @@ public partial class GagspeakHub
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
         // fetch the new Dto to send (with Client Caller's userData as the attached User) to other paired clients.
-        await Clients.Users(recipientUids).Client_UserReceiveOwnDataIpc(
-            new OnlineUserCharaIpcDataDto(new UserData(UserUID), dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataIpc(new OnlineUserCharaIpcDataDto(new UserData(UserUID), dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
 
         // update metrics.
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpc);
@@ -85,8 +84,9 @@ public partial class GagspeakHub
     /// </summary>
     public async Task UserPushDataAppearance(UserCharaAppearanceDataMessageDto dto)
     {
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
+        // verify we have our recipients cached.
         var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
         bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
         if (!allCached)
@@ -96,9 +96,108 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
+        // Grab our Appearance from the DB
+        var curGagData = await DbContext.UserAppearanceData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        if (curGagData == null) throw new Exception("Cannot update other Pair, User does not have appearance data!");
+
+        // Perform security check on the UpdateKind, to make sure client caller is not exploiting the system.
+        switch (dto.UpdateKind)
+        {
+            // Throw if gag features not allowed OR slot is occupied. Otherwise, update the respective appearance data.
+            case DataUpdateKind.AppearanceGagAppliedLayerOne:
+                curGagData.SlotOneGagType = dto.AppearanceData.SlotOneGagType;
+                break;
+            case DataUpdateKind.AppearanceGagAppliedLayerTwo:
+                curGagData.SlotTwoGagType = dto.AppearanceData.SlotTwoGagType;
+                break;
+            case DataUpdateKind.AppearanceGagAppliedLayerThree:
+                curGagData.SlotThreeGagType = dto.AppearanceData.SlotThreeGagType;
+                break;
+            // Handle lock logic. Throw if lock already present, or if padlock is OwnerPadlock type and OwnerLocks are not allowed.
+            case DataUpdateKind.AppearanceGagLockedLayerOne:
+                curGagData.SlotOneGagPadlock = dto.AppearanceData.SlotOneGagPadlock;
+                curGagData.SlotOneGagPassword = dto.AppearanceData.SlotOneGagPassword;
+                curGagData.SlotOneGagTimer = dto.AppearanceData.SlotOneGagTimer;
+                curGagData.SlotOneGagAssigner = dto.AppearanceData.SlotOneGagAssigner;
+                break;
+            case DataUpdateKind.AppearanceGagLockedLayerTwo:
+                curGagData.SlotTwoGagPadlock = dto.AppearanceData.SlotTwoGagPadlock;
+                curGagData.SlotTwoGagPassword = dto.AppearanceData.SlotTwoGagPassword;
+                curGagData.SlotTwoGagTimer = dto.AppearanceData.SlotTwoGagTimer;
+                curGagData.SlotTwoGagAssigner = dto.AppearanceData.SlotTwoGagAssigner;
+                break;
+            case DataUpdateKind.AppearanceGagLockedLayerThree:
+                curGagData.SlotThreeGagPadlock = dto.AppearanceData.SlotThreeGagPadlock;
+                curGagData.SlotThreeGagPassword = dto.AppearanceData.SlotThreeGagPassword;
+                curGagData.SlotThreeGagTimer = dto.AppearanceData.SlotThreeGagTimer;
+                curGagData.SlotThreeGagAssigner = dto.AppearanceData.SlotThreeGagAssigner;
+                break;
+            // for unlocking, throw if GagFeatures not allowed, the slot is not already locked, or if unlock validation is not met.
+            case DataUpdateKind.AppearanceGagUnlockedLayerOne:
+                curGagData.SlotOneGagPadlock = None;
+                curGagData.SlotOneGagPassword = string.Empty;
+                curGagData.SlotOneGagTimer = DateTimeOffset.UtcNow;
+                curGagData.SlotOneGagAssigner = string.Empty;
+                break;
+            case DataUpdateKind.AppearanceGagUnlockedLayerTwo:
+                curGagData.SlotTwoGagPadlock = None;
+                curGagData.SlotTwoGagPassword = string.Empty;
+                curGagData.SlotTwoGagTimer = DateTimeOffset.UtcNow;
+                curGagData.SlotTwoGagAssigner = string.Empty;
+                break;
+            case DataUpdateKind.AppearanceGagUnlockedLayerThree:
+                curGagData.SlotThreeGagPadlock = None;
+                curGagData.SlotThreeGagPassword = string.Empty;
+                curGagData.SlotThreeGagTimer = DateTimeOffset.UtcNow;
+                curGagData.SlotThreeGagAssigner = string.Empty;
+                break;
+            // for removal, throw if gag is locked, or if GagFeatures not allowed.
+            case DataUpdateKind.AppearanceGagRemovedLayerOne:
+                curGagData.SlotOneGagType = None;
+                curGagData.SlotOneGagAssigner = string.Empty;
+                break;
+            case DataUpdateKind.AppearanceGagRemovedLayerTwo:
+                curGagData.SlotTwoGagType = None;
+                curGagData.SlotTwoGagAssigner = string.Empty;
+                break;
+            case DataUpdateKind.AppearanceGagRemovedLayerThree:
+                curGagData.SlotThreeGagType = None;
+                curGagData.SlotThreeGagAssigner = string.Empty;
+                break;
+            default:
+                throw new HubException("Invalid UpdateKind for Appearance Data!");
+        }
+
+        // update the database with the new appearance data.
+        DbContext.UserAppearanceData.Update(curGagData);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // migrate the current appearance data with its changes to a new dto object for sending
+        var updatedAppearanceData = new CharacterAppearanceData()
+        {
+            SlotOneGagType = curGagData.SlotOneGagType,
+            SlotOneGagPadlock = curGagData.SlotOneGagPadlock,
+            SlotOneGagPassword = curGagData.SlotOneGagPassword,
+            SlotOneGagTimer = curGagData.SlotOneGagTimer,
+            SlotOneGagAssigner = curGagData.SlotOneGagAssigner,
+            SlotTwoGagType = curGagData.SlotTwoGagType,
+            SlotTwoGagPadlock = curGagData.SlotTwoGagPadlock,
+            SlotTwoGagPassword = curGagData.SlotTwoGagPassword,
+            SlotTwoGagTimer = curGagData.SlotTwoGagTimer,
+            SlotTwoGagAssigner = curGagData.SlotTwoGagAssigner,
+            SlotThreeGagType = curGagData.SlotThreeGagType,
+            SlotThreeGagPadlock = curGagData.SlotThreeGagPadlock,
+            SlotThreeGagPassword = curGagData.SlotThreeGagPassword,
+            SlotThreeGagTimer = curGagData.SlotThreeGagTimer,
+            SlotThreeGagAssigner = curGagData.SlotThreeGagAssigner
+        };
+
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveOwnDataAppearance(
-            new OnlineUserCharaAppearanceDataDto(new UserData(UserUID), dto.AppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataAppearance(
+            new OnlineUserCharaAppearanceDataDto(new UserData(UserUID), updatedAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+        // push back unlock to ourselves so we can get confirmation that the unlock was successful, and proceed to remove the set if naturally unlocked.
+        await Clients.Caller.Client_UserReceiveOwnDataAppearance(
+            new OnlineUserCharaAppearanceDataDto(new UserData(UserUID), updatedAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearanceTo, recipientUids.Count);
@@ -109,7 +208,7 @@ public partial class GagspeakHub
     /// </summary>
     public async Task UserPushDataWardrobe(UserCharaWardrobeDataMessageDto dto)
     {
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
         bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
@@ -120,9 +219,46 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
+        // grab our activestatedata
+        var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        if (userActiveState == null) throw new Exception("Cannot update own userActiveStateData, you somehow does not have active state data!");
+
+        // update it with our activeStateData with the respective changes.
+        switch (dto.UpdateKind)
+        {
+            case DataUpdateKind.WardrobeRestraintOutfitsUpdated:
+                break;
+            case DataUpdateKind.WardrobeRestraintApplied:
+                userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
+                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
+                break;
+            case DataUpdateKind.WardrobeRestraintLocked:
+                userActiveState.WardrobeActiveSetLocked = true;
+                userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.ActiveSetLockedBy;
+                userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.ActiveSetLockTime;
+                break;
+            case DataUpdateKind.WardrobeRestraintUnlocked:
+                userActiveState.WardrobeActiveSetLocked = false;
+                userActiveState.WardrobeActiveSetLockAssigner = string.Empty;
+                userActiveState.WardrobeActiveSetLockTime = DateTimeOffset.UtcNow;
+                break;
+            case DataUpdateKind.WardrobeRestraintDisabled:
+                userActiveState.WardrobeActiveSetName = string.Empty;
+                userActiveState.WardrobeActiveSetAssigner = string.Empty;
+                break;
+            default:
+                throw new Exception("Invalid UpdateKind for Wardrobe Data!");
+        }
+
+        // update the database with the new appearance data.
+        DbContext.UserActiveStateData.Update(userActiveState);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveOwnDataWardrobe(
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataWardrobe(
             new OnlineUserCharaWardrobeDataDto(new UserData(UserUID), dto.WardrobeData, dto.UpdateKind)).ConfigureAwait(false);
+        // push back unlock to ourselves so we can get confirmation that the unlock was successful, and proceed to remove the set if naturally unlocked.
+        await Clients.Caller.Client_UserReceiveOwnDataWardrobe(new OnlineUserCharaWardrobeDataDto(new UserData(UserUID), dto.WardrobeData, dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, recipientUids.Count);
@@ -133,7 +269,7 @@ public partial class GagspeakHub
     /// </summary>
     public async Task UserPushDataAlias(UserCharaAliasDataMessageDto dto)
     {
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // convert the recipient UID list from the recipient list of the dto
         var recipientUidList = new List<string>() { dto.RecipientUser.UID };
@@ -148,11 +284,13 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
+        // REVIEW: We can input checks against activestatedata here if we run into concurrency issues.
+
         // push the notification to the recipient user
         await Clients.User(recipientUid).Client_UserReceiveOtherDataAlias(
             new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData)).ConfigureAwait(false);
         // push the notification to the client caller
-        await Clients.Caller.Client_UserReceiveOwnDataAlias(new OnlineUserCharaAliasDataDto(dto.RecipientUser, dto.AliasData)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOtherDataAlias(new OnlineUserCharaAliasDataDto(dto.RecipientUser, dto.AliasData)).ConfigureAwait(false);
 
         // inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAlias);
@@ -164,7 +302,7 @@ public partial class GagspeakHub
     /// </summary>
     public async Task UserPushDataToybox(UserCharaToyboxDataMessageDto dto)
     {
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
         bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
@@ -175,9 +313,13 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
+        // REVIEW: We can input checks against activestatedata here if we run into concurrency issues.
+
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveOwnDataToybox(
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataToybox(
             new OnlineUserCharaToyboxDataDto(new UserData(UserUID), dto.PatternInfo, dto.UpdateKind)).ConfigureAwait(false);
+        // Because we are pushing our own appearance update, we shouldnt need to send a self update message.
+        // But if we need to for conflicting validation results, we can easily add it here.
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, recipientUids.Count);
@@ -198,7 +340,7 @@ public partial class GagspeakHub
     public async Task UserPushPairDataIpcUpdate(OnlineUserCharaIpcDataDto dto)
     {
         // display the ags being passed in.
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Throw exception if attempting to modifier client caller. That's not this functions purpose.
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
@@ -261,7 +403,7 @@ public partial class GagspeakHub
         var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
 
         // Verify all online pairs of pair are cached. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allPairsOfAffectedPair, Context.ConnectionAborted).ConfigureAwait(false);
+        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
         if (!allCached)
         {
             await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
@@ -288,7 +430,7 @@ public partial class GagspeakHub
     public async Task UserPushPairDataAppearanceUpdate(OnlineUserCharaAppearanceDataDto dto)
     {
         // display the ags being passed in.
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Throw exception if attempting to modifier client caller. That's not this functions purpose.
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
@@ -300,6 +442,23 @@ public partial class GagspeakHub
         // Fetch affected pair's current appearance data from the DB
         var currentAppearanceData = await DbContext.UserAppearanceData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (currentAppearanceData == null) throw new Exception("Cannot update other Pair, User does not have appearance data!");
+
+        // Grabs all Pairs of the affected pair
+        var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        // Filter the list to only include online pairs
+        var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        // Convert from Dictionary<string,string> to List<string> of UID's.
+        var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+
+        // Verify all these pairs are cached for that pair. If not, cache them.
+        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        if (!allCached)
+        {
+            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        }
+
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         // Perform security check on the UpdateKind, to make sure client caller is not exploiting the system.
         switch (dto.UpdateKind)
@@ -333,11 +492,14 @@ public partial class GagspeakHub
             case DataUpdateKind.AppearanceGagLockedLayerOne:
                 {
                     if (!pairPermissions.GagFeatures) throw new Exception("Gag Features not modifiable for Pair!");
-                    if (!string.Equals(currentAppearanceData.SlotOneGagType, None, StringComparison.Ordinal)) throw new Exception("Slot One is already locked!");
+                    if (string.Equals(currentAppearanceData.SlotOneGagType, None, StringComparison.Ordinal)) throw new Exception("No Gag Equipped!");
+                    if (!string.Equals(currentAppearanceData.SlotOneGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot One is already locked!");
+
                     // prevent people without OwnerPadlock permission from applying ownerPadlocks.
-                    if ((string.Equals(dto.AppearanceData.SlotOneGagType, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
-                        (string.Equals(dto.AppearanceData.SlotOneGagType, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    if ((string.Equals(dto.AppearanceData.SlotOneGagPadlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.AppearanceData.SlotOneGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
                         throw new Exception("Owner Locks not allowed!");
+
                     // update the respective appearance data.
                     currentAppearanceData.SlotOneGagPadlock = dto.AppearanceData.SlotOneGagPadlock;
                     currentAppearanceData.SlotOneGagPassword = dto.AppearanceData.SlotOneGagPassword;
@@ -348,11 +510,14 @@ public partial class GagspeakHub
             case DataUpdateKind.AppearanceGagLockedLayerTwo:
                 {
                     if (!pairPermissions.GagFeatures) throw new Exception("Gag Features not modifiable for Pair!");
-                    if (!string.Equals(currentAppearanceData.SlotTwoGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Two is already locked!");
+                    if (string.Equals(currentAppearanceData.SlotTwoGagType, None, StringComparison.Ordinal)) throw new Exception("No Gag Equipped!");
+                    if (!string.Equals(currentAppearanceData.SlotTwoGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Two is already locked!");
+
                     // prevent people without OwnerPadlock permission from applying ownerPadlocks.
-                    if ((string.Equals(dto.AppearanceData.SlotTwoGagType, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
-                        (string.Equals(dto.AppearanceData.SlotTwoGagType, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    if ((string.Equals(dto.AppearanceData.SlotTwoGagPadlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.AppearanceData.SlotTwoGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
                         throw new Exception("Owner Locks not allowed!");
+
                     // update the respective appearance data.
                     currentAppearanceData.SlotTwoGagPadlock = dto.AppearanceData.SlotTwoGagPadlock;
                     currentAppearanceData.SlotTwoGagPassword = dto.AppearanceData.SlotTwoGagPassword;
@@ -363,11 +528,14 @@ public partial class GagspeakHub
             case DataUpdateKind.AppearanceGagLockedLayerThree:
                 {
                     if (!pairPermissions.GagFeatures) throw new Exception("Gag Features not modifiable for Pair!");
-                    if (!string.Equals(currentAppearanceData.SlotThreeGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Three is already locked!");
+                    if (string.Equals(currentAppearanceData.SlotThreeGagType, None, StringComparison.Ordinal)) throw new Exception("No Gag Equipped!");
+                    if (!string.Equals(currentAppearanceData.SlotThreeGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Three is already locked!");
+                 
                     // prevent people without OwnerPadlock permission from applying ownerPadlocks.
-                    if ((string.Equals(dto.AppearanceData.SlotThreeGagType, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
-                        (string.Equals(dto.AppearanceData.SlotThreeGagType, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    if ((string.Equals(dto.AppearanceData.SlotThreeGagPadlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.AppearanceData.SlotThreeGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
                         throw new Exception("Owner Locks not allowed!");
+                    
                     // update the respective appearance data.
                     currentAppearanceData.SlotThreeGagPadlock = dto.AppearanceData.SlotThreeGagPadlock;
                     currentAppearanceData.SlotThreeGagPassword = dto.AppearanceData.SlotThreeGagPassword;
@@ -380,13 +548,18 @@ public partial class GagspeakHub
                 {
                     // Throw if GagFeatures not allowed
                     if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
-                    // Throw if slot is not already locked
-                    if (string.Equals(currentAppearanceData.SlotOneGagType, None, StringComparison.Ordinal)) throw new Exception("Slot One is already unlocked!");
-                    // Throw if password doesn't match existing password.
+                    if (string.Equals(currentAppearanceData.SlotOneGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot One is already unlocked!");
                     if (!string.Equals(currentAppearanceData.SlotOneGagPassword, dto.AppearanceData.SlotOneGagPassword, StringComparison.Ordinal)) throw new Exception("Password incorrect.");
                     // Throw if type is ownerPadlock or OwnerTimerPadlock, and OwnerLocks are not allowed.
-                    if ((string.Equals(currentAppearanceData.SlotOneGagType, OwnerPadlock, StringComparison.Ordinal) || string.Equals(currentAppearanceData.SlotOneGagType, OwnerTimerPadlock, StringComparison.Ordinal))
-                        && !pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
+                    if ((string.Equals(currentAppearanceData.SlotOneGagPadlock, OwnerPadlock, StringComparison.Ordinal)
+                      || string.Equals(currentAppearanceData.SlotOneGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal)))
+                    {
+                        // prevent unlock if OwnerLocks are not allowed.
+                        if (!pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
+
+                        // otherwise, throw exception if the client caller userUID does not match the assigner.
+                        if (!string.Equals(currentAppearanceData.SlotOneGagAssigner, UserUID, StringComparison.Ordinal)) throw new Exception("You are not the assigner of this OwnerPadlock!");
+                    }
                     // Update the respective appearance data.
                     currentAppearanceData.SlotOneGagPadlock = None;
                     currentAppearanceData.SlotOneGagPassword = string.Empty;
@@ -399,12 +572,19 @@ public partial class GagspeakHub
                     // Throw if GagFeatures not allowed
                     if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
                     // Throw if slot is not already locked
-                    if (string.Equals(currentAppearanceData.SlotTwoGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Two is already unlocked!");
+                    if (string.Equals(currentAppearanceData.SlotTwoGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Two is already unlocked!");
                     // Throw if password doesnt match existing password.
                     if (!string.Equals(currentAppearanceData.SlotTwoGagPassword, dto.AppearanceData.SlotTwoGagPassword, StringComparison.Ordinal)) throw new Exception("Password incorrect.");
                     // Throw if type is ownerPadlock or OwnerTimerPadlock, and OwnerLocks are not allowed.
-                    if ((string.Equals(currentAppearanceData.SlotTwoGagType, OwnerPadlock, StringComparison.Ordinal) || string.Equals(currentAppearanceData.SlotTwoGagType, OwnerTimerPadlock, StringComparison.Ordinal))
-                        && !pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
+                    if ((string.Equals(currentAppearanceData.SlotTwoGagPadlock, OwnerPadlock, StringComparison.Ordinal)
+                      || string.Equals(currentAppearanceData.SlotTwoGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal)))
+                    {
+                        // prevent unlock if OwnerLocks are not allowed.
+                        if (!pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
+
+                        // otherwise, throw exception if the client caller userUID does not match the assigner.
+                        if (!string.Equals(currentAppearanceData.SlotTwoGagAssigner, UserUID, StringComparison.Ordinal)) throw new Exception("You are not the assigner of this OwnerPadlock!");
+                    }
                     // Update the respective appearance data.
                     currentAppearanceData.SlotTwoGagPadlock = None;
                     currentAppearanceData.SlotTwoGagPassword = string.Empty;
@@ -421,8 +601,16 @@ public partial class GagspeakHub
                     // Throw if password doesn't match existing password.
                     if (!string.Equals(currentAppearanceData.SlotThreeGagPassword, dto.AppearanceData.SlotThreeGagPassword, StringComparison.Ordinal)) throw new Exception("Password incorrect.");
                     // Throw if type is ownerPadlock or OwnerTimerPadlock, and OwnerLocks are not allowed.
-                    if ((string.Equals(currentAppearanceData.SlotThreeGagType, OwnerPadlock, StringComparison.Ordinal) || string.Equals(currentAppearanceData.SlotThreeGagType, OwnerTimerPadlock, StringComparison.Ordinal))
-                        && !pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
+                    if ((string.Equals(currentAppearanceData.SlotThreeGagPadlock, OwnerPadlock, StringComparison.Ordinal)
+                      || string.Equals(currentAppearanceData.SlotThreeGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal)))
+                    {
+                        // prevent unlock if OwnerLocks are not allowed.
+                        if (!pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
+
+                        // otherwise, throw exception if the client caller userUID does not match the assigner.
+                        if (!string.Equals(currentAppearanceData.SlotThreeGagAssigner, UserUID, StringComparison.Ordinal)) throw new Exception("You are not the assigner of this OwnerPadlock!");
+                    }
+
                     // Update the respective appearance data.
                     currentAppearanceData.SlotThreeGagPadlock = None;
                     currentAppearanceData.SlotThreeGagPassword = string.Empty;
@@ -436,7 +624,7 @@ public partial class GagspeakHub
                     // Throw if GagFeatures not allowed
                     if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
                     // Throw if slot is locked
-                    if (!string.Equals(currentAppearanceData.SlotOneGagType, None, StringComparison.Ordinal)) throw new Exception("Slot One is locked!");
+                    if (!string.Equals(currentAppearanceData.SlotOneGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot One is locked!");
                     // Update the respective appearance data.
                     currentAppearanceData.SlotOneGagType = None;
                     currentAppearanceData.SlotOneGagAssigner = string.Empty;
@@ -447,7 +635,7 @@ public partial class GagspeakHub
                     // Throw if GagFeatures not allowed
                     if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
                     // Throw if slot is locked
-                    if (!string.Equals(currentAppearanceData.SlotTwoGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Two is locked!");
+                    if (!string.Equals(currentAppearanceData.SlotTwoGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Two is locked!");
                     // Update the respective appearance data.
                     currentAppearanceData.SlotTwoGagType = None;
                     currentAppearanceData.SlotTwoGagAssigner = string.Empty;
@@ -458,7 +646,7 @@ public partial class GagspeakHub
                     // Throw if GagFeatures not allowed
                     if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
                     // Throw if slot is locked
-                    if (!string.Equals(currentAppearanceData.SlotThreeGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Three is locked!");
+                    if (!string.Equals(currentAppearanceData.SlotThreeGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Three is locked!");
                     // Update the respective appearance data.
                     currentAppearanceData.SlotThreeGagType = None;
                     currentAppearanceData.SlotThreeGagAssigner = string.Empty;
@@ -492,32 +680,13 @@ public partial class GagspeakHub
             SlotThreeGagAssigner = currentAppearanceData.SlotThreeGagAssigner
         };
 
-        // Grabs all Pairs of the affected pair
-        var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        // Filter the list to only include online pairs
-        var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        // Convert from Dictionary<string,string> to List<string> of UID's.
-        var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all these pairs are cached for that pair. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allPairsOfAffectedPair, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
-        // also grab our client callers userData from the pairPermissions table, preventing a need for a 3rd DB call.
-        var clientCallerUserData = pairPermissions.OtherUser.ToUserData();
-
         // send them a self update message.
         await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAppearance(
-            new OnlineUserCharaAppearanceDataDto(clientCallerUserData, updatedAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+            new OnlineUserCharaAppearanceDataDto(UserUID.ToUserDataFromUID(), updatedAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Push the updated IPC data out to all the online pairs of the affected pair.
         await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataAppearance(
-            new OnlineUserCharaAppearanceDataDto(dto.User, dto.AppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+            new OnlineUserCharaAppearanceDataDto(dto.User, updatedAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
@@ -527,7 +696,7 @@ public partial class GagspeakHub
     public async Task UserPushPairDataWardrobeUpdate(OnlineUserCharaWardrobeDataDto dto)
     {
         // display the ags being passed in.
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Throw exception if attempting to modifier client caller. That's not this functions purpose.
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
@@ -539,6 +708,23 @@ public partial class GagspeakHub
         // Fetch affected pair's current activeState data from the DB
         var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (userActiveState == null) throw new Exception("User has no Active State Data!");
+
+        // Grabs all Pairs of the affected pair
+        var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        // Filter the list to only include online pairs
+        var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        // Convert from Dictionary<string,string> to List<string> of UID's.
+        var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+
+        // Verify all these pairs are cached for that pair. If not, cache them.
+        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        if (!allCached)
+        {
+            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        }
+
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         // Perform security check on the UpdateKind, to make sure client caller is not exploiting the system.
         switch (dto.UpdateKind)
@@ -566,7 +752,7 @@ public partial class GagspeakHub
                     // Perform the update logic for the wardrobe data.
                     userActiveState.WardrobeActiveSetLocked = true;
                     userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.ActiveSetLockedBy;
-
+                    userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.ActiveSetLockTime;
                 }
                 break;
             case DataUpdateKind.WardrobeRestraintUnlocked:
@@ -581,9 +767,10 @@ public partial class GagspeakHub
                     // Perform the update logic for the wardrobe data.
                     userActiveState.WardrobeActiveSetLocked = false;
                     userActiveState.WardrobeActiveSetLockAssigner = string.Empty;
+                    userActiveState.WardrobeActiveSetLockTime = DateTimeOffset.MinValue;
                 }
                 break;
-            case DataUpdateKind.WardrobeRestraintRemoved:
+            case DataUpdateKind.WardrobeRestraintDisabled:
                 {
                     // Throw if permission to remove sets is not granted.
                     if (!pairPermissions.RemoveRestraintSets) throw new Exception("Pair doesn't allow you to use WardrobeRemoving on them!");
@@ -600,38 +787,28 @@ public partial class GagspeakHub
                 throw new Exception("Invalid UpdateKind for Wardrobe Data!");
         }
 
+        // build new DTO to send off.
+        var updatedWardrobeData = new CharacterWardrobeData()
+        {
+            OutfitNames = dto.WardrobeData.OutfitNames, // this becomes irrelevant since none of these settings change this.
+            ActiveSetName = userActiveState.WardrobeActiveSetName,
+            ActiveSetEnabledBy = userActiveState.WardrobeActiveSetAssigner,
+            ActiveSetIsLocked = userActiveState.WardrobeActiveSetLocked,
+            ActiveSetLockedBy = userActiveState.WardrobeActiveSetLockAssigner,
+            ActiveSetLockTime = dto.WardrobeData.ActiveSetLockTime,
+        };
+
         // update the changes to the database.
         DbContext.UserActiveStateData.Update(userActiveState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // no need to create new DTO since we use the existing one.
-
-        // Grabs all Pairs of the affected pair
-        var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        // Filter the list to only include online pairs
-        var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        // Convert from Dictionary<string,string> to List<string> of UID's.
-        var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all these pairs are cached for that pair. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allPairsOfAffectedPair, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
-        // also grab our client callers userData from the pairPermissions table, preventing a need for a 3rd DB call.
-        var clientCallerUserData = pairPermissions.OtherUser.ToUserData();
-
-        // send them a self update message.
+        // send them a self update message, setting us as the user who appled, with the updated wardrobe data.
         await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(
-            new OnlineUserCharaWardrobeDataDto(clientCallerUserData, dto.WardrobeData, dto.UpdateKind)).ConfigureAwait(false);
+            new OnlineUserCharaWardrobeDataDto(UserUID.ToUserDataFromUID(), updatedWardrobeData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Push the updated wardrobe data out to all the online pairs of the affected pair.
         await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataWardrobe(
-            new OnlineUserCharaWardrobeDataDto(dto.User, dto.WardrobeData, dto.UpdateKind)).ConfigureAwait(false);
+            new OnlineUserCharaWardrobeDataDto(dto.User, updatedWardrobeData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
@@ -641,7 +818,7 @@ public partial class GagspeakHub
     public async Task UserPushPairDataToyboxUpdate(OnlineUserCharaToyboxDataDto dto)
     {
         // display the ags being passed in.
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Throw exception if attempting to modifier client caller. That's not this functions purpose.
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
@@ -653,6 +830,23 @@ public partial class GagspeakHub
         // Fetch affected pair's current activeState data from the DB
         var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (userActiveState == null) throw new Exception("User has no Active State Data!");
+
+        // Grabs all Pairs of the affected pair
+        var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        // Filter the list to only include online pairs
+        var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        // Convert from Dictionary<string,string> to List<string> of UID's.
+        var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+
+        // Verify all these pairs are cached for that pair. If not, cache them.
+        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        if (!allCached)
+        {
+            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        }
+
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         // Perform security check on the UpdateKind, to make sure client caller is not exploiting the system.
         switch (dto.UpdateKind)
@@ -712,29 +906,11 @@ public partial class GagspeakHub
         DbContext.UserActiveStateData.Update(userActiveState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // Grabs all Pairs of the affected pair
-        var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        // Filter the list to only include online pairs
-        var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        // Convert from Dictionary<string,string> to List<string> of UID's.
-        var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all these pairs are cached for that pair. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allPairsOfAffectedPair, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
-
-        // also grab our client callers userData from the pairPermissions table, preventing a need for a 3rd DB call.
-        var clientCallerUserData = pairPermissions.OtherUser.ToUserData();
+        // Message SHOULDNT change, so should just need to send back Dto.
 
         // send them a self update message.
         await Clients.User(dto.User.UID).Client_UserReceiveOwnDataToybox(
-            new OnlineUserCharaToyboxDataDto(clientCallerUserData, dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
+            new OnlineUserCharaToyboxDataDto(UserUID.ToUserDataFromUID(), dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
 
         // Push the updated IPC data out to all the online pairs of the affected pair.
         await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataToybox(

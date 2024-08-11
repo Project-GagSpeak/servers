@@ -19,6 +19,11 @@ public static class Extensions
         return new UserData(user.UID, string.IsNullOrWhiteSpace(user.Alias) ? null : user.Alias, user.VanityTier);
     }
 
+    public static UserData ToUserDataFromUID(this string UserUID)
+    {
+        return new UserData(UserUID, null, null);
+    }
+
     /// <summary> Fetch the individual pair status based on the userInfo </summary>
     public static IndividualPairStatus ToIndividualPairStatus(this UserInfo userInfo)
     {

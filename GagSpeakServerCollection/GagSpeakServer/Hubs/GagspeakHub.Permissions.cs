@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using System.Reflection;
+using GagspeakAPI.Data;
 
 namespace GagspeakServer.Hubs;
 
@@ -296,11 +297,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         // fetch our user
         User? user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user == null) throw new Exception("User not found");
 
         // callback the updated info to the client caller as well so it can update properly.
         await Clients.User(UserUID).Client_UserUpdateSelfPairPerms(dto).ConfigureAwait(false);
         // send a callback to the userpair we updated our permission for, so they get the updated info
-        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPerms(new UserPairPermChangeDto(new GagspeakAPI.Data.UserData(user!.UID, user.Alias), dto.ChangedPermission)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserUpdateOtherPairPerms(new UserPairPermChangeDto(new UserData(user.UID, user.Alias), dto.ChangedPermission)).ConfigureAwait(false);
 
         // grab the other players pair perms for you
         var pairData = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
@@ -385,7 +387,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // inform the userpair we modified to update their own permissions
-        await Clients.User(dto.User.UID).Client_UserUpdateSelfPairPerms(dto).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserUpdateSelfPairPerms(new(new UserData(UserUID), dto.ChangedPermission)).ConfigureAwait(false);
         // inform the client caller to update the modified userpairs permission
         await Clients.Caller.Client_UserUpdateOtherPairPerms(dto).ConfigureAwait(false);
     }

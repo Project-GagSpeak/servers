@@ -230,7 +230,6 @@ public partial class GagspeakHub
 
         // Get pair info of the user we are removing
         var pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
-        if (pairData == null) throw new Exception("PairData was null, this should not happen.");
 
         // remove the client pair from the database and update changes
         DbContext.ClientPairs.Remove(callerPair);
@@ -264,9 +263,12 @@ public partial class GagspeakHub
         // but if not, then fetch the new pair data
         var currentPairData = await GetPairInfo(dto.User.UID, UserUID).ConfigureAwait(false);
 
-        // if the now current pair data is no longer synced, then send offline to both ends
-        await Clients.User(UserUID).Client_UserSendOffline(dto).ConfigureAwait(false);
-        await Clients.User(dto.User.UID).Client_UserSendOffline(new(new(UserUID))).ConfigureAwait(false);
+        if(!currentPairData?.IsSynced ?? true)
+        {
+            // if the now current pair data is no longer synced, then send offline to both ends
+            await Clients.User(UserUID).Client_UserSendOffline(dto).ConfigureAwait(false);
+            await Clients.User(dto.User.UID).Client_UserSendOffline(new(new(UserUID))).ConfigureAwait(false);
+        }
     }
 
 
@@ -398,25 +400,19 @@ public partial class GagspeakHub
         // fetch all the pair information of the client caller
         var pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
 
-
-        foreach(var pair in pairs)
-        {
-            _logger.LogWarning($"Other Pair Access ApplyRestraintSetsAllowed {pair.Key}: {pair.Value.otherPairPermissionAccess.ApplyRestraintSetsAllowed}");
-        }
-
-
         var userPairDtos = new List<UserPairDto>();
 
         // return the list of UserPair DTO's containing the paired clients of the client caller
         return pairs.Select(p =>
         {
-            return new UserPairDto(new UserData(p.Key, p.Value.Alias),
+            var pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias),
                 p.Value.ToIndividualPairStatus(),
                 p.Value.ownPairPermissions.ToApiUserPairPerms(),
                 p.Value.ownPairPermissionAccess.ToApiUserPairEditAccessPerms(),
                 p.Value.otherGlobalPerms.ToApiGlobalPerms(),
                 p.Value.otherPairPermissions.ToApiUserPairPerms(),
                 p.Value.otherPairPermissionAccess.ToApiUserPairEditAccessPerms());
+            return pairList;
         }).ToList();
     }
 

@@ -6,9 +6,7 @@ namespace GagspeakShared.Metrics;
 /// <summary> The metrics class for Gagspeak, used to track a number of interactions made across all users over the lifetime of GagSpeak. </summary>
 public class GagspeakMetrics
 {
-#pragma warning disable MA0016 // Prefer using collection abstraction instead of implementation
     public GagspeakMetrics(ILogger<GagspeakMetrics> logger, List<string> countersToServe, List<string> gaugesToServe)
-#pragma warning restore MA0016 // Prefer using collection abstraction instead of implementation
     {
         logger.LogInformation("Initializing GagspeakMetrics");
         foreach (var counter in countersToServe)
