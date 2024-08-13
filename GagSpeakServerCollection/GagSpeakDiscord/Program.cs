@@ -1,8 +1,8 @@
-using GagspeakDiscord;
 using GagspeakShared.Data;
 using GagspeakShared.Services;
 using GagspeakShared.Utils.Configuration;
 
+namespace GagspeakDiscord;
 // the main program class for the gagspeak discord bot / discord center.
 public class Program
 {
