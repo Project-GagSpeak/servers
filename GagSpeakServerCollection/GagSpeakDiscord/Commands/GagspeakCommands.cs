@@ -109,9 +109,11 @@ public class GagspeakCommands : InteractionModuleBase
             // An HttpClient is created to send a POST request to a specific URI
             using HttpClient c = new HttpClient();
             // The POST request is sent asynchronously with a JSON payload containing a new ClientMessage
-            await c.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>
+            var responce = await c.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>
                 (nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
                 .ConfigureAwait(false);
+            // ensure the message was sent.
+            responce.EnsureSuccessStatusCode();
 
             // The Discord channel for messages is retrieved from the configuration service
             var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);

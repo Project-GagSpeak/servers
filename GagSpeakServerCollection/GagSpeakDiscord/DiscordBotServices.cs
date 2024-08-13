@@ -68,7 +68,7 @@ public class DiscordBotServices
         while (!verificationTaskCts.IsCancellationRequested)
         {
             // log the debug message that we are processing the verification queue
-            Logger.LogDebug("Processing Verification Queue, Entries: {entr}", VerificationQueue.Count);
+            Logger.LogTrace("Processing Verification Queue, Entries: {entr}", VerificationQueue.Count);
             // if the queue has a peeked item
             if (VerificationQueue.TryPeek(out var queueitem))
             {
