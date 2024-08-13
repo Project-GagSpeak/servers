@@ -18,6 +18,7 @@ public partial class AccountWizard
         StringBuilder sb = new();
         var user = await Context.Guild.GetUserAsync(Context.User.Id).ConfigureAwait(false);
         bool userIsInVanityRole = _botServices.VanityRoles.Keys.Any(u => user.RoleIds.Contains(u.Id)) || !_botServices.VanityRoles.Any();
+        _logger.LogInformation("{method}:{userId}:{userIsInVanityRole}", nameof(ComponentVanity), Context.Interaction.User.Id, userIsInVanityRole);
         if (!userIsInVanityRole)
         {
             sb.AppendLine("To be able to set Vanity IDs you must have one of the following roles:");

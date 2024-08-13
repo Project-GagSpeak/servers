@@ -35,13 +35,13 @@ public class Startup
         // start the metrics server
         metricServer.Start();
 
-
         // configure gagspeak's discord servers to use routing
         app.UseRouting();
         // and set the endpoints to a dummyhub. The dummyhub is a hack for redi's (thanks mare again for figuring this out).
         app.UseEndpoints(e =>
         {
             e.MapHub<GagspeakServer.Hubs.GagspeakHub>("/dummyhub");
+
         });
     }
 
