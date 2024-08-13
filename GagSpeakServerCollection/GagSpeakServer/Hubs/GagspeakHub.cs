@@ -65,8 +65,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         _onlineSyncedPairCacheService = onlineSyncedPairCacheService;
         _logger = new GagspeakHubLogger(this, logger);
         _dbContextLazy = new Lazy<GagspeakDbContext>(() => GagSpeakDbContextFactory.CreateDbContext());
-
-        _logger.LogWarning($"Total connections: {_metrics.}")
     }
 
     /// <summary> Disposes of the database context if created upon the GagSpeak hub's disposal.</summary>
@@ -301,6 +299,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "UpdatingId", oldId, Context.ConnectionId));
             // Update concurrent dictionary with unique ID
             _userConnections[UserUID] = Context.ConnectionId;
+            // add the user to the global chat group
+            await Groups.AddToGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
         }
         // otherwise, this is a new connection, so lets establish it.
         else
@@ -314,11 +314,16 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 // Finally, update the user onto the redi's server, then set their connection ID in the concurrent dictionary.
                 await UpdateUserOnRedis().ConfigureAwait(false);
                 _userConnections[UserUID] = Context.ConnectionId;
+                // add the user to the global chat group
+                await Groups.AddToGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
             }
             catch
             {
                 // if at any point we catch an error, then remove the user from the concurrent dictionary of user connections.
+
                 _userConnections.Remove(UserUID, out _);
+                // remove user from the global chat group
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
             }
         }
         await base.OnConnectedAsync().ConfigureAwait(false);
@@ -383,6 +388,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             {
                 // finally, remove this user from the concurrent dictionary of connected users.
                 _userConnections.Remove(UserUID, out _);
+                // remove user from the global chat group
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
             }
         }
         // if we reach here, we should log a warning that the user disconnecting was not in the dictionary of connected users.

@@ -450,7 +450,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task UserSetProfile(UserProfileDto dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
 
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new HubException("Cannot modify profile data for anyone but yourself");
 
@@ -486,7 +486,7 @@ public partial class GagspeakHub
             using var image = Image.Load<Rgba32>(imageData);
 
             // Ensure Image meets required parameters.
-            if (image.Width > 256 || image.Height > 256 || (imageData.Length > 250 * 1024))
+            if (image.Width > 256 || image.Height > 256)
             {
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your provided image file is larger than 256x256 or more than 250KiB.").ConfigureAwait(false);
                 return;

@@ -18,7 +18,7 @@ namespace GagspeakServer.Hubs;
 /// Which is handled is determined by the function call name, and verification checks will be made.
 /// </para>
 /// </summary>
-public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
+public partial class GagspeakHub
 {
     /// <summary>
     /// Pushes an updated state of all the client pairs permissions for a defined user
