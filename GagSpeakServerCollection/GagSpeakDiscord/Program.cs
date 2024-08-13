@@ -28,14 +28,25 @@ public class Program
             // Get the logger instance for the program class
             var logger = host.Services.GetService<ILogger<Program>>();
 
-            // Log the loaded Gagspeak Services Configuration.
-            logger.LogInformation("Loaded Gagspeak Services Configuration (IsMain: {isMain})", options.IsMain);
-            // Log the Discord configuration options.
-            logger.LogInformation(options.ToString());
-            // Log the loaded Gagspeak Server Configuration.
-            logger.LogInformation("Loaded Gagspeak Server Configuration (IsMain: {isMain})", optionsServer.IsMain);
-            // Log the Server configuration options.
-            logger.LogInformation(optionsServer.ToString());
+            if (optionsServer != null)
+            {
+                logger.LogInformation("Loaded Gagspeak Server Configuration (IsMain: {isMain})", optionsServer.IsMain);
+                logger.LogInformation(optionsServer.ToString());
+            }
+            else
+            {
+                logger.LogWarning("ServerConfiguration options are null.");
+            }
+
+            if (options != null)
+            {
+                logger.LogInformation("Loaded Gagspeak Services Configuration (IsMain: {isMain})", options.IsMain);
+                logger.LogInformation(options.ToString());
+            }
+            else
+            {
+                logger.LogWarning("DiscordConfiguration options are null.");
+            }
         }
 
         // Run the host.

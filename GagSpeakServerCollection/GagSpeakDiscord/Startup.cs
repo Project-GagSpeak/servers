@@ -50,16 +50,6 @@ public class Startup
     {
         // get the gagspeak config
         var gagSpeakConfigSection = _config.GetSection("GagSpeak");
-        if (!gagSpeakConfigSection.Exists())
-        {
-            throw new InvalidOperationException("Section 'GagSpeak' not found in configuration.");
-        }
-
-        var redisConnectionString = gagSpeakConfigSection["RedisConnectionString"];
-        if (string.IsNullOrEmpty(redisConnectionString))
-        {
-            throw new ArgumentException("RedisConnectionString in 'GagSpeak' section is empty.");
-        }
 
         // add the gagspeak database context to the services. Be sure we set it up with the correct options.
         services.AddDbContextPool<GagspeakDbContext>(options =>
@@ -130,9 +120,7 @@ public class Startup
         services.AddSingleton(_config);
         services.AddSingleton<ServerTokenGenerator>();
         services.AddSingleton<DiscordBotServices>();
-
-        services.AddHostedService<DiscordBot>(); // add the discord bot as a hosted service
-
+        services.AddHostedService<DiscordBot>();
         services.AddSingleton<IConfigurationService<DiscordConfiguration>, GagspeakConfigServiceServer<DiscordConfiguration>>();
         services.AddSingleton<IConfigurationService<ServerConfiguration>, GagspeakConfigServiceClient<ServerConfiguration>>();
         services.AddSingleton<IConfigurationService<GagspeakConfigurationBase>, GagspeakConfigServiceClient<GagspeakConfigurationBase>>();
