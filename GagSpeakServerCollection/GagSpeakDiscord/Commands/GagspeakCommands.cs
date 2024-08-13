@@ -5,6 +5,7 @@ using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
 using GagspeakShared.Utils;
+using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 
@@ -192,7 +193,7 @@ public class GagspeakCommands : InteractionModuleBase
         await FollowupAsync($"Purge completed for users inactive for {timeFrame}.");
     }
 
-    [SlashCommand("forceReconnect", "ADMIN ONLY: forcibly reconnects all online connected clients")]
+    [SlashCommand("forcereconnect", "ADMIN ONLY: forcibly reconnects all online connected clients")]
     public async Task ForceReconnectOnlineUsers([Summary("message", "Message to send with reconnection notification")] string message,
     [Summary("severity", "Severity of the message")] MessageSeverity messageType = MessageSeverity.Information)
     {
@@ -249,7 +250,7 @@ public class GagspeakCommands : InteractionModuleBase
         }
     }
 
-    [SlashCommand("updateroles", "Updates roles for users with 'Distinguished Connoisseur', 'Server Booster', or 'Esteemed Patron' roles")]
+    [SlashCommand("updateroles", "Updates roles for users with supporter roles")]
     public async Task UpdateRoles()
     {
         // log the used slash command

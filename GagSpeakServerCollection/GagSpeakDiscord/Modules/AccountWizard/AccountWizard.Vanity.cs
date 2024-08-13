@@ -29,12 +29,21 @@ public partial class AccountWizard
         else
         {
             sb.AppendLine("Your current roles on this server allow you to set Vanity IDs.");
+            // display the role that allows us to get here.
+            foreach (var role in _botServices.VanityRoles)
+            {
+                if (user.RoleIds.Contains(role.Key.Id))
+                {
+                    sb.AppendLine("You are currently in the role: " + role.Key.Mention + " (" + role.Value + ")");
+                }
+            }
         }
 
         EmbedBuilder eb = new();
-        eb.WithTitle("Vanity IDs");
-        eb.WithDescription("You are able to set your Vanity IDs here." + Environment.NewLine
-            + "Vanity IDs are a way to customize your displayed UID or Syncshell ID to others." + Environment.NewLine + Environment.NewLine
+        eb.WithTitle("Supporter Vanity Perks");
+        eb.WithDescription("As a supporter, you will have a unique icon beside your name in the pair list & profile." + Environment.NewLine
+            + "Additionally, you will be able to set a UID Alias." + Environment.NewLine
+            + "UID Alias's are a customizable label for your profiles UID that others will be able to see!." + Environment.NewLine + Environment.NewLine
             + sb.ToString());
         eb.WithColor(Color.Magenta);
         ComponentBuilder cb = new();
@@ -58,7 +67,7 @@ public partial class AccountWizard
         using var db = GetDbContext();
         var user = db.Users.Single(u => u.UID == uid);
         EmbedBuilder eb = new();
-        eb.WithColor(Color.Purple);
+        eb.WithColor(Color.Red);
         eb.WithTitle($"Set Vanity UID for {uid}");
         eb.WithDescription($"You are about to change the Vanity UID for {uid}" + Environment.NewLine + Environment.NewLine
             + "The current Vanity UID is set to: **" + (user.Alias == null ? "No Vanity UID set" : user.Alias) + "**");

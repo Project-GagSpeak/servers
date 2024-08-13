@@ -1,5 +1,4 @@
-﻿using GagspeakDiscord;
-using GagspeakShared.Utils;
+﻿using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -30,11 +29,11 @@ public class GagspeakConfigServiceClient<T> : IHostedService, IConfigurationServ
     private Uri GetRoute(string key, string value)
     {
         if (_config.CurrentValue.GetType() == typeof(ServerConfiguration))
-            return new Uri((_config.CurrentValue as ServerConfiguration).MainServerAddress, $"configuration/GagspeakServerConfigurationuration/{nameof(GagspeakServerConfigurationurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
+            return new Uri((_config.CurrentValue as ServerConfiguration).MainServerAddress, $"configuration/GagspeakServerConfiguration/{nameof(GagspeakServerConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
         if (_config.CurrentValue.GetType() == typeof(GagspeakConfigurationBase))
             return new Uri((_config.CurrentValue as GagspeakConfigurationBase).MainServerAddress, $"configuration/GagspeakBaseConfiguration/{nameof(GagspeakBaseConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
         if (_config.CurrentValue.GetType() == typeof(DiscordConfiguration))
-            return new Uri((_config.CurrentValue as DiscordConfiguration).MainServerAddress, $"configuration/GagspeakServicesConfiguration/{nameof(GagspeakDiscordConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
+            return new Uri((_config.CurrentValue as DiscordConfiguration).MainServerAddress, $"configuration/GagspeakDiscordConfiguration/{nameof(GagspeakDiscordConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
 
         throw new NotSupportedException("Config is not supported to be gotten remotely");
     }
@@ -110,6 +109,7 @@ public class GagspeakConfigServiceClient<T> : IHostedService, IConfigurationServ
         {
             Uri route = GetRoute(key, Convert.ToString(defaultValue, CultureInfo.InvariantCulture));
             using HttpRequestMessage msg = new(HttpMethod.Get, route);
+            _logger.LogInformation("Getting Remote Entry for {key} from {route}", key, route);
             msg.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
             using var response = await _httpClient.SendAsync(msg).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();

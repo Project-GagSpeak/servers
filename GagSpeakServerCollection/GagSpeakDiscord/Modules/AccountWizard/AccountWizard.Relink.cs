@@ -8,6 +8,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
+// NOTICE: This file has no current use, and was derived from mare's discord bot framework.
+// THe file is however setup to handle the verification queue, so it may be useful in the future.
 public partial class AccountWizard
 {
     [ComponentInteraction("wizard-relink")]
@@ -20,13 +22,10 @@ public partial class AccountWizard
         EmbedBuilder eb = new();
         eb.WithTitle("Relink");
         eb.WithColor(Color.Magenta);
-        eb.WithDescription("Use this in case you already have a registered GagSpeak account, but lost access to your previous Discord account." + Environment.NewLine + Environment.NewLine
-            + "- Have your original registered Lodestone URL ready (i.e. https://eu.finalfantasyxiv.com/lodestone/character/XXXXXXXXX)" + Environment.NewLine
-            + "  - The relink process requires you to modify your Lodestone profile with a generated code for verification" + Environment.NewLine
-            + "- Do not use this on mobile because you will need to be able to copy the generated secret key");
+        eb.WithDescription("This currently serves no purpose. If you need to relink your account, please contact an administrator.");
         ComponentBuilder cb = new();
         AddHome(cb);
-        cb.WithButton("Start Relink", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔗"));
+        //cb.WithButton("Start Relink", "wizard-relink-start", ButtonStyle.Primary, emote: new Emoji("🔗"));
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 

@@ -85,10 +85,8 @@ public class Startup
         ConfigureRedis(services, gagspeakConfig);
 
         services.AddSingleton<SecretKeyAuthenticatorService>();
-        // services.AddSingleton<GeoIPService>(); <-- Avoid adding this business data collection crap
-        // services.AddHostedService(provider => provider.GetRequiredService<GeoIPService>());
 
-        // ammend the configuration services for the gagspeak authentication server
+        // Amend the configuration services for the gagspeak authentication server
         services.Configure<AuthServiceConfiguration>(_config.GetRequiredSection("GagSpeak"));
         services.Configure<GagspeakConfigurationBase>(_config.GetRequiredSection("GagSpeak"));
 

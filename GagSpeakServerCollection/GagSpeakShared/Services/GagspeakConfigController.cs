@@ -1,5 +1,4 @@
-﻿using GagspeakDiscord;
-using GagspeakShared.Utils.Configuration;
+﻿using GagspeakShared.Utils.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
@@ -41,9 +40,9 @@ public class GagspeakBaseConfigurationController : GagspeakConfigController<Gags
 }
 
 /// <summary> The controller for the server configuration </summary>
-public class GagspeakServerConfigurationurationController : GagspeakConfigController<ServerConfiguration>
+public class GagspeakServerConfigurationController : GagspeakConfigController<ServerConfiguration>
 {
-    public GagspeakServerConfigurationurationController(IOptionsMonitor<ServerConfiguration> config, ILogger<GagspeakServerConfigurationurationController> logger) : base(config, logger)
+    public GagspeakServerConfigurationController(IOptionsMonitor<ServerConfiguration> config, ILogger<GagspeakServerConfigurationController> logger) : base(config, logger)
     {
     }
 }

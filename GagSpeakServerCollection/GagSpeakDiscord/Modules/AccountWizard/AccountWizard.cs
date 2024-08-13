@@ -44,7 +44,7 @@ public partial class AccountWizard : InteractionModuleBase
         // if the interaction was not valid, then return.
         if (!init && !(await ValidateInteraction().ConfigureAwait(false))) return;
 
-        // Interaction was sucessful, so log it.
+        // Interaction was successful, so log it.
         _logger.LogInformation("{method}:{userId}", nameof(StartAccountManagementWizard), Context.Interaction.User.Id);
 
         // fetch the database context to see if they already have a claimed account.
@@ -73,14 +73,13 @@ public partial class AccountWizard : InteractionModuleBase
         if (!hasAccount)
         {
             cb.WithButton("Claim Account", "wizard-claim", ButtonStyle.Primary, new Emoji("🎉"));
-            cb.WithButton("Relink Account", "wizard-relink", ButtonStyle.Secondary, new Emoji("🔗"));
+            //cb.WithButton("Relink Account", "wizard-relink", ButtonStyle.Secondary, new Emoji("🔗"));
         }
         // display if the user has a verified account
         else
         {
-            cb.WithButton("View Profiles", "wizard-view", ButtonStyle.Secondary, new Emoji("📖"));
-            // cb.WithButton("Recover", "wizard-recover", ButtonStyle.Secondary, new Emoji("🏥"));
-            cb.WithButton("Add Profile", "wizard-add", ButtonStyle.Secondary, new Emoji("🏷️"));
+            cb.WithButton("View Profiles", "wizard-profiles", ButtonStyle.Secondary, new Emoji("📖"));
+            cb.WithButton("Add Profile", "wizard-alt-profile", ButtonStyle.Secondary, new Emoji("🏷️"));
             cb.WithButton("Vanity Perks", "wizard-vanity", ButtonStyle.Secondary, new Emoji("💄"));
             cb.WithButton("Remove", "wizard-remove", ButtonStyle.Danger, new Emoji("⚠️"));
         }
@@ -108,7 +107,7 @@ public partial class AccountWizard : InteractionModuleBase
     /// </summary>
     public class VanityUidModal : IModal
     {
-        public string Title => "Create a personalized display name UID";
+        public string Title => "Create an Alias for your UID";
 
         [InputLabel("Set your Vanity UID")]
         [ModalTextInput("vanity_uid", TextInputStyle.Short, "5-15 characters, underscore, dash", 5, 15)]

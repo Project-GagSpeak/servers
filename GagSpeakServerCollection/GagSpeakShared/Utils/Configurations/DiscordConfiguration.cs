@@ -1,7 +1,6 @@
 using System.Text;
-using GagspeakShared.Utils.Configuration;
 
-namespace GagspeakDiscord;
+namespace GagspeakShared.Utils.Configuration;
 
 public class DiscordConfiguration : GagspeakConfigurationBase
 {

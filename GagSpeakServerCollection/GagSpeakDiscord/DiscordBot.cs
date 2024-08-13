@@ -12,6 +12,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using GagspeakShared.Data;
+using GagspeakShared.Utils.Configuration;
 
 namespace GagspeakDiscord;
 

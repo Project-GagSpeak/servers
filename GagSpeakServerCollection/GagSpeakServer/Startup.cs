@@ -89,7 +89,7 @@ public class Startup
             if (gagspeakConfig.GetValue<Uri>(nameof(ServerConfiguration.MainServerAddress), defaultValue: null) == null)
             {
                 a.FeatureProviders.Add(new AllowedControllersFeatureProvider(
-                        typeof(GagspeakServerConfigurationurationController),  // add the server configuration controller
+                        typeof(GagspeakServerConfigurationController),  // add the server configuration controller
                         typeof(GagspeakBaseConfigurationController),    // add the base configuration controller
                         typeof(ClientMessageController)));              // add the client message controller
             }
@@ -445,14 +445,7 @@ public class Startup
                 // configure the transports to be websockets, server sent events, and long polling
                 options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
             });
-/*            // create a maphub that maps the gagspeak hub to the gagspeak hub path
-            endpoints.MapHub<ChatHub>(IGagspeakHub.Path, options =>
-            {
-                options.ApplicationMaxBufferSize = 5242880; // the max buffer size
-                options.TransportMaxBufferSize = 5242880;   // the transport max buffer size
-                // configure the transports to be websockets, server sent events, and long polling
-                options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
-            });*/
+
             // map the health checks to the health endpoint
             endpoints.MapHealthChecks("/health").AllowAnonymous(); // allow anonymous access to the health checks
             

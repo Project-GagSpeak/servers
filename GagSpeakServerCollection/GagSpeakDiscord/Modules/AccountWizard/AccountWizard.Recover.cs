@@ -7,6 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
+// NOTICE: This file has no current use, and was derived from mare's discord bot framework.
+// Because GagSpeak embeds its profiles directly and does not allow the modification of keys, this serves no current purpose.
+// Keep it here however, in the case we may eventually need to use this one day.
 public partial class AccountWizard
 {
     [ComponentInteraction("wizard-recover")]
