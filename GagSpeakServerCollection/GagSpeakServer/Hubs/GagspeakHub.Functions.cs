@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Dto;
+﻿using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Dto;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
@@ -284,6 +285,7 @@ public partial class GagspeakHub
                                 UserUID = user.UserUID,
                                 OtherUserUID = user.OtherUserUID,
                                 OtherUserAlias = u.Alias,
+                                OtherUserSupporterTier = u.VanityTier,
                                 Synced = user.Synced,
                                 OwnGlobalPerms = userGlobalPerm,
                                 OwnPermissions = ownperm,
@@ -302,6 +304,7 @@ public partial class GagspeakHub
         // return the proper object
         return new UserInfo(
             resultList[0].OtherUserAlias, // the alias of the user.
+            resultList[0].OtherUserSupporterTier,
             resultList.Max(p => p.Synced), // if they are synced.
             resultList[0].OwnGlobalPerms,
             resultList[0].OwnPermissions,
@@ -386,6 +389,7 @@ public partial class GagspeakHub
                                 UserUID = user.UserUID,
                                 OtherUserUID = user.OtherUserUID,
                                 OtherUserAlias = u.Alias,
+                                OtherUserSupporterTier = u.VanityTier,
                                 Synced = user.Synced,
                                 OwnGlobalPerms = userGlobalPerm,
                                 OwnPermissions = ownperm,
@@ -408,6 +412,7 @@ public partial class GagspeakHub
             // for some unexplainable reason, putting a return where the var is makes this no longer work. I dont fucking know why, it just doesnt.
             var userInfo = new UserInfo(
                 g.First().OtherUserAlias, // the alias of the user.
+                g.First().OtherUserSupporterTier,
                 g.Max(p => p.Synced), // if they are synced.
                 g.First().OwnGlobalPerms,
                 g.First().OwnPermissions,
@@ -492,6 +497,7 @@ public partial class GagspeakHub
 
     public record UserInfo(
         string Alias, 
+        CkSupporterTier SupporterTier,
         bool IsSynced,
         UserGlobalPermissions ownGlobalPerms,
         ClientPairPermissions ownPairPermissions,

@@ -405,7 +405,7 @@ public partial class GagspeakHub
         // return the list of UserPair DTO's containing the paired clients of the client caller
         return pairs.Select(p =>
         {
-            var pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias),
+            var pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier),
                 p.Value.ToIndividualPairStatus(),
                 p.Value.ownPairPermissions.ToApiUserPairPerms(),
                 p.Value.ownPairPermissionAccess.ToApiUserPairEditAccessPerms(),

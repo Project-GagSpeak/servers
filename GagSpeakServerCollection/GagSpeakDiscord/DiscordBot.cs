@@ -307,8 +307,8 @@ internal class DiscordBot : IHostedService
                         { "Kinkporium Mistress", CkSupporterTier.KinkporiumMistress },
                         { "Distinguished Connoisseur", CkSupporterTier.DistinguishedConnoisseur },
                         { "Esteemed Patron", CkSupporterTier.EsteemedPatron },
-                        { "Illustrious Supporter", CkSupporterTier.IllustriousSupporter },
-                        { "Server Booster", CkSupporterTier.ServerBooster }
+                        { "Server Booster", CkSupporterTier.ServerBooster },
+                        { "Illustrious Supporter", CkSupporterTier.IllustriousSupporter }
                     };
 
                     // narrow the list down to only the users with valid accounts with no active role.
