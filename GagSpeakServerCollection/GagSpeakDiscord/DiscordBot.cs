@@ -134,6 +134,7 @@ internal class DiscordBot : IHostedService
             await _interactionModule.RegisterCommandsToGuildAsync(guild.Id, true).ConfigureAwait(false);
             await CreateOrUpdateModal(guild).ConfigureAwait(false);
             _ = UpdateVanityRoles(guild);
+            _ = AddPerksToUsersWithVanityRole(guild);
             _ = RemovePerksFromUsersNotInVanityRole();
         }
     }
@@ -246,7 +247,7 @@ internal class DiscordBot : IHostedService
             try
             {
                 // begin to update the vanity roles. 
-                _logger.LogInformation("Updating Vanity Roles");
+                _logger.LogInformation("Updating Vanity Roles From Config File");
                 // fetch the roles from the configuration list.
                 Dictionary<ulong, string> vanityRoles = _discordConfigService.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
                 // if the vanity roles are not the same as the list fetched from the bot service,
@@ -265,7 +266,7 @@ internal class DiscordBot : IHostedService
                 }
 
                 // schedule this task every 5 minutes. (since i dont think we will need it often or ever change it.
-                await Task.Delay(TimeSpan.FromMinutes(300), _updateStatusCts.Token).ConfigureAwait(false);
+                await Task.Delay(TimeSpan.FromHours(6), _updateStatusCts.Token).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -277,16 +278,12 @@ internal class DiscordBot : IHostedService
     /// <summary>
     /// Helps assign vanity perks to any users with an appropriate vanity role, and assigns them the perks.
     /// </summary>
-    private async Task AddPerksToUsersWithVanityRole()
+    private async Task AddPerksToUsersWithVanityRole(RestGuild CKrestGuild)
     {
         _vanityAddUsersCts?.Cancel();
         _vanityAddUsersCts?.Dispose();
         _vanityAddUsersCts = new();
         var token = _vanityAddUsersCts.Token;
-        // grab the guild from the guild ID of Cordy's Kinkporium
-        var restGuild = await _discordClient.Rest.GetGuildAsync(878511238764720129);
-        // grab the application ID from the bot
-        var appId = await _discordClient.GetApplicationInfoAsync().ConfigureAwait(false);
 
         // while the cancellation token is not requested
         while (!token.IsCancellationRequested)
@@ -323,7 +320,7 @@ internal class DiscordBot : IHostedService
                     foreach (var validAccount in validClaimedAccounts)
                     {
                         // grab the discord user.
-                        var discordUser = await restGuild.GetUserAsync(validAccount.DiscordId).ConfigureAwait(false);
+                        var discordUser = await CKrestGuild.GetUserAsync(validAccount.DiscordId).ConfigureAwait(false);
 
                         // check to see if the user has any of the roles.
                         if (discordUser != null && discordUser.RoleIds.Any(u => allowedRoleIds.Keys.Contains(u)))
