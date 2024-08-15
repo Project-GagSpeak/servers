@@ -79,26 +79,8 @@ public class Startup
         services.AddHealthChecks();
         _logger.LogInformation("Health Checks Configured");
 
-        // we now need to add the controllers for our applications so that we know where to route the requests
-        services.AddControllers().ConfigureApplicationPartManager(a =>
-        {
-            // remove the controller feature provider and add the allowed controllers feature provider
-            a.FeatureProviders.Remove(a.FeatureProviders.OfType<ControllerFeatureProvider>().First());
-            // fetch the main server address from the gagspeak config. If it is null
-            // (not main server for whatever reason, which should never happen), add the controllers with limited scopes.
-            if (gagspeakConfig.GetValue<Uri>(nameof(ServerConfiguration.MainServerAddress), defaultValue: null) == null)
-            {
-                a.FeatureProviders.Add(new AllowedControllersFeatureProvider(
-                        typeof(GagspeakServerConfigurationController),  // add the server configuration controller
-                        typeof(GagspeakBaseConfigurationController),    // add the base configuration controller
-                        typeof(ClientMessageController)));              // add the client message controller
-            }
-            // otherwise, if it is the main server, add all controllers (should always be running)
-            else
-            {
-                a.FeatureProviders.Add(new AllowedControllersFeatureProvider());
-            }
-        });
+        // Thank you for the helpppppppp I really apperciate it <3
+        services.AddControllers();
         _logger.LogInformation("Controllers Configured");
     }
 
