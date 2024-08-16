@@ -288,9 +288,9 @@ public partial class GagspeakHub
 
         // push the notification to the recipient user
         await Clients.User(recipientUid).Client_UserReceiveOtherDataAlias(
-            new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData)).ConfigureAwait(false);
+            new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
         // push the notification to the client caller
-        await Clients.Caller.Client_UserReceiveOtherDataAlias(new OnlineUserCharaAliasDataDto(dto.RecipientUser, dto.AliasData)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOtherDataAlias(new OnlineUserCharaAliasDataDto(dto.RecipientUser, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
 
         // inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAlias);
@@ -813,6 +813,30 @@ public partial class GagspeakHub
         // Inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, allOnlinePairsOfAffectedPairUids.Count);
+    }
+
+    public async Task UserPushPairDataAliasStorageUpdate(OnlineUserCharaAliasDataDto dto)
+    {
+        // display the ags being passed in.
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        // Throw exception if attempting to modifier client caller. That's not this functions purpose.
+        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
+
+        // verify that a pair between the two clients is made.
+        var pairPermissions = await DbContext.ClientPairs.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
+
+        // ensure that the update kind of to change the registered names. If it is not, throw exception.
+        if (dto.UpdateKind != DataUpdateKind.PuppeteerPlayerNameRegistered) throw new Exception("Invalid UpdateKind for Alias Data!");
+
+        // in our dto, we have the PAIR WE ARE PROVIDING OUR NAME TO as the userdata, with our name info inside.
+        // so when we construct the message to update the client's OWN data, we need to place the client callers name info inside.
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAlias(
+            new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
+
+        // when we push the update back to our client caller, we must inform them that the client callers name was updated.
+        await Clients.Caller.Client_UserReceiveOtherDataAlias(new OnlineUserCharaAliasDataDto(dto.User, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
     }
 
     public async Task UserPushPairDataToyboxUpdate(OnlineUserCharaToyboxDataDto dto)
