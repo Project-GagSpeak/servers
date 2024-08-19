@@ -349,52 +349,6 @@ public partial class GagspeakHub
         var pairPermissions = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
         if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
-        // Perform security check on the UpdateKind, to make sure client caller is not exploiting the system.
-        switch (dto.UpdateKind)
-        {
-            // TODO: Potentially fix this if we accidentally reversed the direction of permission checking.
-            case DataUpdateKind.IpcMoodleFromNonRecipientMoodleListAdded:
-            case DataUpdateKind.IpcMoodlePresetFromNonRecipientMoodleListAdded:
-                {
-                    // Throw if the respective permission is not allowed
-                    if (!pairPermissions.PairCanApplyOwnMoodlesToYou) throw new Exception("Pair doesn't allow you to apply your Moodles onto them!");
-                    // Perform the update logic for the IPC data.
-                }
-                break;
-            case DataUpdateKind.IpcMoodleFromRecipientMoodleListAdded:
-            case DataUpdateKind.IpcMoodlePresetFromRecipientMoodleListAdded:
-                {
-                    // Throw if the respective permission is not allowed
-                    if (!pairPermissions.PairCanApplyYourMoodlesToYou) throw new Exception("Pair doesn't allow you to apply their Moodles onto them!");
-                    // Perform the update logic for the IPC data.
-                }
-                break;
-            case DataUpdateKind.IpcMoodleFromNonRecipientMoodleListRemoved:
-            case DataUpdateKind.IpcMoodlePresetFromNonRecipientMoodleListRemoved:
-                {
-                    // Throw if the respective permission is not allowed
-                    if (!pairPermissions.PairCanApplyOwnMoodlesToYou) throw new Exception("Pair doesn't allow you to remove your Moodles from them!");
-                    // Perform the update logic for the IPC data.
-                }
-                break;
-            case DataUpdateKind.IpcMoodleFromRecipientMoodleListRemoved:
-            case DataUpdateKind.IpcMoodlePresetFromRecipientMoodleListRemoved:
-                {
-                    // Throw if the respective permission is not allowed
-                    if (!pairPermissions.PairCanApplyYourMoodlesToYou) throw new Exception("Pair doesn't allow you to remove their Moodles from them!");
-                    // Perform the update logic for the IPC data.
-                }
-                break;
-            case DataUpdateKind.IpcMoodlesCleared:
-                {
-                    // Throw if the respective permission is not allowed
-                    if (!pairPermissions.AllowRemovingMoodles) throw new Exception("Pair doesn't allow you to clear their Moodles!");
-                    // Perform the update logic for the IPC data.
-                }
-                break;
-            default:
-                throw new Exception("Invalid UpdateKind for IPC Data!");
-        }
 
         // Because the person changing the pairs permission doesnt know all of the pair's added UserPairs, fetch them.
         var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
@@ -875,25 +829,6 @@ public partial class GagspeakHub
         // Perform security check on the UpdateKind, to make sure client caller is not exploiting the system.
         switch (dto.UpdateKind)
         {
-            case DataUpdateKind.IpcMoodleFromNonRecipientMoodleListAdded:
-            case DataUpdateKind.IpcMoodlePresetFromNonRecipientMoodleListAdded:
-                if (!pairPermissions.PairCanApplyOwnMoodlesToYou) throw new Exception("Pair doesn't allow you to apply your Moodles onto them!");
-                break;
-            case DataUpdateKind.IpcMoodleFromRecipientMoodleListAdded:
-            case DataUpdateKind.IpcMoodlePresetFromRecipientMoodleListAdded:
-                if (!pairPermissions.PairCanApplyYourMoodlesToYou) throw new Exception("Pair doesn't allow you to apply their Moodles onto them!");
-                break;
-            case DataUpdateKind.IpcMoodleFromNonRecipientMoodleListRemoved:
-            case DataUpdateKind.IpcMoodlePresetFromNonRecipientMoodleListRemoved:
-                if (!pairPermissions.PairCanApplyOwnMoodlesToYou) throw new Exception("Pair doesn't allow you to remove your Moodles from them!");
-                break;
-            case DataUpdateKind.IpcMoodleFromRecipientMoodleListRemoved:
-            case DataUpdateKind.IpcMoodlePresetFromRecipientMoodleListRemoved:
-                if (!pairPermissions.PairCanApplyYourMoodlesToYou) throw new Exception("Pair doesn't allow you to remove their Moodles from them!");
-                break;
-            case DataUpdateKind.IpcMoodlesCleared:
-                if (!pairPermissions.AllowRemovingMoodles) throw new Exception("Pair doesn't allow you to clear their Moodles!");
-                break;
             case DataUpdateKind.ToyboxPatternActivated:
                 {
                     if (!pairPermissions.CanExecutePatterns) throw new Exception("Pair doesn't allow you to use ToyboxPatternFeatures on them!");
