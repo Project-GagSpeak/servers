@@ -12,14 +12,8 @@ using System.Runtime.CompilerServices;
 namespace GagspeakServer.Hubs;
 
 /// <summary>
-/// 
 /// This partial class of the GagspeakHub handles helper functions used in the servers function responses to make them cleaner.
-/// 
-/// <para> 
-/// 
-/// Contains the Client Caller context Claims as well for the client caller accessing the gagspeak hub functions. 
-/// 
-/// </para>
+/// <para> Contains the Client Caller context Claims as well for the client caller accessing the gagspeak hub functions </para>
 /// </summary>
 public partial class GagspeakHub
 {
@@ -28,9 +22,7 @@ public partial class GagspeakHub
     public string UserHasTempAccess => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, GagspeakClaimTypes.AccessType, StringComparison.Ordinal))?.Value ?? throw new Exception("No TempAccess in Claims");
 
     /// <summary> 
-    /// 
     /// Helper function to remove a assist with properly deleting a user from all locations in where it was stored.
-    /// 
     /// </summary>
     /// <param name="user"> The User that we wish to remove from the Database </param>
     private async Task DeleteUser(User user)
