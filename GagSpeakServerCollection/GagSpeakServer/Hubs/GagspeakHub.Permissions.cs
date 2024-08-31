@@ -21,8 +21,7 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub
 {
 	/// <summary>
-	/// Pushes an updated state of all the client pairs permissions for a defined user
-	/// to that user. This is used when the client caller selected a permission preset.
+	/// ONLY CALLED UPON WHEN ADDING A NEW USER. SHOULD NOT BE CALLED UPON FOR ANY OTHER REASON.
 	/// </summary>
 	public async Task UserPushAllPerms(UserPairUpdateAllPermsDto dto)
 	{
@@ -58,24 +57,78 @@ public partial class GagspeakHub
 		DbContext.Update(pairAccess);
 		await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-
-		// grab the user pairs of the client caller
-		List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-		var pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
-		// let all pairs of the client caller know their global permissions were just updated in bulk.
-		await Clients.Users(pairsOfClient
-			.Where(p => !string.Equals(p.Key, dto.User.UID, StringComparison.Ordinal))
-			.Select(p => p.Key))
-			.Client_UserUpdateOtherPairPermsGlobalAll(new(UserUID.ToUserDataFromUID(), dto.GlobalPermissions))
-			.ConfigureAwait(false);
-
 		// callback to the user we pushed the permissions for that we have our permissions updated
 		await Clients.User(dto.User.UID).Client_UserUpdateOtherAllPairPerms(new(dto.User, dto.GlobalPermissions, dto.PairPermissions, dto.EditAccessPermissions, false)).ConfigureAwait(false);
 		// callback to the client caller that we have updated our permissions
 		await Clients.Caller.Client_UserUpdateOtherAllPairPerms(new(dto.User, dto.GlobalPermissions, dto.PairPermissions, dto.EditAccessPermissions, true)).ConfigureAwait(false);
 	}
 
+	// the input name should be the same as the client caller
+	public async Task UserPushAllGlobalPerms(UserAllGlobalPermChangeDto dto)
+	{
+		_logger.LogCallInfo();
+		if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+		{
+			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Can only push a bulk permission update for your own global permissions.").ConfigureAwait(false);
+			return;
+		}
 
+		// fetch the user global perm from the database.
+		var globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+		if (globalPerms == null) { await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false); return; }
+
+		// update the permissions to the new values passed in.
+		globalPerms = dto.GlobalPermissions.ToModelGlobalPerms();
+
+		// update the database with the new permissions & save DB changes
+		DbContext.Update(globalPerms);
+		await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+		// grab the user pairs of the client caller
+		List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+		var pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+
+		await Clients.Caller.Client_UserUpdateSelfAllGlobalPerms(new(UserUID.ToUserDataFromUID(), dto.GlobalPermissions)).ConfigureAwait(false);
+		await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdateOtherAllGlobalPerms(new(UserUID.ToUserDataFromUID(), dto.GlobalPermissions)).ConfigureAwait(false);
+	}
+
+	// this dto pushes to ANOTHER INTENDED PAIR the permissions WE are updating for THEM. We should use callbacks accordingly.
+	public async Task UserPushAllUniquePerms(UserPairUpdateAllUniqueDto dto)
+	{
+		_logger.LogCallInfo();
+		if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+		{
+			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Don't modify own perms on a UpdateOther call").ConfigureAwait(false);
+			return;
+		}
+
+		// grab our pair permissions for this user.
+		var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+		if (pairPerms == null)
+		{
+			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair Permission Not Found").ConfigureAwait(false);
+			return;
+		}
+		// grab the pair permission access for this user.
+		var pairAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+		if (pairAccess == null)
+		{
+			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission access not found").ConfigureAwait(false);
+			return;
+		}
+
+		// Update the global permissions, pair permissions, and editAccess permissions with the new values.
+		pairPerms = dto.UniquePerms.ToModelUserPairPerms();
+		pairAccess = dto.UniqueAccessPerms.ToModelUserPairEditAccessPerms();
+
+		// update the database with the new permissions & save DB changes
+		DbContext.Update(pairPerms);
+		DbContext.Update(pairAccess);
+		await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+		await Clients.Caller.Client_UserUpdateSelfAllUniquePerms(new(dto.User, dto.UniquePerms, dto.UniqueAccessPerms)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Client_UserUpdateOtherAllUniquePerms(new(UserUID.ToUserDataFromUID(), dto.UniquePerms, dto.UniqueAccessPerms)).ConfigureAwait(false);
+	}
 
 	/// <summary> 
 	/// Updates a global permission of the client caller to a new value.
@@ -88,17 +141,12 @@ public partial class GagspeakHub
 		// Make sure the UserData within is for ourselves, since we called the [UpdateOwnGlobalPerm]
 		if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
 		{
-			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Don't modify others perms when calling updateOwnPerm").ConfigureAwait(false);
-			return;
+			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Don't modify others perms when calling updateOwnPerm").ConfigureAwait(false); return;
 		}
 
 		// fetch the user global perm from the database.
 		var globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-		if (globalPerms == null)
-		{
-			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false);
-			return;
-		}
+		if (globalPerms == null) { await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false); return; }
 
 		// establish the key-value pair from the Dto so we know what is changing.
 		string propertyName = dto.ChangedPermission.Key;
