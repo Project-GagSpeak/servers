@@ -31,6 +31,4 @@ public class UserActiveStateData
 
     /* User's ToyboxData state references */
     public string ToyboxActivePatternName { get; set; } = ""; // the name of the user's actively running pattern
-
-    /* User's MoodlesState Data TODO: Implement this */
 }

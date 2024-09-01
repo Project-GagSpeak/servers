@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
+using GagspeakAPI.Data.Character;
 
 namespace GagspeakServer.Hubs;
 
@@ -171,29 +172,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
-            CharacterAppearanceData = new GagspeakAPI.Data.Character.CharacterAppearanceData()
-            {
-                SlotOneGagType = clientCallerAppearanceData.SlotOneGagType,
-                SlotOneGagPadlock = clientCallerAppearanceData.SlotOneGagPadlock,
-                SlotOneGagPassword = clientCallerAppearanceData.SlotOneGagPassword,
-                SlotOneGagTimer = clientCallerAppearanceData.SlotOneGagTimer,
-                SlotOneGagAssigner = clientCallerAppearanceData.SlotOneGagAssigner,
-                SlotTwoGagType = clientCallerAppearanceData.SlotTwoGagType,
-                SlotTwoGagPadlock = clientCallerAppearanceData.SlotTwoGagPadlock,
-                SlotTwoGagPassword = clientCallerAppearanceData.SlotTwoGagPassword,
-                SlotTwoGagTimer = clientCallerAppearanceData.SlotTwoGagTimer,
-                SlotTwoGagAssigner = clientCallerAppearanceData.SlotTwoGagAssigner,
-                SlotThreeGagType = clientCallerAppearanceData.SlotThreeGagType,
-                SlotThreeGagPadlock = clientCallerAppearanceData.SlotThreeGagPadlock,
-                SlotThreeGagPassword = clientCallerAppearanceData.SlotThreeGagPassword,
-                SlotThreeGagTimer = clientCallerAppearanceData.SlotThreeGagTimer,
-                SlotThreeGagAssigner = clientCallerAppearanceData.SlotThreeGagAssigner,
-            },
-            WardrobeActiveSetName = clientCallerActiveStateData.WardrobeActiveSetName,
-            WardrobeActiveSetAssigner = clientCallerActiveStateData.WardrobeActiveSetAssigner,
-            WardrobeActiveSetLocked = clientCallerActiveStateData.WardrobeActiveSetLocked,
-            WardrobeActiveSetLockAssigner = clientCallerActiveStateData.WardrobeActiveSetLockAssigner,
-            ToyboxActivePatternName = clientCallerActiveStateData.ToyboxActivePatternName,
+            CharacterAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
+			CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData()
         };
     }
 
