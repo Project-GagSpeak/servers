@@ -25,9 +25,10 @@ public class UserActiveStateData
     /* User's WardrobeData state references */
     public string WardrobeActiveSetName { get; set; } = ""; // the name of the user's active outfit
     public string WardrobeActiveSetAssigner { get; set; } = ""; // person who Enabled the set.
-    public bool   WardrobeActiveSetLocked { get; set; } = false; // the lock status of the user's active outfit
-    public string WardrobeActiveSetLockAssigner { get; set; } = ""; // person who Locked the set.
-    public DateTimeOffset WardrobeActiveSetLockTime { get; set; } = DateTimeOffset.MinValue; // when the locked set will expire
+	public string WardrobeActiveSetPadLock { get; set; } = "None"; // Type of padlock used to lock the set.
+	public string WardrobeActiveSetPassword { get; set; } = ""; // password bound to the set's lock type.
+	public DateTimeOffset WardrobeActiveSetLockTime { get; set; } = DateTimeOffset.UtcNow; // timer placed on the set's lock
+	public string WardrobeActiveSetLockAssigner { get; set; } = ""; // UID that locked the set.
 
     /* User's ToyboxData state references */
     public string ToyboxActivePatternName { get; set; } = ""; // the name of the user's actively running pattern

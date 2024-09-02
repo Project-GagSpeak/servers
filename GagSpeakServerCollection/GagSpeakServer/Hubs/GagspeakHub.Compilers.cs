@@ -49,21 +49,33 @@ public partial class GagspeakHub
     {
         return new CharacterAppearanceData()
         {
-            SlotOneGagType = appearanceData.SlotOneGagType,
-            SlotOneGagPadlock = appearanceData.SlotOneGagPadlock,
-            SlotOneGagPassword = appearanceData.SlotOneGagPassword,
-            SlotOneGagTimer = appearanceData.SlotOneGagTimer,
-            SlotOneGagAssigner = appearanceData.SlotOneGagAssigner,
-            SlotTwoGagType = appearanceData.SlotTwoGagType,
-            SlotTwoGagPadlock = appearanceData.SlotTwoGagPadlock,
-            SlotTwoGagPassword = appearanceData.SlotTwoGagPassword,
-            SlotTwoGagTimer = appearanceData.SlotTwoGagTimer,
-            SlotTwoGagAssigner = appearanceData.SlotTwoGagAssigner,
-            SlotThreeGagType = appearanceData.SlotThreeGagType,
-            SlotThreeGagPadlock = appearanceData.SlotThreeGagPadlock,
-            SlotThreeGagPassword = appearanceData.SlotThreeGagPassword,
-            SlotThreeGagTimer = appearanceData.SlotThreeGagTimer,
-            SlotThreeGagAssigner = appearanceData.SlotThreeGagAssigner,
+            GagSlots = new GagSlot[3]
+            {
+                new GagSlot()
+                {
+                    GagType = appearanceData.SlotOneGagType,
+                    Padlock = appearanceData.SlotOneGagPadlock,
+                    Password = appearanceData.SlotOneGagPassword,
+                    Timer = appearanceData.SlotOneGagTimer,
+                    Assigner = appearanceData.SlotOneGagAssigner,
+                },
+                new GagSlot()
+                {
+                    GagType = appearanceData.SlotTwoGagType,
+                    Padlock = appearanceData.SlotTwoGagPadlock,
+                    Password = appearanceData.SlotTwoGagPassword,
+                    Timer = appearanceData.SlotTwoGagTimer,
+                    Assigner = appearanceData.SlotTwoGagAssigner,
+                },
+                new GagSlot()
+                {
+                    GagType = appearanceData.SlotThreeGagType,
+                    Padlock = appearanceData.SlotThreeGagPadlock,
+                    Password = appearanceData.SlotThreeGagPassword,
+                    Timer = appearanceData.SlotThreeGagTimer,
+                    Assigner = appearanceData.SlotThreeGagAssigner,
+                }
+            }
         };
     }
 }

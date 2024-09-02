@@ -14,6 +14,7 @@ using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Data.Character;
+using Microsoft.IdentityModel.Tokens;
 
 namespace GagspeakServer.Hubs;
 
@@ -105,32 +106,32 @@ public partial class GagspeakHub
         {
             // Throw if gag features not allowed OR slot is occupied. Otherwise, update the respective appearance data.
             case DataUpdateKind.AppearanceGagAppliedLayerOne:
-                curGagData.SlotOneGagType = dto.AppearanceData.SlotOneGagType;
+                curGagData.SlotOneGagType = dto.AppearanceData.GagSlots[0].GagType;
                 break;
             case DataUpdateKind.AppearanceGagAppliedLayerTwo:
-                curGagData.SlotTwoGagType = dto.AppearanceData.SlotTwoGagType;
+                curGagData.SlotTwoGagType = dto.AppearanceData.GagSlots[1].GagType;
                 break;
             case DataUpdateKind.AppearanceGagAppliedLayerThree:
-                curGagData.SlotThreeGagType = dto.AppearanceData.SlotThreeGagType;
+                curGagData.SlotThreeGagType = dto.AppearanceData.GagSlots[2].GagType;
                 break;
             // Handle lock logic. Throw if lock already present, or if padlock is OwnerPadlock type and OwnerLocks are not allowed.
             case DataUpdateKind.AppearanceGagLockedLayerOne:
-                curGagData.SlotOneGagPadlock = dto.AppearanceData.SlotOneGagPadlock;
-                curGagData.SlotOneGagPassword = dto.AppearanceData.SlotOneGagPassword;
-                curGagData.SlotOneGagTimer = dto.AppearanceData.SlotOneGagTimer;
-                curGagData.SlotOneGagAssigner = dto.AppearanceData.SlotOneGagAssigner;
+                curGagData.SlotOneGagPadlock = dto.AppearanceData.GagSlots[0].Padlock;
+                curGagData.SlotOneGagPassword = dto.AppearanceData.GagSlots[0].Password;
+                curGagData.SlotOneGagTimer = dto.AppearanceData.GagSlots[0].Timer;
+                curGagData.SlotOneGagAssigner = dto.AppearanceData.GagSlots[0].Assigner;
                 break;
             case DataUpdateKind.AppearanceGagLockedLayerTwo:
-                curGagData.SlotTwoGagPadlock = dto.AppearanceData.SlotTwoGagPadlock;
-                curGagData.SlotTwoGagPassword = dto.AppearanceData.SlotTwoGagPassword;
-                curGagData.SlotTwoGagTimer = dto.AppearanceData.SlotTwoGagTimer;
-                curGagData.SlotTwoGagAssigner = dto.AppearanceData.SlotTwoGagAssigner;
+                curGagData.SlotTwoGagPadlock = dto.AppearanceData.GagSlots[1].Padlock;
+                curGagData.SlotTwoGagPassword = dto.AppearanceData.GagSlots[1].Password;
+                curGagData.SlotTwoGagTimer = dto.AppearanceData.GagSlots[1].Timer;
+                curGagData.SlotTwoGagAssigner = dto.AppearanceData.GagSlots[1].Assigner;
                 break;
             case DataUpdateKind.AppearanceGagLockedLayerThree:
-                curGagData.SlotThreeGagPadlock = dto.AppearanceData.SlotThreeGagPadlock;
-                curGagData.SlotThreeGagPassword = dto.AppearanceData.SlotThreeGagPassword;
-                curGagData.SlotThreeGagTimer = dto.AppearanceData.SlotThreeGagTimer;
-                curGagData.SlotThreeGagAssigner = dto.AppearanceData.SlotThreeGagAssigner;
+                curGagData.SlotThreeGagPadlock = dto.AppearanceData.GagSlots[2].Padlock;
+                curGagData.SlotThreeGagPassword = dto.AppearanceData.GagSlots[2].Password;
+                curGagData.SlotThreeGagTimer = dto.AppearanceData.GagSlots[2].Timer;
+                curGagData.SlotThreeGagAssigner = dto.AppearanceData.GagSlots[2].Assigner;
                 break;
             // for unlocking, throw if GagFeatures not allowed, the slot is not already locked, or if unlock validation is not met.
             case DataUpdateKind.AppearanceGagUnlockedLayerOne:
@@ -164,6 +165,24 @@ public partial class GagspeakHub
                 curGagData.SlotThreeGagType = None;
                 curGagData.SlotThreeGagAssigner = string.Empty;
                 break;
+            case DataUpdateKind.Safeword:
+                // clear the appearance data for all gags.
+                curGagData.SlotOneGagType = None;
+                curGagData.SlotOneGagPadlock = None;
+                curGagData.SlotOneGagPassword = string.Empty;
+                curGagData.SlotOneGagTimer = DateTimeOffset.UtcNow;
+                curGagData.SlotOneGagAssigner = string.Empty;
+                curGagData.SlotTwoGagType = None;
+                curGagData.SlotTwoGagPadlock = None;
+                curGagData.SlotTwoGagPassword = string.Empty;
+                curGagData.SlotTwoGagTimer = DateTimeOffset.UtcNow;
+                curGagData.SlotTwoGagAssigner = string.Empty;
+                curGagData.SlotThreeGagType = None;
+                curGagData.SlotThreeGagPadlock = None;
+                curGagData.SlotThreeGagPassword = string.Empty;
+                curGagData.SlotThreeGagTimer = DateTimeOffset.UtcNow;
+                curGagData.SlotThreeGagAssigner = string.Empty;
+                break;
             default:
                 throw new HubException("Invalid UpdateKind for Appearance Data!");
         }
@@ -175,21 +194,33 @@ public partial class GagspeakHub
         // migrate the current appearance data with its changes to a new dto object for sending
         var updatedAppearanceData = new CharacterAppearanceData()
         {
-            SlotOneGagType = curGagData.SlotOneGagType,
-            SlotOneGagPadlock = curGagData.SlotOneGagPadlock,
-            SlotOneGagPassword = curGagData.SlotOneGagPassword,
-            SlotOneGagTimer = curGagData.SlotOneGagTimer,
-            SlotOneGagAssigner = curGagData.SlotOneGagAssigner,
-            SlotTwoGagType = curGagData.SlotTwoGagType,
-            SlotTwoGagPadlock = curGagData.SlotTwoGagPadlock,
-            SlotTwoGagPassword = curGagData.SlotTwoGagPassword,
-            SlotTwoGagTimer = curGagData.SlotTwoGagTimer,
-            SlotTwoGagAssigner = curGagData.SlotTwoGagAssigner,
-            SlotThreeGagType = curGagData.SlotThreeGagType,
-            SlotThreeGagPadlock = curGagData.SlotThreeGagPadlock,
-            SlotThreeGagPassword = curGagData.SlotThreeGagPassword,
-            SlotThreeGagTimer = curGagData.SlotThreeGagTimer,
-            SlotThreeGagAssigner = curGagData.SlotThreeGagAssigner
+            GagSlots = new GagSlot[]
+            {
+                new GagSlot
+                {
+                    GagType = curGagData.SlotOneGagType,
+                    Padlock = curGagData.SlotOneGagPadlock,
+                    Password = curGagData.SlotOneGagPassword,
+                    Timer = curGagData.SlotOneGagTimer,
+                    Assigner = curGagData.SlotOneGagAssigner
+                },
+                new GagSlot
+                {
+                    GagType = curGagData.SlotTwoGagType,
+                    Padlock = curGagData.SlotTwoGagPadlock,
+                    Password = curGagData.SlotTwoGagPassword,
+                    Timer = curGagData.SlotTwoGagTimer,
+                    Assigner = curGagData.SlotTwoGagAssigner
+                },
+                new GagSlot
+                {
+                    GagType = curGagData.SlotThreeGagType,
+                    Padlock = curGagData.SlotThreeGagPadlock,
+                    Password = curGagData.SlotThreeGagPassword,
+                    Timer = curGagData.SlotThreeGagTimer,
+                    Assigner = curGagData.SlotThreeGagAssigner
+                }
+            }
         };
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
@@ -233,18 +264,29 @@ public partial class GagspeakHub
                 userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
             case DataUpdateKind.WardrobeRestraintLocked:
-                userActiveState.WardrobeActiveSetLocked = true;
-                userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.ActiveSetLockedBy;
-                userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.ActiveSetLockTime;
+                userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.WardrobeActiveSetPadLock;
+                userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.WardrobeActiveSetPassword;
+                userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.WardrobeActiveSetLockTime;
+                userActiveState.WardrobeActiveSetLockAssigner= dto.WardrobeData.WardrobeActiveSetLockAssigner;
                 break;
             case DataUpdateKind.WardrobeRestraintUnlocked:
-                userActiveState.WardrobeActiveSetLocked = false;
-                userActiveState.WardrobeActiveSetLockAssigner = string.Empty;
+                userActiveState.WardrobeActiveSetPadLock = "None";
+                userActiveState.WardrobeActiveSetPassword = string.Empty;
                 userActiveState.WardrobeActiveSetLockTime = DateTimeOffset.UtcNow;
+                userActiveState.WardrobeActiveSetLockAssigner = string.Empty;
                 break;
             case DataUpdateKind.WardrobeRestraintDisabled:
                 userActiveState.WardrobeActiveSetName = string.Empty;
                 userActiveState.WardrobeActiveSetAssigner = string.Empty;
+                break;
+            case DataUpdateKind.Safeword:
+                // clear all wardrobe related active state data.
+                userActiveState.WardrobeActiveSetName = string.Empty;
+                userActiveState.WardrobeActiveSetAssigner = string.Empty;
+                userActiveState.WardrobeActiveSetPadLock = "None";
+                userActiveState.WardrobeActiveSetPassword = string.Empty;
+                userActiveState.WardrobeActiveSetLockTime = DateTimeOffset.UtcNow;
+                userActiveState.WardrobeActiveSetLockAssigner = string.Empty;
                 break;
             default:
                 throw new Exception("Invalid UpdateKind for Wardrobe Data!");
@@ -420,26 +462,49 @@ public partial class GagspeakHub
             // Throw if gag features not allowed OR slot is occupied. Otherwise, update the respective appearance data.
             case DataUpdateKind.AppearanceGagAppliedLayerOne:
                 {
-                    if (!pairPermissions.GagFeatures) throw new Exception("Gag Features not modifiable for Pair!");
-                    if (!string.Equals(currentAppearanceData.SlotOneGagType, None, StringComparison.Ordinal)) throw new Exception("Slot One is already occupied!");
-                    // update the respective appearance data.
-                    currentAppearanceData.SlotOneGagType = dto.AppearanceData.SlotOneGagType;
+                    if (!pairPermissions.GagFeatures)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Gag Features not modifiable for Pair!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (!string.Equals(currentAppearanceData.SlotOneGagType, None, StringComparison.Ordinal) && !string.Equals(currentAppearanceData.SlotOneGagPadlock, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Slot One is already Locked & cant be replaced occupied!").ConfigureAwait(false);
+                        return;
+                    }
+                    currentAppearanceData.SlotOneGagType = dto.AppearanceData.GagSlots[0].GagType;
                 }
                 break;
             case DataUpdateKind.AppearanceGagAppliedLayerTwo:
                 {
-                    if (!pairPermissions.GagFeatures) throw new Exception("Gag Features not modifiable for Pair!");
-                    if (!string.Equals(currentAppearanceData.SlotTwoGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Two is already occupied!");
+                    if (!pairPermissions.GagFeatures)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Gag Features not modifiable for Pair!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (!string.Equals(currentAppearanceData.SlotTwoGagType, None, StringComparison.Ordinal) && !string.Equals(currentAppearanceData.SlotTwoGagPadlock, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Slot Two is already occupied!").ConfigureAwait(false);
+                        return;
+                    }
                     // update the respective appearance data.
-                    currentAppearanceData.SlotTwoGagType = dto.AppearanceData.SlotTwoGagType;
+                    currentAppearanceData.SlotTwoGagType = dto.AppearanceData.GagSlots[1].GagType;
                 }
                 break;
             case DataUpdateKind.AppearanceGagAppliedLayerThree:
                 {
-                    if (!pairPermissions.GagFeatures) throw new Exception("Gag Features not modifiable for Pair!");
-                    if (!string.Equals(currentAppearanceData.SlotThreeGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Three is already occupied!");
+                    if (!pairPermissions.GagFeatures)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Gag Features not modifiable for Pair!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (!string.Equals(currentAppearanceData.SlotThreeGagType, None, StringComparison.Ordinal) && !string.Equals(currentAppearanceData.SlotThreeGagPadlock, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Slot Three is already occupied!").ConfigureAwait(false);
+                        return;
+                    }
                     // update the respective appearance data.
-                    currentAppearanceData.SlotThreeGagType = dto.AppearanceData.SlotThreeGagType;
+                    currentAppearanceData.SlotThreeGagType = dto.AppearanceData.GagSlots[2].GagType;
                 }
                 break;
             // Handle lock logic. Throw if lock already present, or if padlock is OwnerPadlock type and OwnerLocks are not allowed.
@@ -450,15 +515,15 @@ public partial class GagspeakHub
                     if (!string.Equals(currentAppearanceData.SlotOneGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot One is already locked!");
 
                     // prevent people without OwnerPadlock permission from applying ownerPadlocks.
-                    if ((string.Equals(dto.AppearanceData.SlotOneGagPadlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
-                        (string.Equals(dto.AppearanceData.SlotOneGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    if ((string.Equals(dto.AppearanceData.GagSlots[0].Padlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.AppearanceData.GagSlots[0].Padlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
                         throw new Exception("Owner Locks not allowed!");
 
                     // update the respective appearance data.
-                    currentAppearanceData.SlotOneGagPadlock = dto.AppearanceData.SlotOneGagPadlock;
-                    currentAppearanceData.SlotOneGagPassword = dto.AppearanceData.SlotOneGagPassword;
-                    currentAppearanceData.SlotOneGagTimer = dto.AppearanceData.SlotOneGagTimer;
-                    currentAppearanceData.SlotOneGagAssigner = dto.AppearanceData.SlotOneGagAssigner;
+                    currentAppearanceData.SlotOneGagPadlock = dto.AppearanceData.GagSlots[0].Padlock;
+                    currentAppearanceData.SlotOneGagPassword = dto.AppearanceData.GagSlots[0].Password;
+                    currentAppearanceData.SlotOneGagTimer = dto.AppearanceData.GagSlots[0].Timer;
+                    currentAppearanceData.SlotOneGagAssigner = dto.AppearanceData.GagSlots[0].Assigner;
                 }
                 break;
             case DataUpdateKind.AppearanceGagLockedLayerTwo:
@@ -468,15 +533,15 @@ public partial class GagspeakHub
                     if (!string.Equals(currentAppearanceData.SlotTwoGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Two is already locked!");
 
                     // prevent people without OwnerPadlock permission from applying ownerPadlocks.
-                    if ((string.Equals(dto.AppearanceData.SlotTwoGagPadlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
-                        (string.Equals(dto.AppearanceData.SlotTwoGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    if ((string.Equals(dto.AppearanceData.GagSlots[1].Padlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.AppearanceData.GagSlots[1].Padlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
                         throw new Exception("Owner Locks not allowed!");
 
                     // update the respective appearance data.
-                    currentAppearanceData.SlotTwoGagPadlock = dto.AppearanceData.SlotTwoGagPadlock;
-                    currentAppearanceData.SlotTwoGagPassword = dto.AppearanceData.SlotTwoGagPassword;
-                    currentAppearanceData.SlotTwoGagTimer = dto.AppearanceData.SlotTwoGagTimer;
-                    currentAppearanceData.SlotTwoGagAssigner = dto.AppearanceData.SlotTwoGagAssigner;
+                    currentAppearanceData.SlotTwoGagPadlock = dto.AppearanceData.GagSlots[1].Padlock;
+                    currentAppearanceData.SlotTwoGagPassword = dto.AppearanceData.GagSlots[1].Password;
+                    currentAppearanceData.SlotTwoGagTimer = dto.AppearanceData.GagSlots[1].Timer;
+                    currentAppearanceData.SlotTwoGagAssigner = dto.AppearanceData.GagSlots[1].Assigner;
                 }
                 break;
             case DataUpdateKind.AppearanceGagLockedLayerThree:
@@ -486,33 +551,50 @@ public partial class GagspeakHub
                     if (!string.Equals(currentAppearanceData.SlotThreeGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Three is already locked!");
                  
                     // prevent people without OwnerPadlock permission from applying ownerPadlocks.
-                    if ((string.Equals(dto.AppearanceData.SlotThreeGagPadlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
-                        (string.Equals(dto.AppearanceData.SlotThreeGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    if ((string.Equals(dto.AppearanceData.GagSlots[2].Padlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.AppearanceData.GagSlots[2].Padlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
                         throw new Exception("Owner Locks not allowed!");
                     
                     // update the respective appearance data.
-                    currentAppearanceData.SlotThreeGagPadlock = dto.AppearanceData.SlotThreeGagPadlock;
-                    currentAppearanceData.SlotThreeGagPassword = dto.AppearanceData.SlotThreeGagPassword;
-                    currentAppearanceData.SlotThreeGagTimer = dto.AppearanceData.SlotThreeGagTimer;
-                    currentAppearanceData.SlotThreeGagAssigner = dto.AppearanceData.SlotThreeGagAssigner;
+                    currentAppearanceData.SlotThreeGagPadlock = dto.AppearanceData.GagSlots[2].Padlock;
+                    currentAppearanceData.SlotThreeGagPassword = dto.AppearanceData.GagSlots[2].Password;
+                    currentAppearanceData.SlotThreeGagTimer = dto.AppearanceData.GagSlots[2].Timer;
+                    currentAppearanceData.SlotThreeGagAssigner = dto.AppearanceData.GagSlots[2].Assigner;
                 }
                 break;
             // for unlocking, throw if GagFeatures not allowed, the slot is not already locked, or if unlock validation is not met.
             case DataUpdateKind.AppearanceGagUnlockedLayerOne:
                 {
-                    // Throw if GagFeatures not allowed
-                    if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
-                    if (string.Equals(currentAppearanceData.SlotOneGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot One is already unlocked!");
-                    if (!string.Equals(currentAppearanceData.SlotOneGagPassword, dto.AppearanceData.SlotOneGagPassword, StringComparison.Ordinal)) throw new Exception("Password incorrect.");
-                    // Throw if type is ownerPadlock or OwnerTimerPadlock, and OwnerLocks are not allowed.
+                    if (!pairPermissions.GagFeatures)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use GagFeatures on them!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (string.Equals(currentAppearanceData.SlotOneGagType, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No Gag Equipped!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (!string.Equals(currentAppearanceData.SlotOneGagPadlock, dto.AppearanceData.GagSlots[0].Password, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Password incorrect!").ConfigureAwait(false);
+                        return;
+                    }
                     if ((string.Equals(currentAppearanceData.SlotOneGagPadlock, OwnerPadlock, StringComparison.Ordinal)
                       || string.Equals(currentAppearanceData.SlotOneGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal)))
                     {
                         // prevent unlock if OwnerLocks are not allowed.
-                        if (!pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
-
+                        if (!pairPermissions.OwnerLocks)
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You cannot unlock OwnerPadlock types, pair doesn't allow you!").ConfigureAwait(false);
+                            return;
+                        }
                         // otherwise, throw exception if the client caller userUID does not match the assigner.
-                        if (!string.Equals(currentAppearanceData.SlotOneGagAssigner, UserUID, StringComparison.Ordinal)) throw new Exception("You are not the assigner of this OwnerPadlock!");
+                        if (!string.Equals(currentAppearanceData.SlotOneGagAssigner, UserUID, StringComparison.Ordinal))
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You are not the assigner of this OwnerPadlock!").ConfigureAwait(false);
+                            return;
+                        }
                     }
                     // Update the respective appearance data.
                     currentAppearanceData.SlotOneGagPadlock = None;
@@ -523,21 +605,36 @@ public partial class GagspeakHub
                 break;
             case DataUpdateKind.AppearanceGagUnlockedLayerTwo:
                 {
-                    // Throw if GagFeatures not allowed
-                    if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
-                    // Throw if slot is not already locked
-                    if (string.Equals(currentAppearanceData.SlotTwoGagPadlock, None, StringComparison.Ordinal)) throw new Exception("Slot Two is already unlocked!");
-                    // Throw if password doesnt match existing password.
-                    if (!string.Equals(currentAppearanceData.SlotTwoGagPassword, dto.AppearanceData.SlotTwoGagPassword, StringComparison.Ordinal)) throw new Exception("Password incorrect.");
-                    // Throw if type is ownerPadlock or OwnerTimerPadlock, and OwnerLocks are not allowed.
+                    if (!pairPermissions.GagFeatures)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use GagFeatures on them!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (string.Equals(currentAppearanceData.SlotTwoGagType, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No Gag Equipped!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (!string.Equals(currentAppearanceData.SlotTwoGagPassword, dto.AppearanceData.GagSlots[1].Password, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Password incorrect!").ConfigureAwait(false);
+                        return;
+                    }
                     if ((string.Equals(currentAppearanceData.SlotTwoGagPadlock, OwnerPadlock, StringComparison.Ordinal)
                       || string.Equals(currentAppearanceData.SlotTwoGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal)))
                     {
                         // prevent unlock if OwnerLocks are not allowed.
-                        if (!pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
-
+                        if (!pairPermissions.OwnerLocks)
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You cannot unlock OwnerPadlock types, pair doesn't allow you!").ConfigureAwait(false);
+                            return;
+                        }
                         // otherwise, throw exception if the client caller userUID does not match the assigner.
-                        if (!string.Equals(currentAppearanceData.SlotTwoGagAssigner, UserUID, StringComparison.Ordinal)) throw new Exception("You are not the assigner of this OwnerPadlock!");
+                        if (!string.Equals(currentAppearanceData.SlotTwoGagAssigner, UserUID, StringComparison.Ordinal))
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You are not the assigner of this OwnerPadlock!").ConfigureAwait(false);
+                            return;
+                        }
                     }
                     // Update the respective appearance data.
                     currentAppearanceData.SlotTwoGagPadlock = None;
@@ -548,21 +645,36 @@ public partial class GagspeakHub
                 break;
             case DataUpdateKind.AppearanceGagUnlockedLayerThree:
                 {
-                    // Throw if GagFeatures not allowed
-                    if (!pairPermissions.GagFeatures) throw new Exception("Pair doesn't allow you to use GagFeatures on them!");
-                    // Throw if slot is not already locked
-                    if (string.Equals(currentAppearanceData.SlotThreeGagType, None, StringComparison.Ordinal)) throw new Exception("Slot Three is already unlocked!");
-                    // Throw if password doesn't match existing password.
-                    if (!string.Equals(currentAppearanceData.SlotThreeGagPassword, dto.AppearanceData.SlotThreeGagPassword, StringComparison.Ordinal)) throw new Exception("Password incorrect.");
-                    // Throw if type is ownerPadlock or OwnerTimerPadlock, and OwnerLocks are not allowed.
+                    if (!pairPermissions.GagFeatures)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use GagFeatures on them!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (string.Equals(currentAppearanceData.SlotThreeGagType, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No Gag Equipped!").ConfigureAwait(false); 
+                        return;
+                    }
+                    if (!string.Equals(currentAppearanceData.SlotThreeGagPassword, dto.AppearanceData.GagSlots[2].Password, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Password incorrect!").ConfigureAwait(false);
+                        return;
+                    }
                     if ((string.Equals(currentAppearanceData.SlotThreeGagPadlock, OwnerPadlock, StringComparison.Ordinal)
                       || string.Equals(currentAppearanceData.SlotThreeGagPadlock, OwnerTimerPadlock, StringComparison.Ordinal)))
                     {
                         // prevent unlock if OwnerLocks are not allowed.
-                        if (!pairPermissions.OwnerLocks) throw new Exception("You cannot unlock OwnerPadlock types, pair doesn't allow you!");
-
+                        if (!pairPermissions.OwnerLocks)
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You cannot unlock OwnerPadlock types, pair doesn't allow you!").ConfigureAwait(false);
+                            return;
+                        }
                         // otherwise, throw exception if the client caller userUID does not match the assigner.
-                        if (!string.Equals(currentAppearanceData.SlotThreeGagAssigner, UserUID, StringComparison.Ordinal)) throw new Exception("You are not the assigner of this OwnerPadlock!");
+                        if (!string.Equals(currentAppearanceData.SlotThreeGagAssigner, UserUID, StringComparison.Ordinal))
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You are not the assigner of this OwnerPadlock!").ConfigureAwait(false);
+                            return;
+                        }
                     }
 
                     // Update the respective appearance data.
@@ -617,21 +729,33 @@ public partial class GagspeakHub
         // migrate the current appearance data with its changes to a new dto object for sending
         var updatedAppearanceData = new CharacterAppearanceData()
         {
-            SlotOneGagType = currentAppearanceData.SlotOneGagType,
-            SlotOneGagPadlock = currentAppearanceData.SlotOneGagPadlock,
-            SlotOneGagPassword = currentAppearanceData.SlotOneGagPassword,
-            SlotOneGagTimer = currentAppearanceData.SlotOneGagTimer,
-            SlotOneGagAssigner = currentAppearanceData.SlotOneGagAssigner,
-            SlotTwoGagType = currentAppearanceData.SlotTwoGagType,
-            SlotTwoGagPadlock = currentAppearanceData.SlotTwoGagPadlock,
-            SlotTwoGagPassword = currentAppearanceData.SlotTwoGagPassword,
-            SlotTwoGagTimer = currentAppearanceData.SlotTwoGagTimer,
-            SlotTwoGagAssigner = currentAppearanceData.SlotTwoGagAssigner,
-            SlotThreeGagType = currentAppearanceData.SlotThreeGagType,
-            SlotThreeGagPadlock = currentAppearanceData.SlotThreeGagPadlock,
-            SlotThreeGagPassword = currentAppearanceData.SlotThreeGagPassword,
-            SlotThreeGagTimer = currentAppearanceData.SlotThreeGagTimer,
-            SlotThreeGagAssigner = currentAppearanceData.SlotThreeGagAssigner
+            GagSlots = new GagSlot[]
+            {
+                new GagSlot
+                {
+                    GagType = currentAppearanceData.SlotOneGagType,
+                    Padlock = currentAppearanceData.SlotOneGagPadlock,
+                    Password = currentAppearanceData.SlotOneGagPassword,
+                    Timer = currentAppearanceData.SlotOneGagTimer,
+                    Assigner = currentAppearanceData.SlotOneGagAssigner
+                },
+                new GagSlot
+                {
+                    GagType = currentAppearanceData.SlotTwoGagType,
+                    Padlock = currentAppearanceData.SlotTwoGagPadlock,
+                    Password = currentAppearanceData.SlotTwoGagPassword,
+                    Timer = currentAppearanceData.SlotTwoGagTimer,
+                    Assigner = currentAppearanceData.SlotTwoGagAssigner
+                },
+                new GagSlot
+                {
+                    GagType = currentAppearanceData.SlotThreeGagType,
+                    Padlock = currentAppearanceData.SlotThreeGagPadlock,
+                    Password = currentAppearanceData.SlotThreeGagPassword,
+                    Timer = currentAppearanceData.SlotThreeGagTimer,
+                    Assigner = currentAppearanceData.SlotThreeGagAssigner
+                }
+            }
         };
 
         // send them a self update message.
@@ -697,41 +821,101 @@ public partial class GagspeakHub
                 break;
             case DataUpdateKind.WardrobeRestraintLocked:
                 {
-                    // Throw if permission to lock sets is not granted.
-                    if (!pairPermissions.LockRestraintSets) throw new Exception("Pair doesn't allow you to use WardrobeLocking on them!");
-                    // Throw if no set is active
-                    if (string.IsNullOrEmpty(dto.WardrobeData.ActiveSetName) || string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName)) throw new Exception("No active set to lock!");
-                    // Throw if the active set is already locked
-                    if (userActiveState.WardrobeActiveSetLocked || userActiveState.WardrobeActiveSetLocked) throw new Exception("Active set is already locked!");
-                    // Perform the update logic for the wardrobe data.
-                    userActiveState.WardrobeActiveSetLocked = true;
-                    userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.ActiveSetLockedBy;
-                    userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.ActiveSetLockTime;
+                    if (!pairPermissions.LockRestraintSets)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use WardrobeLocking on them!").ConfigureAwait(false);
+                        return;
+                    }
+                    if (userActiveState.WardrobeActiveSetName.IsNullOrEmpty())
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active set to lock!").ConfigureAwait(false); 
+                        return;
+                    }
+                    if (!string.Equals(userActiveState.WardrobeActiveSetPadLock, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Active set is already locked!").ConfigureAwait(false);
+                        return;
+                    }
+                    // prevent people without OwnerPadlock permission from applying ownerPadlocks.
+                    if ((string.Equals(dto.WardrobeData.WardrobeActiveSetPadLock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.WardrobeData.WardrobeActiveSetPadLock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You cannot lock OwnerPadlock types, pair doesn't allow you!").ConfigureAwait(false);
+                        return;
+                    }
+                    // update the respective appearance data.
+                    userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.WardrobeActiveSetPadLock;
+                    userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.WardrobeActiveSetPassword;
+                    userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.WardrobeActiveSetLockTime;
+                    userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.WardrobeActiveSetLockAssigner;
                 }
                 break;
             case DataUpdateKind.WardrobeRestraintUnlocked:
                 {
-                    // Throw if permission to unlock sets is not granted.
-                    if (!pairPermissions.UnlockRestraintSets) throw new Exception("Pair doesn't allow you to use WardrobeUnlocking on them!");
-                    // Throw if no set is active
-                    if (string.IsNullOrEmpty(dto.WardrobeData.ActiveSetName) || string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName)) throw new Exception("No active set to unlock!");
-                    // Throw if the passed in unlock assigner is not the same as the active set assigner
-                    if (!string.Equals(dto.WardrobeData.ActiveSetLockedBy, userActiveState.WardrobeActiveSetAssigner, StringComparison.Ordinal))
-                        throw new Exception("Cannot unlock a set you did not lock!");
-                    // Perform the update logic for the wardrobe data.
-                    userActiveState.WardrobeActiveSetLocked = false;
-                    userActiveState.WardrobeActiveSetLockAssigner = string.Empty;
+                    // Throw if GagFeatures not allowed
+                    if (!pairPermissions.UnlockRestraintSets)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use WardrobeUnlocking on them!").ConfigureAwait(false);
+                        return;
+                    }
+                    // Throw if slot is not already locked
+                    if (string.Equals(userActiveState.WardrobeActiveSetPadLock, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Active set is already unlocked!").ConfigureAwait(false);
+                        return;
+                    }
+                    // Throw if password doesn't match existing password.
+                    if (!string.Equals(userActiveState.WardrobeActiveSetPassword, dto.WardrobeData.WardrobeActiveSetPassword, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Password incorrect!").ConfigureAwait(false);
+                        return;
+                    }
+                    // Throw if type is ownerPadlock or OwnerTimerPadlock, and OwnerLocks are not allowed.
+                    if ((string.Equals(userActiveState.WardrobeActiveSetPadLock, OwnerPadlock, StringComparison.Ordinal)
+                      || string.Equals(userActiveState.WardrobeActiveSetPadLock, OwnerTimerPadlock, StringComparison.Ordinal)))
+                    {
+                        // prevent unlock if OwnerLocks are not allowed.
+                        if (!pairPermissions.OwnerLocks)
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You cannot unlock OwnerPadlock types, pair doesn't allow you!").ConfigureAwait(false);
+                            return;
+                        }
+                        // otherwise, throw exception if the client caller userUID does not match the assigner.
+                        if (!string.Equals(userActiveState.WardrobeActiveSetAssigner, UserUID, StringComparison.Ordinal))
+                        {
+                            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You are not the assigner of this OwnerPadlock!").ConfigureAwait(false);
+                            return;
+                        }
+                    }
+
+                    // update the respective active wardrobe data.
+                    userActiveState.WardrobeActiveSetPadLock = None;
+                    userActiveState.WardrobeActiveSetPassword = string.Empty;
                     userActiveState.WardrobeActiveSetLockTime = DateTimeOffset.MinValue;
+                    userActiveState.WardrobeActiveSetAssigner = string.Empty;
                 }
                 break;
             case DataUpdateKind.WardrobeRestraintDisabled:
                 {
                     // Throw if permission to remove sets is not granted.
-                    if (!pairPermissions.RemoveRestraintSets) throw new Exception("Pair doesn't allow you to use WardrobeRemoving on them!");
+                    if (!pairPermissions.RemoveRestraintSets)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use WardrobeRemoving on them!").ConfigureAwait(false);
+                        return;
+                    }
+
                     // Throw if no set is active
-                    if (string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName)) throw new Exception("No active set to remove!");
+                    if (string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active set to remove!").ConfigureAwait(false);
+                        return;
+                    }
                     // Throw if set is still locked
-                    if (userActiveState.WardrobeActiveSetLocked) throw new Exception("Active set is still locked!");
+                    if (!string.Equals(userActiveState.WardrobeActiveSetPadLock, None, StringComparison.Ordinal))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Active set is still locked!").ConfigureAwait(false);
+                        return;
+                    }
                     // Perform the update logic for the wardrobe data.
                     userActiveState.WardrobeActiveSetName = string.Empty;
                     userActiveState.WardrobeActiveSetAssigner = string.Empty;
@@ -747,9 +931,10 @@ public partial class GagspeakHub
             OutfitNames = dto.WardrobeData.OutfitNames, // this becomes irrelevant since none of these settings change this.
             ActiveSetName = userActiveState.WardrobeActiveSetName,
             ActiveSetEnabledBy = userActiveState.WardrobeActiveSetAssigner,
-            ActiveSetIsLocked = userActiveState.WardrobeActiveSetLocked,
-            ActiveSetLockedBy = userActiveState.WardrobeActiveSetLockAssigner,
-            ActiveSetLockTime = dto.WardrobeData.ActiveSetLockTime,
+            WardrobeActiveSetPadLock = userActiveState.WardrobeActiveSetPadLock,
+            WardrobeActiveSetPassword = userActiveState.WardrobeActiveSetPassword,
+            WardrobeActiveSetLockTime = userActiveState.WardrobeActiveSetLockTime,
+            WardrobeActiveSetLockAssigner = userActiveState.WardrobeActiveSetAssigner,
         };
 
         // update the changes to the database.

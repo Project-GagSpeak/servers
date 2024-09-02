@@ -7,34 +7,38 @@ namespace GagspeakServer.Utils;
 #pragma warning disable MA0051; // Method is too long
 public static class ClientPairPermissionExtensions
 {
-	#region AppearanceDataMigrations
-	public static GagspeakAPI.Data.Character.CharacterAppearanceData ToApiAppearanceData(this UserGagAppearanceData? appearanceDataModel)
-	{
-		if (appearanceDataModel == null) return new GagspeakAPI.Data.Character.CharacterAppearanceData();
+    #region AppearanceDataMigrations
+    public static GagspeakAPI.Data.Character.CharacterAppearanceData ToApiAppearanceData(this UserGagAppearanceData? appearanceDataModel)
+    {
+        if (appearanceDataModel == null) return new GagspeakAPI.Data.Character.CharacterAppearanceData();
 
-		GagspeakAPI.Data.Character.CharacterAppearanceData result = new GagspeakAPI.Data.Character.CharacterAppearanceData();
+        GagspeakAPI.Data.Character.CharacterAppearanceData result = new GagspeakAPI.Data.Character.CharacterAppearanceData();
 
-        result.SlotOneGagType = appearanceDataModel.SlotOneGagType;
-        result.SlotOneGagPadlock = appearanceDataModel.SlotOneGagPadlock;
-        result.SlotOneGagPassword = appearanceDataModel.SlotOneGagPassword;
-        result.SlotOneGagTimer = appearanceDataModel.SlotOneGagTimer;
-        result.SlotOneGagAssigner = appearanceDataModel.SlotOneGagAssigner;
-        result.SlotTwoGagType = appearanceDataModel.SlotTwoGagType;
-        result.SlotTwoGagPadlock = appearanceDataModel.SlotTwoGagPadlock;
-        result.SlotTwoGagPassword = appearanceDataModel.SlotTwoGagPassword;
-        result.SlotTwoGagTimer = appearanceDataModel.SlotTwoGagTimer;
-        result.SlotTwoGagAssigner = appearanceDataModel.SlotTwoGagAssigner;
-        result.SlotThreeGagType = appearanceDataModel.SlotThreeGagType;
-        result.SlotThreeGagPadlock = appearanceDataModel.SlotThreeGagPadlock;
-        result.SlotThreeGagPassword = appearanceDataModel.SlotThreeGagPassword;
-        result.SlotThreeGagTimer = appearanceDataModel.SlotThreeGagTimer;
-        result.SlotThreeGagAssigner = appearanceDataModel.SlotThreeGagAssigner;
-		return result;
-	}
-	#endregion AppearanceDataMigrations
+        // Assuming the slots are defined in order
+        result.GagSlots[0].GagType = appearanceDataModel.SlotOneGagType;
+        result.GagSlots[0].Padlock = appearanceDataModel.SlotOneGagPadlock;
+        result.GagSlots[0].Password = appearanceDataModel.SlotOneGagPassword;
+        result.GagSlots[0].Timer = appearanceDataModel.SlotOneGagTimer;
+        result.GagSlots[0].Assigner = appearanceDataModel.SlotOneGagAssigner;
 
-	#region ActiveStateDataMigrations
-	public static GagspeakAPI.Data.Character.CharacterActiveStateData ToApiActiveStateData(this UserActiveStateData? activeStateDataModel)
+        result.GagSlots[1].GagType = appearanceDataModel.SlotTwoGagType;
+        result.GagSlots[1].Padlock = appearanceDataModel.SlotTwoGagPadlock;
+        result.GagSlots[1].Password = appearanceDataModel.SlotTwoGagPassword;
+        result.GagSlots[1].Timer = appearanceDataModel.SlotTwoGagTimer;
+        result.GagSlots[1].Assigner = appearanceDataModel.SlotTwoGagAssigner;
+
+        result.GagSlots[2].GagType = appearanceDataModel.SlotThreeGagType;
+        result.GagSlots[2].Padlock = appearanceDataModel.SlotThreeGagPadlock;
+        result.GagSlots[2].Password = appearanceDataModel.SlotThreeGagPassword;
+        result.GagSlots[2].Timer = appearanceDataModel.SlotThreeGagTimer;
+        result.GagSlots[2].Assigner = appearanceDataModel.SlotThreeGagAssigner;
+
+        return result;
+    }
+    #endregion AppearanceDataMigrations
+
+    #region ActiveStateDataMigrations
+    public static GagspeakAPI.Data.Character.CharacterActiveStateData ToApiActiveStateData(this UserActiveStateData? activeStateDataModel)
 	{
 		if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharacterActiveStateData();
 
@@ -42,9 +46,10 @@ public static class ClientPairPermissionExtensions
 
         result.WardrobeActiveSetName = activeStateDataModel.WardrobeActiveSetName;
         result.WardrobeActiveSetAssigner = activeStateDataModel.WardrobeActiveSetAssigner;
-        result.WardrobeActiveSetLocked = activeStateDataModel.WardrobeActiveSetLocked;
-        result.WardrobeActiveSetLockAssigner = activeStateDataModel.WardrobeActiveSetLockAssigner;
+        result.WardrobeActiveSetPadLock = activeStateDataModel.WardrobeActiveSetPadLock;
+        result.WardrobeActiveSetPassword = activeStateDataModel.WardrobeActiveSetPassword;
         result.WardrobeActiveSetLockTime = activeStateDataModel.WardrobeActiveSetLockTime;
+        result.WardrobeActiveSetLockAssigner = activeStateDataModel.WardrobeActiveSetLockAssigner;
         result.ToyboxActivePatternName = activeStateDataModel.ToyboxActivePatternName;
 		return result;
 	}
