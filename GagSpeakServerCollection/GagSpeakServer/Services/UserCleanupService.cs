@@ -48,6 +48,9 @@ public class UserCleanupService : IHostedService
 
             await CleanUpOldRooms(dbContext).ConfigureAwait(false);
 
+            await ResetUploadCounters(dbContext).ConfigureAwait(false);
+
+
             dbContext.SaveChanges();
 
             var now = DateTime.Now;
@@ -57,6 +60,32 @@ public class UserCleanupService : IHostedService
 
             _logger.LogInformation("User Cleanup Complete, next run at {date}", now.Add(span));
             await Task.Delay(span, ct).ConfigureAwait(false);
+        }
+    }
+
+    private async Task ResetUploadCounters(GagspeakDbContext dbContext)
+    {
+        try
+        {
+            _logger.LogInformation("Resetting upload counters for users");
+
+            var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
+            var usersToReset = await dbContext.Users
+                .Where(user => user.FirstUploadTimestamp != DateTime.MinValue && user.FirstUploadTimestamp >= oneWeekAgo)
+                .ToListAsync().ConfigureAwait(false);
+
+            foreach (var user in usersToReset)
+            {
+                user.UploadLimitCounter = 0;
+                user.FirstUploadTimestamp = DateTime.MinValue;
+                _logger.LogInformation("Reset upload counter for user: {userUID}", user.UID);
+            }
+
+            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during upload counter reset");
         }
     }
 

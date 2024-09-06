@@ -163,6 +163,13 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             DbContext.UserActiveStateData.Add(clientCallerActiveStateData);
         }
 
+        // Precaution: If WardrobeActiveSetPadLock is string.Empty, set it to "None" and update the database
+        if (string.IsNullOrEmpty(clientCallerActiveStateData.WardrobeActiveSetPadLock))
+        {
+            clientCallerActiveStateData.WardrobeActiveSetPadLock = "None";
+            DbContext.UserActiveStateData.Update(clientCallerActiveStateData);
+        }
+
         // Save the DbContext (never know if it was added or not so always good to be safe.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 

@@ -22,5 +22,5 @@ public class UserProfileData
     public string UserDescription { get; set; }  // the user's description
 
     // TODO: Add customization / Cosmetic feature presets below here:
-
+    // (prefer to not store cosmetics actually since they are preset templates included with the plugin and should be downloadable assets.)
 }

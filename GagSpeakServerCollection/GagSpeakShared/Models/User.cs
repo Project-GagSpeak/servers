@@ -19,4 +19,8 @@ public class User
     public string Alias { get; set; }               // Alias that the person sets for the user's UID, (Patreon reward)
 
     public CkSupporterTier VanityTier { get; set; } // The vanity tier of the user (if a CK supporter)
+
+    public int UploadLimitCounter { get; set; } = 0; // Counter for uploads in the current week (should be 10 by default)
+    public DateTime FirstUploadTimestamp { get; set; } = DateTime.MinValue; // Timestamp of the first upload in the current week
+
 }

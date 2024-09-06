@@ -811,9 +811,17 @@ public partial class GagspeakHub
             case DataUpdateKind.WardrobeRestraintApplied:
                 {
                     // Throw if permission to apply sets is not granted.
-                    if (!pairPermissions.ApplyRestraintSets) throw new Exception("Pair doesn't allow you to use WardrobeApplying on them!");
-                    // Throw if the userActiveStateData has an activeSetName that is not string.Empty
-                    if (!string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName)) throw new Exception("User already has an active set applied!");
+                    if (!pairPermissions.ApplyRestraintSets)
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use WardrobeApplying on them!").ConfigureAwait(false);
+                        return;
+                    }
+                    // throw if the userActiveStateData's activeSet exists and is locked.
+                    if (!string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName) && !string.Equals(userActiveState.WardrobeActiveSetPadLock, Padlocks.None.ToString(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Replace Currently Active Set because it is currently locked!").ConfigureAwait(false);
+                        return;
+                    }
                     // Perform the update logic for the wardrobe data.
                     userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
                     userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
@@ -934,7 +942,7 @@ public partial class GagspeakHub
             WardrobeActiveSetPadLock = userActiveState.WardrobeActiveSetPadLock,
             WardrobeActiveSetPassword = userActiveState.WardrobeActiveSetPassword,
             WardrobeActiveSetLockTime = userActiveState.WardrobeActiveSetLockTime,
-            WardrobeActiveSetLockAssigner = userActiveState.WardrobeActiveSetAssigner,
+            WardrobeActiveSetLockAssigner = userActiveState.WardrobeActiveSetLockAssigner,
         };
 
         // update the changes to the database.
