@@ -58,8 +58,9 @@ public class GagspeakDbContext : DbContext
     public DbSet<UserGlobalPermissions> UserGlobalPermissions { get; set; } // permissions that when changed are globally modified
     public DbSet<UserGagAppearanceData> UserAppearanceData { get; set; } // appearance data should be stored server side, as even when offline, it should display to your profile data, or be accessible to be viewed.
     public DbSet<UserActiveStateData> UserActiveStateData { get; set; } // contains generic info about the user's current state that should be stored in the database for reference.
+    public DbSet<UserPatternLikes> UserPatternLikes { get; set; } // tracks the patterns a user has liked.
     public DbSet<UserProfileData> UserProfileData { get; set; } // every user has a profile associated with them, this contains information unique to the profile.
-    public DbSet<UserProfileDataReport> UserProfileReports { get; set; } // Holds info about reported profiles for assistancts to overview.
+    public DbSet<UserProfileDataReport> UserProfileReports { get; set; } // Holds info about reported profiles for assistants to overview.
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -104,6 +105,10 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserGagAppearanceData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserActiveStateData>().ToTable("user_active_state_data");
         modelBuilder.Entity<UserActiveStateData>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<UserPatternLikes>().ToTable("user_pattern_likes");
+        modelBuilder.Entity<UserPatternLikes>().HasKey(upl => new { upl.UserUID, upl.PatternEntryId });
+        modelBuilder.Entity<UserPatternLikes>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<UserPatternLikes>().HasIndex(c => c.PatternEntryId);
         modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
         modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserProfileDataReport>().ToTable("user_profile_data_reports");

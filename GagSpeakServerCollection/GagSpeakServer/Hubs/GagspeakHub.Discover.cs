@@ -81,7 +81,7 @@ public partial class GagspeakHub
             Description = dto.patternInfo.Description,
             Author = dto.patternInfo.Author,
             DownloadCount = 0,
-            LikeCount = 0,
+            UserPatternLikes = new List<UserPatternLikes>(),
             Length = dto.patternInfo.Length,
             Base64PatternData = dto.base64PatternData,
             PatternEntryTags = new List<PatternEntryTag>()
@@ -134,9 +134,35 @@ public partial class GagspeakHub
             return false;
         }
 
-        // inc the like count and update the db, then return true.
-        pattern.LikeCount++;
-        DbContext.Patterns.Update(pattern);
+        // Get the current user
+        var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user == null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
+            return false;
+        }
+
+        // Check if the user has already liked this pattern
+        var existingLike = pattern.UserPatternLikes.SingleOrDefault(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal));
+        if (existingLike != null)
+        {
+            // User has already liked this pattern, so remove the like
+            DbContext.UserPatternLikes.Remove(existingLike);
+        }
+        else
+        {
+            // User has not liked this pattern, so add a new like
+            var userPatternLike = new UserPatternLikes
+            {
+                UserUID = user.UID,
+                User = user,
+                PatternEntryId = patternId,
+                PatternEntry = pattern
+            };
+            DbContext.UserPatternLikes.Add(userPatternLike);
+        }
+
+        // Save changes to the database
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         return true;
     }

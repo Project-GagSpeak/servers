@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240906025512_2024-09-05-NewPatternHubIntegration")]
+    partial class _20240905NewPatternHubIntegration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -561,6 +564,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("interval")
                         .HasColumnName("length");
 
+                    b.Property<int>("LikeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("like_count");
+
                     b.Property<string>("Name")
                         .HasMaxLength(60)
                         .HasColumnType("character varying(60)")
@@ -947,28 +954,6 @@ namespace GagSpeakShared.Migrations
                     b.ToTable("user_global_permissions", (string)null);
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserPatternLikes", b =>
-                {
-                    b.Property<string>("UserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("user_uid");
-
-                    b.Property<Guid>("PatternEntryId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("pattern_entry_id");
-
-                    b.HasKey("UserUID", "PatternEntryId")
-                        .HasName("pk_user_pattern_likes");
-
-                    b.HasIndex("PatternEntryId")
-                        .HasDatabaseName("ix_user_pattern_likes_pattern_entry_id");
-
-                    b.HasIndex("UserUID")
-                        .HasDatabaseName("ix_user_pattern_likes_user_uid");
-
-                    b.ToTable("user_pattern_likes", (string)null);
-                });
-
             modelBuilder.Entity("GagspeakShared.Models.UserProfileData", b =>
                 {
                     b.Property<string>("UserUID")
@@ -1224,27 +1209,6 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserPatternLikes", b =>
-                {
-                    b.HasOne("GagspeakShared.Models.PatternEntry", "PatternEntry")
-                        .WithMany("UserPatternLikes")
-                        .HasForeignKey("PatternEntryId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_pattern_likes_patterns_pattern_entry_id");
-
-                    b.HasOne("GagspeakShared.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserUID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_pattern_likes_users_user_uid");
-
-                    b.Navigation("PatternEntry");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("GagspeakShared.Models.UserProfileData", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "User")
@@ -1277,8 +1241,6 @@ namespace GagSpeakShared.Migrations
             modelBuilder.Entity("GagspeakShared.Models.PatternEntry", b =>
                 {
                     b.Navigation("PatternEntryTags");
-
-                    b.Navigation("UserPatternLikes");
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.PatternTag", b =>

@@ -26,10 +26,14 @@ public class PatternEntry
     public string Author { get; set; } // seperate from publisher to maintain anonymity
     public ICollection<PatternEntryTag> PatternEntryTags { get; set; }
     public int DownloadCount { get; set; }
-    public int LikeCount { get; set; }
+    public ICollection<UserPatternLikes> UserPatternLikes { get; set; } = new List<UserPatternLikes>();
     public TimeSpan Length { get; set; }
     public bool UsesVibrations { get; set; }
     public bool UsesRotations { get; set; }
     public bool UsesOscillation { get; set; }
     public string Base64PatternData { get; set; }
+
+    // Derived property to get the like count
+    [NotMapped]
+    public int LikeCount => UserPatternLikes.Count;
 }

@@ -36,6 +36,7 @@ public partial class GagspeakHub
         UserGlobalPermissions? ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         UserGagAppearanceData? ownAppearanceData = await DbContext.UserAppearanceData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         UserActiveStateData? ownActiveStateData = await DbContext.UserActiveStateData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        List<UserPatternLikes> ownLikedPatterns = await DbContext.UserPatternLikes.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         UserProfileData? userProfileData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
 
         // first, check if the accountclaimauth is not null, and remove it from the database.
@@ -67,6 +68,9 @@ public partial class GagspeakHub
         DbContext.ClientPairPermissions.RemoveRange(ownPairPermData);
         // remove the range of pairpermissionaccesses
         DbContext.ClientPairPermissionAccess.RemoveRange(ownPairAccessData);
+
+        // remove all UserPatternLike entries by our user.
+        DbContext.UserPatternLikes.RemoveRange(ownLikedPatterns);
 
         // increase our metrics counter for accounts deleted first
         _metrics.IncCounter(MetricsAPI.CounterUsersRegisteredDeleted, 1);
