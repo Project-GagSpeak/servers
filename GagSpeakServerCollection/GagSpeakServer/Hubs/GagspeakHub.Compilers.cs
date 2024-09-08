@@ -20,8 +20,6 @@ public partial class GagspeakHub
         {
             Safeword = userGlobalPermissions.Safeword,
             SafewordUsed = userGlobalPermissions.SafewordUsed,
-            CommandsFromFriends = userGlobalPermissions.CommandsFromFriends,
-            CommandsFromParty = userGlobalPermissions.CommandsFromParty,
             LiveChatGarblerActive = userGlobalPermissions.LiveChatGarblerActive,
             LiveChatGarblerLocked = userGlobalPermissions.LiveChatGarblerLocked,
             WardrobeEnabled = userGlobalPermissions.WardrobeEnabled,
@@ -36,7 +34,6 @@ public partial class GagspeakHub
             ToyboxEnabled = userGlobalPermissions.ToyboxEnabled,
             LockToyboxUI = userGlobalPermissions.LockToyboxUI,
             ToyIsActive = userGlobalPermissions.ToyIsActive,
-            ToyIntensity = userGlobalPermissions.ToyIntensity,
             SpatialVibratorAudio = userGlobalPermissions.SpatialVibratorAudio,
         };
     }

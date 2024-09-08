@@ -8,14 +8,10 @@ namespace GagspeakShared.Models;
 public class UserPatternLikes
 {
     [Required]
-    [Key]
-    [ForeignKey(nameof(User))]
     public string UserUID { get; set; }
     public User User { get; set; }
 
     [Required]
-    [Key]
-    [ForeignKey(nameof(PatternEntry))]
     public Guid PatternEntryId { get; set; }
     public PatternEntry PatternEntry { get; set; }
 }

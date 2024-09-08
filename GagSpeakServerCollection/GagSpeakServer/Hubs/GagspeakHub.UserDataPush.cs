@@ -1044,11 +1044,11 @@ public partial class GagspeakHub
                 break;
             case DataUpdateKind.ToyboxAlarmListUpdated: throw new Exception("Cannot modify this type of data here!");
             case DataUpdateKind.ToyboxAlarmToggled:
-                if (!pairPermissions.VibratorAlarmsToggle) throw new Exception("Pair doesn't allow you to use ToyboxAlarmFeatures on them!");
+                if (!pairPermissions.CanToggleAlarms) throw new Exception("Pair doesn't allow you to use ToyboxAlarmFeatures on them!");
                 break;
             case DataUpdateKind.ToyboxTriggerListUpdated: throw new Exception("Cannot modify this type of data here!");
             case DataUpdateKind.ToyboxTriggerActiveStatusChanged:
-                if (!pairPermissions.CanExecuteTriggers) throw new Exception("Pair doesn't allow you to use ToyboxTriggerFeatures on them!");
+                if (!pairPermissions.CanToggleTriggers) throw new Exception("Pair doesn't allow you to use ToyboxTriggerFeatures on them!");
                 break;
             default:
                 throw new Exception("Invalid UpdateKind for Toybox Data!");

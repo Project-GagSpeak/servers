@@ -107,8 +107,6 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserActiveStateData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserPatternLikes>().ToTable("user_pattern_likes");
         modelBuilder.Entity<UserPatternLikes>().HasKey(upl => new { upl.UserUID, upl.PatternEntryId });
-        modelBuilder.Entity<UserPatternLikes>().HasIndex(c => c.UserUID);
-        modelBuilder.Entity<UserPatternLikes>().HasIndex(c => c.PatternEntryId);
         modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
         modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserProfileDataReport>().ToTable("user_profile_data_reports");

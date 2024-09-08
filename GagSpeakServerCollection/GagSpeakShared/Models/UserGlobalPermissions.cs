@@ -10,8 +10,6 @@ public class UserGlobalPermissions
     public string Safeword { get; set; } = "NONE SET";          // DO NOT ALLOW THIS TO BE MODIFABLE
     public bool SafewordUsed { get; set; } = false;             // DO NOT ALLOW THIS TO BE MODIFABLE
     public bool HardcoreSafewordUsed { get; set; } = false;     // DO NOT ALLOW THIS TO BE MODIFABLE
-	public bool CommandsFromFriends { get; set; } = false;      // PROFILE VIEWABLE OPT-IN || If commands can be sent from friends
-    public bool CommandsFromParty { get; set; } = false;        // PROFILE VIEWABLE OPT-IN || if commands can be sent from party members
     public bool LiveChatGarblerActive { get; set; } = false;    // if the live chat garbler is active
     public bool LiveChatGarblerLocked { get; set; } = false;    // if the live chat garbler is locked in an active state.
 
@@ -37,7 +35,6 @@ public class UserGlobalPermissions
     public bool ToyboxEnabled { get; set; } = false;            // PROFILE VIEWABLE OPT-IN || If the user's toybox component is active
     public bool LockToyboxUI { get; set; } = false;             // if the user's toybox UI is locked
     public bool ToyIsActive { get; set; } = false;              // if the user's toy is active
-    public int  ToyIntensity { get; set; } = 0;                 // the intensity of the user's toy
     public bool SpatialVibratorAudio { get; set; } = false;    // if the user's toybox local audio is active
 
 

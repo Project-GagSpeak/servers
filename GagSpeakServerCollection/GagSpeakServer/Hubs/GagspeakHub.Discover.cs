@@ -23,6 +23,15 @@ public partial class GagspeakHub
 
     public async Task<bool> UploadPattern(PatternUploadDto dto)
     {
+        _logger.LogCallInfo();
+
+        // if the guid is empty, it's not a valid pattern.
+        if (dto.patternInfo.Identifier == Guid.Empty)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Invalid Pattern Identifier.").ConfigureAwait(false);
+            return false;
+        }
+
         // ensure the right person is doing this and that they exist.
         var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == dto.User.UID).ConfigureAwait(false);
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || user == null
@@ -30,6 +39,15 @@ public partial class GagspeakHub
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, 
                 "Your User Doesnt exist, or you're trying to upload under someone else's name.").ConfigureAwait(false);
+            return false;
+        }
+
+        // Attempt to prevent reuploads and duplicate uploads.
+        var existingPattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == dto.patternInfo.Identifier ||
+        (p.Name == dto.patternInfo.Name && p.Length == dto.patternInfo.Length)).ConfigureAwait(false);
+        if (existingPattern != null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern already exists.").ConfigureAwait(false);
             return false;
         }
 
@@ -73,18 +91,19 @@ public partial class GagspeakHub
         ///////////// Step 2: Create and insert the new Pattern Entry /////////////
         PatternEntry newPatternEntry = new()
         {
-            Identifier = Guid.NewGuid(),
+            Identifier = dto.patternInfo.Identifier,
             PublisherUID = dto.User.UID,
             Publisher = user,
             TimePublished = DateTime.UtcNow,
             Name = dto.patternInfo.Name,
             Description = dto.patternInfo.Description,
             Author = dto.patternInfo.Author,
+            PatternEntryTags = new List<PatternEntryTag>(),
             DownloadCount = 0,
             UserPatternLikes = new List<UserPatternLikes>(),
+            ShouldLoop = dto.patternInfo.Looping,
             Length = dto.patternInfo.Length,
             Base64PatternData = dto.base64PatternData,
-            PatternEntryTags = new List<PatternEntryTag>()
         };
         DbContext.Patterns.Add(newPatternEntry);
 
@@ -104,8 +123,44 @@ public partial class GagspeakHub
         return true;
     }
 
+    public async Task<bool> RemovePattern(Guid patternId)
+    {
+        _logger.LogCallInfo();
+
+        // Ensure they are a valid user.
+        var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user == null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
+            return false;
+        }
+
+        // Find the pattern by GUID and ensure it belongs to the user
+        var pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId && p.PublisherUID == user.UID).ConfigureAwait(false);
+
+        if (pattern == null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, 
+                "Pattern not found or you do not have permission to delete it.").ConfigureAwait(false);
+            return false;
+        }
+
+        // Find and remove related PatternEntryTags
+        var patternEntryTags = await DbContext.PatternEntryTags.Where(pet => pet.PatternEntryId == patternId).ToListAsync().ConfigureAwait(false);
+        DbContext.PatternEntryTags.RemoveRange(patternEntryTags);
+
+        // Remove the pattern
+        DbContext.Patterns.Remove(pattern);
+
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Pattern removed successfully.").ConfigureAwait(false);
+        return true;
+    }
+
     public async Task<string> DownloadPattern(Guid patternId)
     {
+        _logger.LogCallInfo();
         // locate the pattern in the database by its GUID.
         var pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId).ConfigureAwait(false);
         if (pattern == null)
@@ -118,22 +173,12 @@ public partial class GagspeakHub
         pattern.DownloadCount++;
         DbContext.Patterns.Update(pattern);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // fetch the base64string data of the pattern
-        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Pattern Download Successful!").ConfigureAwait(false);
         return pattern.Base64PatternData;
     }
 
     public async Task<bool> LikePattern(Guid patternId)
     {
-        // locate the pattern in the database by its GUID.
-        var pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId).ConfigureAwait(false);
-        if (pattern == null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern not found.").ConfigureAwait(false);
-            return false;
-        }
-
+        _logger.LogCallInfo();
         // Get the current user
         var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
         if (user == null)
@@ -142,12 +187,30 @@ public partial class GagspeakHub
             return false;
         }
 
+        // Locate the pattern in the database by its GUID.
+        var pattern = await DbContext.Patterns
+            .SingleOrDefaultAsync(p => p.Identifier == patternId)
+            .ConfigureAwait(false);
+
+        if (pattern == null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern not found.").ConfigureAwait(false);
+            return false;
+        }
+
         // Check if the user has already liked this pattern
-        var existingLike = pattern.UserPatternLikes.SingleOrDefault(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal));
-        if (existingLike != null)
+        var existingLike = await DbContext.UserPatternLikes
+            .AnyAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID)
+            .ConfigureAwait(false);
+
+        if (existingLike)
         {
             // User has already liked this pattern, so remove the like
-            DbContext.UserPatternLikes.Remove(existingLike);
+            var likeToRemove = await DbContext.UserPatternLikes
+                .SingleAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID)
+                .ConfigureAwait(false);
+            DbContext.UserPatternLikes.Remove(likeToRemove);
+            _logger.LogMessage("Pattern Unliked");
         }
         else
         {
@@ -169,6 +232,7 @@ public partial class GagspeakHub
 
     public async Task<List<ServerPatternInfo>> SearchPatterns(PatternSearchDto dto)
     {
+        _logger.LogCallInfo();
         // ensure they are a valid user.
         var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
         if (user == null)
@@ -177,8 +241,9 @@ public partial class GagspeakHub
             return new List<ServerPatternInfo>();
         }
 
-        // Start with a base query
-        IQueryable<PatternEntry> patternsQuery = DbContext.Patterns;
+        // Start with a base query, insure we include the sub-dependencies such as the tags and likes.
+        IQueryable<PatternEntry> patternsQuery = DbContext.Patterns
+            .Include(p => p.PatternEntryTags).Include(p => p.UserPatternLikes).AsSplitQuery();
 
         // Apply search string filter if provided (be it pattern name or author name.)
         if (!string.IsNullOrEmpty(dto.SearchString))
@@ -254,6 +319,13 @@ public partial class GagspeakHub
         // limit the results to 30 patterns.
         var patterns = await patternsQuery.Take(30).ToListAsync().ConfigureAwait(false);
 
+        // Check if patterns is null or contains null entries
+        if (patterns == null || patterns.Any(p => p == null))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No patterns found or some patterns are invalid.").ConfigureAwait(false);
+            return new List<ServerPatternInfo>();
+        }
+
         // Convert to ServerPatternInfo
         var result = patterns.Select(p => new ServerPatternInfo
         {
@@ -264,11 +336,13 @@ public partial class GagspeakHub
             Tags = p.PatternEntryTags.Select(t => t.TagName).ToList(),
             Downloads = p.DownloadCount,
             Likes = p.LikeCount,
+            Looping = p.ShouldLoop,
             Length = p.Length,
             UploadedDate = p.TimePublished,
             UsesVibrations = p.UsesVibrations,
             UsesRotations = p.UsesRotations,
             UsesOscillation = p.UsesOscillation,
+            HasLiked = p.UserPatternLikes.Any(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal))
         }).ToList();
 
         return result;

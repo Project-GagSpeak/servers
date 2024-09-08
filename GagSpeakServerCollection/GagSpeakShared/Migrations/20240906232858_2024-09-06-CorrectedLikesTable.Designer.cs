@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20240906232858_2024-09-06-CorrectedLikesTable")]
+    partial class _20240906CorrectedLikesTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -201,29 +204,37 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("apply_restraint_sets_allowed");
 
+                    b.Property<bool>("CanControlIntensityAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_control_intensity_allowed");
+
                     b.Property<bool>("CanExecutePatternsAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("can_execute_patterns_allowed");
+
+                    b.Property<bool>("CanExecuteTriggersAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_execute_triggers_allowed");
 
                     b.Property<bool>("CanSendTriggersAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("can_send_triggers_allowed");
 
-                    b.Property<bool>("CanToggleAlarmsAllowed")
+                    b.Property<bool>("CanUseRealtimeVibeRemoteAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_toggle_alarms_allowed");
+                        .HasColumnName("can_use_realtime_vibe_remote_allowed");
 
-                    b.Property<bool>("CanToggleToyStateAllowed")
+                    b.Property<bool>("ChangeToyStateAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_toggle_toy_state_allowed");
+                        .HasColumnName("change_toy_state_allowed");
 
-                    b.Property<bool>("CanToggleTriggersAllowed")
+                    b.Property<bool>("CommandsFromFriendsAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_toggle_triggers_allowed");
+                        .HasColumnName("commands_from_friends_allowed");
 
-                    b.Property<bool>("CanUseVibeRemoteAllowed")
+                    b.Property<bool>("CommandsFromPartyAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_use_vibe_remote_allowed");
+                        .HasColumnName("commands_from_party_allowed");
 
                     b.Property<bool>("ExtendedLockTimesAllowed")
                         .HasColumnType("boolean")
@@ -297,6 +308,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("spatial_vibrator_audio_allowed");
 
+                    b.Property<bool>("ToyIsActiveAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("toy_is_active_allowed");
+
                     b.Property<bool>("ToyboxEnabledAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("toybox_enabled_allowed");
@@ -304,6 +319,14 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("UnlockRestraintSetsAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("unlock_restraint_sets_allowed");
+
+                    b.Property<bool>("VibratorAlarmsAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vibrator_alarms_allowed");
+
+                    b.Property<bool>("VibratorAlarmsToggleAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vibrator_alarms_toggle_allowed");
 
                     b.Property<bool>("WardrobeEnabledAllowed")
                         .HasColumnType("boolean")
@@ -385,29 +408,29 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("apply_restraint_sets");
 
+                    b.Property<bool>("CanControlIntensity")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_control_intensity");
+
                     b.Property<bool>("CanExecutePatterns")
                         .HasColumnType("boolean")
                         .HasColumnName("can_execute_patterns");
+
+                    b.Property<bool>("CanExecuteTriggers")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_execute_triggers");
 
                     b.Property<bool>("CanSendTriggers")
                         .HasColumnType("boolean")
                         .HasColumnName("can_send_triggers");
 
-                    b.Property<bool>("CanToggleAlarms")
+                    b.Property<bool>("CanUseRealtimeVibeRemote")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_toggle_alarms");
+                        .HasColumnName("can_use_realtime_vibe_remote");
 
-                    b.Property<bool>("CanToggleToyState")
+                    b.Property<bool>("ChangeToyState")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_toggle_toy_state");
-
-                    b.Property<bool>("CanToggleTriggers")
-                        .HasColumnType("boolean")
-                        .HasColumnName("can_toggle_triggers");
-
-                    b.Property<bool>("CanUseVibeRemote")
-                        .HasColumnType("boolean")
-                        .HasColumnName("can_use_vibe_remote");
+                        .HasColumnName("change_toy_state");
 
                     b.Property<char>("EndChar")
                         .HasColumnType("character(1)")
@@ -492,6 +515,14 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("UnlockRestraintSets")
                         .HasColumnType("boolean")
                         .HasColumnName("unlock_restraint_sets");
+
+                    b.Property<bool>("VibratorAlarms")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vibrator_alarms");
+
+                    b.Property<bool>("VibratorAlarmsToggle")
+                        .HasColumnType("boolean")
+                        .HasColumnName("vibrator_alarms_toggle");
 
                     b.HasKey("UserUID", "OtherUserUID")
                         .HasName("pk_client_pair_permissions");
@@ -833,6 +864,14 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("user_uid");
 
+                    b.Property<bool>("CommandsFromFriends")
+                        .HasColumnType("boolean")
+                        .HasColumnName("commands_from_friends");
+
+                    b.Property<bool>("CommandsFromParty")
+                        .HasColumnType("boolean")
+                        .HasColumnName("commands_from_party");
+
                     b.Property<bool>("GlobalAllowAllRequests")
                         .HasColumnType("boolean")
                         .HasColumnName("global_allow_all_requests");
@@ -892,6 +931,10 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("SpatialVibratorAudio")
                         .HasColumnType("boolean")
                         .HasColumnName("spatial_vibrator_audio");
+
+                    b.Property<int>("ToyIntensity")
+                        .HasColumnType("integer")
+                        .HasColumnName("toy_intensity");
 
                     b.Property<bool>("ToyIsActive")
                         .HasColumnType("boolean")

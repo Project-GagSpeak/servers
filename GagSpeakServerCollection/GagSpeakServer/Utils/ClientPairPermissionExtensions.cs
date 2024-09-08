@@ -66,8 +66,6 @@ public static class ClientPairPermissionExtensions
         result.Safeword = globalPermsModel.Safeword;
         result.SafewordUsed = globalPermsModel.SafewordUsed;
         result.HardcoreSafewordUsed = globalPermsModel.HardcoreSafewordUsed;
-        result.CommandsFromFriends = globalPermsModel.CommandsFromFriends;
-        result.CommandsFromParty = globalPermsModel.CommandsFromParty;
         result.LiveChatGarblerActive = globalPermsModel.LiveChatGarblerActive;
         result.LiveChatGarblerLocked = globalPermsModel.LiveChatGarblerLocked;
 
@@ -86,7 +84,6 @@ public static class ClientPairPermissionExtensions
         result.ToyboxEnabled = globalPermsModel.ToyboxEnabled;
         result.LockToyboxUI = globalPermsModel.LockToyboxUI;
         result.ToyIsActive = globalPermsModel.ToyIsActive;
-        result.ToyIntensity = globalPermsModel.ToyIntensity;
         result.SpatialVibratorAudio = globalPermsModel.SpatialVibratorAudio;
 
         return result;
@@ -99,8 +96,6 @@ public static class ClientPairPermissionExtensions
         currentModelGlobalPerms.Safeword = apiGlobalPerms.Safeword;
         currentModelGlobalPerms.SafewordUsed = apiGlobalPerms.SafewordUsed;
         currentModelGlobalPerms.HardcoreSafewordUsed = apiGlobalPerms.HardcoreSafewordUsed;
-        currentModelGlobalPerms.CommandsFromFriends = apiGlobalPerms.CommandsFromFriends;
-        currentModelGlobalPerms.CommandsFromParty = apiGlobalPerms.CommandsFromParty;
         currentModelGlobalPerms.LiveChatGarblerActive = apiGlobalPerms.LiveChatGarblerActive;
         currentModelGlobalPerms.LiveChatGarblerLocked = apiGlobalPerms.LiveChatGarblerLocked;
         currentModelGlobalPerms.WardrobeEnabled = apiGlobalPerms.WardrobeEnabled;
@@ -115,7 +110,6 @@ public static class ClientPairPermissionExtensions
         currentModelGlobalPerms.ToyboxEnabled = apiGlobalPerms.ToyboxEnabled;
         currentModelGlobalPerms.LockToyboxUI = apiGlobalPerms.LockToyboxUI;
         currentModelGlobalPerms.ToyIsActive = apiGlobalPerms.ToyIsActive;
-        currentModelGlobalPerms.ToyIntensity = apiGlobalPerms.ToyIntensity;
         currentModelGlobalPerms.SpatialVibratorAudio = apiGlobalPerms.SpatialVibratorAudio;
 
         return currentModelGlobalPerms;
@@ -161,13 +155,11 @@ public static class ClientPairPermissionExtensions
         result.AllowPermanentMoodles = clientPairPermsModel.AllowPermanentMoodles;
         result.AllowRemovingMoodles = clientPairPermsModel.AllowRemovingMoodles;
 
-        result.ChangeToyState = clientPairPermsModel.ChangeToyState;
-        result.CanControlIntensity = clientPairPermsModel.CanControlIntensity;
-        result.VibratorAlarms = clientPairPermsModel.VibratorAlarms;
-        result.VibratorAlarmsToggle = clientPairPermsModel.VibratorAlarmsToggle;
-        result.CanUseRealtimeVibeRemote = clientPairPermsModel.CanUseRealtimeVibeRemote;
+        result.CanToggleToyState = clientPairPermsModel.CanToggleToyState;
+        result.CanUseVibeRemote = clientPairPermsModel.CanUseVibeRemote;
+        result.CanToggleAlarms = clientPairPermsModel.CanToggleAlarms;
         result.CanExecutePatterns = clientPairPermsModel.CanExecutePatterns;
-        result.CanExecuteTriggers = clientPairPermsModel.CanExecuteTriggers;
+        result.CanToggleTriggers = clientPairPermsModel.CanToggleTriggers;
         result.CanSendTriggers = clientPairPermsModel.CanSendTriggers;
 
         result.AllowForcedFollow = clientPairPermsModel.AllowForcedFollow;
@@ -193,17 +185,20 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.ExtendedLockTimes = apiPairPerms.ExtendedLockTimes;
         currentModelPerms.MaxLockTime = apiPairPerms.MaxLockTime;
         currentModelPerms.InHardcore = apiPairPerms.InHardcore;
+
         currentModelPerms.ApplyRestraintSets = apiPairPerms.ApplyRestraintSets;
         currentModelPerms.LockRestraintSets = apiPairPerms.LockRestraintSets;
         currentModelPerms.MaxAllowedRestraintTime = apiPairPerms.MaxAllowedRestraintTime;
         currentModelPerms.UnlockRestraintSets = apiPairPerms.UnlockRestraintSets;
         currentModelPerms.RemoveRestraintSets = apiPairPerms.RemoveRestraintSets;
+
         currentModelPerms.TriggerPhrase = apiPairPerms.TriggerPhrase;
         currentModelPerms.StartChar = apiPairPerms.StartChar;
         currentModelPerms.EndChar = apiPairPerms.EndChar;
         currentModelPerms.AllowSitRequests = apiPairPerms.AllowSitRequests;
         currentModelPerms.AllowMotionRequests = apiPairPerms.AllowMotionRequests;
         currentModelPerms.AllowAllRequests = apiPairPerms.AllowAllRequests;
+
         currentModelPerms.AllowPositiveStatusTypes = apiPairPerms.AllowPositiveStatusTypes;
         currentModelPerms.AllowNegativeStatusTypes = apiPairPerms.AllowNegativeStatusTypes;
         currentModelPerms.AllowSpecialStatusTypes = apiPairPerms.AllowSpecialStatusTypes;
@@ -212,14 +207,14 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.MaxMoodleTime = apiPairPerms.MaxMoodleTime;
         currentModelPerms.AllowPermanentMoodles = apiPairPerms.AllowPermanentMoodles;
         currentModelPerms.AllowRemovingMoodles = apiPairPerms.AllowRemovingMoodles;
-        currentModelPerms.ChangeToyState = apiPairPerms.ChangeToyState;
-        currentModelPerms.CanControlIntensity = apiPairPerms.CanControlIntensity;
-        currentModelPerms.VibratorAlarms = apiPairPerms.VibratorAlarms;
-        currentModelPerms.VibratorAlarmsToggle = apiPairPerms.VibratorAlarmsToggle;
-        currentModelPerms.CanUseRealtimeVibeRemote = apiPairPerms.CanUseRealtimeVibeRemote;
+
+        currentModelPerms.CanToggleToyState = apiPairPerms.CanToggleToyState;
+        currentModelPerms.CanUseVibeRemote = apiPairPerms.CanUseVibeRemote;
+        currentModelPerms.CanToggleAlarms = apiPairPerms.CanToggleAlarms;
         currentModelPerms.CanExecutePatterns = apiPairPerms.CanExecutePatterns;
-        currentModelPerms.CanExecuteTriggers = apiPairPerms.CanExecuteTriggers;
+        currentModelPerms.CanToggleTriggers = apiPairPerms.CanToggleTriggers;
         currentModelPerms.CanSendTriggers = apiPairPerms.CanSendTriggers;
+
         currentModelPerms.AllowForcedFollow = apiPairPerms.AllowForcedFollow;
         currentModelPerms.IsForcedToFollow = apiPairPerms.IsForcedToFollow;
         currentModelPerms.AllowForcedSit = apiPairPerms.AllowForcedSit;
@@ -243,8 +238,6 @@ public static class ClientPairPermissionExtensions
         GagspeakAPI.Data.Permissions.UserEditAccessPermissions result = new GagspeakAPI.Data.Permissions.UserEditAccessPermissions();
 
         // set all access perms to defaults
-        result.CommandsFromFriendsAllowed = pairAccessPermsModel.CommandsFromFriendsAllowed;
-        result.CommandsFromPartyAllowed = pairAccessPermsModel.CommandsFromPartyAllowed;
         result.LiveChatGarblerActiveAllowed = pairAccessPermsModel.LiveChatGarblerActiveAllowed;
         result.LiveChatGarblerLockedAllowed = pairAccessPermsModel.LiveChatGarblerLockedAllowed;
         result.GagFeaturesAllowed = pairAccessPermsModel.GagFeaturesAllowed;
@@ -278,15 +271,12 @@ public static class ClientPairPermissionExtensions
 
         result.ToyboxEnabledAllowed = pairAccessPermsModel.ToyboxEnabledAllowed;
         result.LockToyboxUIAllowed = pairAccessPermsModel.LockToyboxUIAllowed;
-        result.ToyIsActiveAllowed = pairAccessPermsModel.ToyIsActiveAllowed;
         result.SpatialVibratorAudioAllowed = pairAccessPermsModel.SpatialVibratorAudioAllowed;
-        result.ChangeToyStateAllowed = pairAccessPermsModel.ChangeToyStateAllowed;
-        result.CanControlIntensityAllowed = pairAccessPermsModel.CanControlIntensityAllowed;
-        result.VibratorAlarmsAllowed = pairAccessPermsModel.VibratorAlarmsAllowed;
-        result.VibratorAlarmsToggleAllowed = pairAccessPermsModel.VibratorAlarmsToggleAllowed;
-        result.CanUseRealtimeVibeRemoteAllowed = pairAccessPermsModel.CanUseRealtimeVibeRemoteAllowed;
+        result.CanToggleToyStateAllowed = pairAccessPermsModel.CanToggleToyStateAllowed;
+        result.CanUseVibeRemoteAllowed = pairAccessPermsModel.CanUseVibeRemoteAllowed;
+        result.CanToggleAlarmsAllowed = pairAccessPermsModel.CanToggleAlarmsAllowed;
         result.CanExecutePatternsAllowed = pairAccessPermsModel.CanExecutePatternsAllowed;
-        result.CanExecuteTriggersAllowed = pairAccessPermsModel.CanExecuteTriggersAllowed;
+        result.CanToggleTriggersAllowed = pairAccessPermsModel.CanToggleTriggersAllowed;
         result.CanSendTriggersAllowed = pairAccessPermsModel.CanSendTriggersAllowed;
 
         return result;
@@ -296,8 +286,6 @@ public static class ClientPairPermissionExtensions
     {
         if (apiPairAccessPerms == null) return currentPermAccess;
 
-		currentPermAccess.CommandsFromFriendsAllowed = apiPairAccessPerms.CommandsFromFriendsAllowed;
-        currentPermAccess.CommandsFromPartyAllowed = apiPairAccessPerms.CommandsFromPartyAllowed;
         currentPermAccess.LiveChatGarblerActiveAllowed = apiPairAccessPerms.LiveChatGarblerActiveAllowed;
         currentPermAccess.LiveChatGarblerLockedAllowed = apiPairAccessPerms.LiveChatGarblerLockedAllowed;
         currentPermAccess.GagFeaturesAllowed = apiPairAccessPerms.GagFeaturesAllowed;
@@ -327,15 +315,12 @@ public static class ClientPairPermissionExtensions
         currentPermAccess.AllowRemovingMoodlesAllowed = apiPairAccessPerms.AllowRemovingMoodlesAllowed;
         currentPermAccess.ToyboxEnabledAllowed = apiPairAccessPerms.ToyboxEnabledAllowed;
         currentPermAccess.LockToyboxUIAllowed = apiPairAccessPerms.LockToyboxUIAllowed;
-        currentPermAccess.ToyIsActiveAllowed = apiPairAccessPerms.ToyIsActiveAllowed;
         currentPermAccess.SpatialVibratorAudioAllowed = apiPairAccessPerms.SpatialVibratorAudioAllowed;
-        currentPermAccess.ChangeToyStateAllowed = apiPairAccessPerms.ChangeToyStateAllowed;
-        currentPermAccess.CanControlIntensityAllowed = apiPairAccessPerms.CanControlIntensityAllowed;
-        currentPermAccess.VibratorAlarmsAllowed = apiPairAccessPerms.VibratorAlarmsAllowed;
-        currentPermAccess.VibratorAlarmsToggleAllowed = apiPairAccessPerms.VibratorAlarmsToggleAllowed;
-        currentPermAccess.CanUseRealtimeVibeRemoteAllowed = apiPairAccessPerms.CanUseRealtimeVibeRemoteAllowed;
+        currentPermAccess.CanToggleToyStateAllowed = apiPairAccessPerms.CanToggleToyStateAllowed;
+        currentPermAccess.CanUseVibeRemoteAllowed = apiPairAccessPerms.CanUseVibeRemoteAllowed;
+        currentPermAccess.CanToggleAlarmsAllowed = apiPairAccessPerms.CanToggleAlarmsAllowed;
         currentPermAccess.CanExecutePatternsAllowed = apiPairAccessPerms.CanExecutePatternsAllowed;
-        currentPermAccess.CanExecuteTriggersAllowed = apiPairAccessPerms.CanExecuteTriggersAllowed;
+        currentPermAccess.CanToggleTriggersAllowed = apiPairAccessPerms.CanToggleTriggersAllowed;
         currentPermAccess.CanSendTriggersAllowed = apiPairAccessPerms.CanSendTriggersAllowed;
 
         return currentPermAccess;

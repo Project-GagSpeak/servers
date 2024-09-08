@@ -23,10 +23,11 @@ public class PatternEntry
 
     [MaxLength(250)]
     public string Description { get; set; }
-    public string Author { get; set; } // seperate from publisher to maintain anonymity
-    public ICollection<PatternEntryTag> PatternEntryTags { get; set; }
-    public int DownloadCount { get; set; }
+    public string Author { get; set; }
+    public ICollection<PatternEntryTag> PatternEntryTags { get; set; } = new List<PatternEntryTag>();
+    public int DownloadCount { get; set; } = 0;
     public ICollection<UserPatternLikes> UserPatternLikes { get; set; } = new List<UserPatternLikes>();
+    public bool ShouldLoop { get; set; }
     public TimeSpan Length { get; set; }
     public bool UsesVibrations { get; set; }
     public bool UsesRotations { get; set; }
