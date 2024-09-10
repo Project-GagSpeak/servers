@@ -31,5 +31,5 @@ public class UserActiveStateData
 	public string WardrobeActiveSetLockAssigner { get; set; } = ""; // UID that locked the set.
 
     /* User's ToyboxData state references */
-    public string ToyboxActivePatternName { get; set; } = ""; // the name of the user's actively running pattern
+    public Guid ToyboxActivePatternId { get; set; } = Guid.Empty; // the name of the user's actively running pattern
 }

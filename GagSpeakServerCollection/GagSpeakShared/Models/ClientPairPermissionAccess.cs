@@ -60,7 +60,8 @@ public class ClientPairPermissionAccess
     public bool CanToggleToyStateAllowed { get; set; } = false;
     public bool CanUseVibeRemoteAllowed { get; set; } = false;
     public bool CanToggleAlarmsAllowed { get; set; } = false;
+    public bool CanSendAlarmsAllowed { get; set; } = false;
     public bool CanExecutePatternsAllowed { get; set; } = false;
+    public bool CanStopPatternsAllowed { get; set; } = false;
     public bool CanToggleTriggersAllowed { get; set; } = false;
-    public bool CanSendTriggersAllowed { get; set; } = false;
 }

@@ -55,9 +55,10 @@ public class ClientPairPermissions
     public bool CanToggleToyState { get; set; } = false;   // if the client pair can turn your toy on and off.
     public bool CanUseVibeRemote { get; set; } = false; // if the client pair can use the realtime vibe remote on your toy.
     public bool CanToggleAlarms { get; set; } = false; // if the client pair can toggle alarms on your toy.
-    public bool CanExecutePatterns { get; set; } = false;      // if the client pair can use patterns on your toy.
-    public bool CanToggleTriggers { get; set; } = false;      // if the client pair can use triggers on your toy.
-    public bool CanSendTriggers { get; set; } = false;         // if the client pair can send triggers to your toy.
+    public bool CanSendAlarms { get; set; } = false; // if the client pair can send alarms to your toy.
+    public bool CanExecutePatterns { get; set; } = false; // if the client pair can use patterns on your toy.
+    public bool CanStopPatterns { get; set; } = false; // if the client pair can stop patterns on your toy.
+    public bool CanToggleTriggers { get; set; } = false; // if the client pair can use triggers on your toy.
 
     // unique hardcore permissions.
     public bool AllowForcedFollow { get; set; } = false;     // if you give player permission

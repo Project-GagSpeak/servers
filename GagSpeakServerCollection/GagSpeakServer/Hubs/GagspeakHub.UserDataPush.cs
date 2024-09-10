@@ -264,10 +264,10 @@ public partial class GagspeakHub
                 userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
             case DataUpdateKind.WardrobeRestraintLocked:
-                userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.WardrobeActiveSetPadLock;
-                userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.WardrobeActiveSetPassword;
-                userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.WardrobeActiveSetLockTime;
-                userActiveState.WardrobeActiveSetLockAssigner= dto.WardrobeData.WardrobeActiveSetLockAssigner;
+                userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.Padlock;
+                userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.Password;
+                userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.Timer;
+                userActiveState.WardrobeActiveSetLockAssigner= dto.WardrobeData.Assigner;
                 break;
             case DataUpdateKind.WardrobeRestraintUnlocked:
                 userActiveState.WardrobeActiveSetPadLock = "None";
@@ -845,17 +845,17 @@ public partial class GagspeakHub
                         return;
                     }
                     // prevent people without OwnerPadlock permission from applying ownerPadlocks.
-                    if ((string.Equals(dto.WardrobeData.WardrobeActiveSetPadLock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
-                        (string.Equals(dto.WardrobeData.WardrobeActiveSetPadLock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
+                    if ((string.Equals(dto.WardrobeData.Padlock, OwnerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks) ||
+                        (string.Equals(dto.WardrobeData.Padlock, OwnerTimerPadlock, StringComparison.Ordinal) && !pairPermissions.OwnerLocks))
                     {
                         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You cannot lock OwnerPadlock types, pair doesn't allow you!").ConfigureAwait(false);
                         return;
                     }
                     // update the respective appearance data.
-                    userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.WardrobeActiveSetPadLock;
-                    userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.WardrobeActiveSetPassword;
-                    userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.WardrobeActiveSetLockTime;
-                    userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.WardrobeActiveSetLockAssigner;
+                    userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.Padlock;
+                    userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.Password;
+                    userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.Timer;
+                    userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.Assigner;
                 }
                 break;
             case DataUpdateKind.WardrobeRestraintUnlocked:
@@ -873,7 +873,7 @@ public partial class GagspeakHub
                         return;
                     }
                     // Throw if password doesn't match existing password.
-                    if (!string.Equals(userActiveState.WardrobeActiveSetPassword, dto.WardrobeData.WardrobeActiveSetPassword, StringComparison.Ordinal))
+                    if (!string.Equals(userActiveState.WardrobeActiveSetPassword, dto.WardrobeData.Password, StringComparison.Ordinal))
                     {
                         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Password incorrect!").ConfigureAwait(false);
                         return;
@@ -939,10 +939,10 @@ public partial class GagspeakHub
             OutfitNames = dto.WardrobeData.OutfitNames, // this becomes irrelevant since none of these settings change this.
             ActiveSetName = userActiveState.WardrobeActiveSetName,
             ActiveSetEnabledBy = userActiveState.WardrobeActiveSetAssigner,
-            WardrobeActiveSetPadLock = userActiveState.WardrobeActiveSetPadLock,
-            WardrobeActiveSetPassword = userActiveState.WardrobeActiveSetPassword,
-            WardrobeActiveSetLockTime = userActiveState.WardrobeActiveSetLockTime,
-            WardrobeActiveSetLockAssigner = userActiveState.WardrobeActiveSetLockAssigner,
+            Padlock = userActiveState.WardrobeActiveSetPadLock,
+            Password = userActiveState.WardrobeActiveSetPassword,
+            Timer = userActiveState.WardrobeActiveSetLockTime,
+            Assigner = userActiveState.WardrobeActiveSetLockAssigner,
         };
 
         // update the changes to the database.
@@ -1022,24 +1022,24 @@ public partial class GagspeakHub
         // Perform security check on the UpdateKind, to make sure client caller is not exploiting the system.
         switch (dto.UpdateKind)
         {
-            case DataUpdateKind.ToyboxPatternActivated:
+            case DataUpdateKind.ToyboxPatternExecuted:
                 {
                     if (!pairPermissions.CanExecutePatterns) throw new Exception("Pair doesn't allow you to use ToyboxPatternFeatures on them!");
                     // ensure that we have a pattern set to active that should be set to active.
-                    var activePattern = dto.ToyboxInfo.PatternList.FirstOrDefault(p => p.IsActive);
-                    if(activePattern == null) throw new Exception("No active pattern found in the list!");
+                    var activePattern = dto.ToyboxInfo.ActivePatternGuid;
+                    if(activePattern == Guid.Empty) throw new Exception("Cannot activate Guid.Empty!");
 
                     // otherwise, we should activate that pattern in our user state.
-                    userActiveState.ToyboxActivePatternName = activePattern.Name;
+                    userActiveState.ToyboxActivePatternId = activePattern;
                 }
                 break;
-            case DataUpdateKind.ToyboxPatternDeactivated:
+            case DataUpdateKind.ToyboxPatternStopped:
                 {
                     if (!pairPermissions.CanExecutePatterns) throw new Exception("Pair doesn't allow you to use ToyboxPatternFeatures on them!");
                     // Throw if no pattern was playing.
-                    if (userActiveState.ToyboxActivePatternName == string.Empty) throw new Exception("No active pattern was playing, nothing to stop!");
+                    if (userActiveState.ToyboxActivePatternId == Guid.Empty) throw new Exception("No active pattern was playing, nothing to stop!");
                     // If we reach here, the passed in data is valid (all patterns should no longer be active) and we can send back the data.
-                    userActiveState.ToyboxActivePatternName = string.Empty;
+                    userActiveState.ToyboxActivePatternId = Guid.Empty;
                 }
                 break;
             case DataUpdateKind.ToyboxAlarmListUpdated: throw new Exception("Cannot modify this type of data here!");
@@ -1047,7 +1047,7 @@ public partial class GagspeakHub
                 if (!pairPermissions.CanToggleAlarms) throw new Exception("Pair doesn't allow you to use ToyboxAlarmFeatures on them!");
                 break;
             case DataUpdateKind.ToyboxTriggerListUpdated: throw new Exception("Cannot modify this type of data here!");
-            case DataUpdateKind.ToyboxTriggerActiveStatusChanged:
+            case DataUpdateKind.ToyboxTriggerToggled:
                 if (!pairPermissions.CanToggleTriggers) throw new Exception("Pair doesn't allow you to use ToyboxTriggerFeatures on them!");
                 break;
             default:

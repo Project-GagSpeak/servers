@@ -46,11 +46,11 @@ public static class ClientPairPermissionExtensions
 
         result.WardrobeActiveSetName = activeStateDataModel.WardrobeActiveSetName;
         result.WardrobeActiveSetAssigner = activeStateDataModel.WardrobeActiveSetAssigner;
-        result.WardrobeActiveSetPadLock = activeStateDataModel.WardrobeActiveSetPadLock;
-        result.WardrobeActiveSetPassword = activeStateDataModel.WardrobeActiveSetPassword;
-        result.WardrobeActiveSetLockTime = activeStateDataModel.WardrobeActiveSetLockTime;
-        result.WardrobeActiveSetLockAssigner = activeStateDataModel.WardrobeActiveSetLockAssigner;
-        result.ToyboxActivePatternName = activeStateDataModel.ToyboxActivePatternName;
+        result.Padlock = activeStateDataModel.WardrobeActiveSetPadLock;
+        result.Password = activeStateDataModel.WardrobeActiveSetPassword;
+        result.Timer = activeStateDataModel.WardrobeActiveSetLockTime;
+        result.Assigner = activeStateDataModel.WardrobeActiveSetLockAssigner;
+        result.ToyboxActivePatternName = activeStateDataModel.ToyboxActivePatternId;
 		return result;
 	}
 	#endregion ActiveStateDataMigrations
@@ -158,9 +158,10 @@ public static class ClientPairPermissionExtensions
         result.CanToggleToyState = clientPairPermsModel.CanToggleToyState;
         result.CanUseVibeRemote = clientPairPermsModel.CanUseVibeRemote;
         result.CanToggleAlarms = clientPairPermsModel.CanToggleAlarms;
+        result.CanSendAlarms = clientPairPermsModel.CanSendAlarms;
         result.CanExecutePatterns = clientPairPermsModel.CanExecutePatterns;
+        result.CanStopPatterns = clientPairPermsModel.CanStopPatterns;
         result.CanToggleTriggers = clientPairPermsModel.CanToggleTriggers;
-        result.CanSendTriggers = clientPairPermsModel.CanSendTriggers;
 
         result.AllowForcedFollow = clientPairPermsModel.AllowForcedFollow;
         result.IsForcedToFollow = clientPairPermsModel.IsForcedToFollow;
@@ -211,9 +212,10 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.CanToggleToyState = apiPairPerms.CanToggleToyState;
         currentModelPerms.CanUseVibeRemote = apiPairPerms.CanUseVibeRemote;
         currentModelPerms.CanToggleAlarms = apiPairPerms.CanToggleAlarms;
+        currentModelPerms.CanSendAlarms = apiPairPerms.CanSendAlarms;
         currentModelPerms.CanExecutePatterns = apiPairPerms.CanExecutePatterns;
+        currentModelPerms.CanStopPatterns = apiPairPerms.CanStopPatterns;
         currentModelPerms.CanToggleTriggers = apiPairPerms.CanToggleTriggers;
-        currentModelPerms.CanSendTriggers = apiPairPerms.CanSendTriggers;
 
         currentModelPerms.AllowForcedFollow = apiPairPerms.AllowForcedFollow;
         currentModelPerms.IsForcedToFollow = apiPairPerms.IsForcedToFollow;
@@ -275,9 +277,10 @@ public static class ClientPairPermissionExtensions
         result.CanToggleToyStateAllowed = pairAccessPermsModel.CanToggleToyStateAllowed;
         result.CanUseVibeRemoteAllowed = pairAccessPermsModel.CanUseVibeRemoteAllowed;
         result.CanToggleAlarmsAllowed = pairAccessPermsModel.CanToggleAlarmsAllowed;
+        result.CanSendAlarmsAllowed = pairAccessPermsModel.CanSendAlarmsAllowed;
         result.CanExecutePatternsAllowed = pairAccessPermsModel.CanExecutePatternsAllowed;
+        result.CanStopPatternsAllowed = pairAccessPermsModel.CanStopPatternsAllowed;
         result.CanToggleTriggersAllowed = pairAccessPermsModel.CanToggleTriggersAllowed;
-        result.CanSendTriggersAllowed = pairAccessPermsModel.CanSendTriggersAllowed;
 
         return result;
     }
@@ -319,9 +322,10 @@ public static class ClientPairPermissionExtensions
         currentPermAccess.CanToggleToyStateAllowed = apiPairAccessPerms.CanToggleToyStateAllowed;
         currentPermAccess.CanUseVibeRemoteAllowed = apiPairAccessPerms.CanUseVibeRemoteAllowed;
         currentPermAccess.CanToggleAlarmsAllowed = apiPairAccessPerms.CanToggleAlarmsAllowed;
+        currentPermAccess.CanSendAlarmsAllowed = apiPairAccessPerms.CanSendAlarmsAllowed;
         currentPermAccess.CanExecutePatternsAllowed = apiPairAccessPerms.CanExecutePatternsAllowed;
+        currentPermAccess.CanStopPatternsAllowed = apiPairAccessPerms.CanStopPatternsAllowed;
         currentPermAccess.CanToggleTriggersAllowed = apiPairAccessPerms.CanToggleTriggersAllowed;
-        currentPermAccess.CanSendTriggersAllowed = apiPairAccessPerms.CanSendTriggersAllowed;
 
         return currentPermAccess;
     }
