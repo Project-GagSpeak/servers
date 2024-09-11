@@ -356,7 +356,18 @@ public partial class GagspeakHub
         }
 
         // REVIEW: We can input checks against activestatedata here if we run into concurrency issues.
-
+        if (dto.UpdateKind == DataUpdateKind.Safeword)
+        {
+            var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            if (userActiveState == null)
+            {
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update own userActiveStateData!").ConfigureAwait(false);
+                return;
+            }
+            userActiveState.ToyboxActivePatternId = Guid.Empty;
+            // update the database with the new appearance data.
+            DbContext.UserActiveStateData.Update(userActiveState);
+        }
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
         await Clients.Users(recipientUids).Client_UserReceiveOtherDataToybox(
             new OnlineUserCharaToyboxDataDto(new UserData(UserUID), dto.PatternInfo, dto.UpdateKind)).ConfigureAwait(false);
