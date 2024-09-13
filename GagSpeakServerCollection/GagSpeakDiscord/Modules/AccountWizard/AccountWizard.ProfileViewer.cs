@@ -1,3 +1,4 @@
+using System.Globalization;
 using Discord;
 using Discord.Interactions;
 using GagspeakAPI.Data.Enum;
@@ -68,10 +69,10 @@ public partial class AccountWizard
         }
 
         // Last login UTC & Last login Local
-        var lastOnlineUtc = dbUser.LastLoggedIn;
-        var lastOnlineLocal = lastOnlineUtc.ToLocalTime();
-        eb.AddField("Last Online (UTC)", lastOnlineUtc.ToString("U"));
-        eb.AddField("Last Online (Local)", lastOnlineLocal.ToString("f"));
+        var lastOnlineUtc = new DateTimeOffset(dbUser.LastLoggedIn, TimeSpan.Zero);
+        eb.AddField("Last Online (UTC)", lastOnlineUtc.ToString("U", CultureInfo.InvariantCulture));
+        var formattedTimestamp = string.Create(CultureInfo.InvariantCulture, $"<t:{lastOnlineUtc.ToUnixTimeSeconds()}:F>");
+        eb.AddField("Last Online (Local)", formattedTimestamp);
 
         // display this accounts vanity tier if they have one
         if (dbUser.VanityTier != CkSupporterTier.NoRole)
