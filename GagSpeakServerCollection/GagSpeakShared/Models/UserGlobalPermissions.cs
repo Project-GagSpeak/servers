@@ -37,6 +37,11 @@ public class UserGlobalPermissions
     public bool ToyIsActive { get; set; } = false;              // if the user's toy is active
     public bool SpatialVibratorAudio { get; set; } = false;    // if the user's toybox local audio is active
 
+    // Share Code for global shock collar permissions.
+    // NOTE: UniquePairPermissions share codes override global codes. Global Codes also ONLY work for
+    public string GlobalShockShareCode { get; set; } = "";
+    public TimeSpan GlobalShockVibrateDuration { get; set; } = TimeSpan.Zero;
+
 
     public User User { get; set; }
     // the UserUID is a foreign key to the User table

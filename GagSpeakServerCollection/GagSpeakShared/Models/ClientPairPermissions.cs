@@ -59,6 +59,8 @@ public class ClientPairPermissions
     public bool CanExecutePatterns { get; set; } = false; // if the client pair can use patterns on your toy.
     public bool CanStopPatterns { get; set; } = false; // if the client pair can stop patterns on your toy.
     public bool CanToggleTriggers { get; set; } = false; // if the client pair can use triggers on your toy.
+    public string ShockCollarShareCode { get; set; } = ""; // the share Code for the shock collar unique to this user.
+    public TimeSpan MaxVibrateDuration { get; set; } = TimeSpan.Zero; // separate value since vibrations have diff limits.
 
     // unique hardcore permissions.
     public bool AllowForcedFollow { get; set; } = false;     // if you give player permission

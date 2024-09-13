@@ -13,6 +13,7 @@ using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using GagspeakAPI.Dto.Toybox;
+using Microsoft.IdentityModel.Tokens;
 
 namespace GagspeakServer.Hubs;
 
@@ -418,6 +419,44 @@ public partial class GagspeakHub
 
 
     /// <summary>
+    /// Sends an action to a paired users Shock Collar.
+    /// Must verify they are in hardcore mode to proceed.
+    /// </summary>
+    [Authorize(Policy = "Identified")]
+    public async Task UserShockActionOnPair(ShockCollarActionDto dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
+            return;
+        }
+
+        // make sure they are added as a pair of the client caller.
+        var userPairGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        var userPairPermsForCaller = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (userPairPermsForCaller == null || userPairGlobalPerms == null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
+            return;
+        }
+
+        // ensure that this user is in hardcore mode with you.
+        if(!userPairPermsForCaller.InHardcore || 
+        (userPairGlobalPerms.GlobalShockShareCode.IsNullOrEmpty() && userPairPermsForCaller.ShockCollarShareCode.IsNullOrEmpty())) 
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "User is not in hardcore mode with you, or "+
+                "doesn't have any shock collars configured!").ConfigureAwait(false);
+            return;
+        }
+
+        // otherwise, it is valid, so attempt to send the shock instruction to the user.
+        await Clients.User(dto.User.UID).Client_UserReceiveShockInstruction(new(UserUID.ToUserDataFromUID(), dto.OpCode, dto.Intensity, dto.Duration)).ConfigureAwait(false);
+    }
+
+
+    /// <summary>
     /// Called by a connected client who wishes to retrieve the profile of another user.
     /// </summary>
     /// <returns> The UserProfileDto of the user requested </returns>
@@ -452,7 +491,11 @@ public partial class GagspeakHub
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
 
-        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new HubException("Cannot modify profile data for anyone but yourself");
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot modify profile data for anyone but yourself").ConfigureAwait(false);
+            return;
+        }
 
         // Grab Client Callers current profile data from the database
         var existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);

@@ -339,9 +339,7 @@ public partial class GagspeakHub
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAliasTo, 2);
     }
 
-    /// <summary> 
-    /// Called by a connected client that desires to push the latest updates for their character's PATTERN Data
-    /// </summary>
+    /// <summary> Called by a connected client that desires to push the latest updates for their character's ToyboxData </summary>
     public async Task UserPushDataToybox(UserCharaToyboxDataMessageDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -371,12 +369,85 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
         await Clients.Users(recipientUids).Client_UserReceiveOtherDataToybox(
             new OnlineUserCharaToyboxDataDto(new UserData(UserUID), dto.PatternInfo, dto.UpdateKind)).ConfigureAwait(false);
-        // Because we are pushing our own appearance update, we shouldnt need to send a self update message.
-        // But if we need to for conflicting validation results, we can easily add it here.
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, recipientUids.Count);
     }
+
+    public async Task UserPushPiShockUpdate(UserCharaPiShockPermMessageDto dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        // ensure the update type is valid.
+        if (dto.UpdateKind != DataUpdateKind.PiShockGlobalUpdated && dto.UpdateKind != DataUpdateKind.PiShockOwnPermsForPairUpdated)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Invalid UpdateKind for PiShock Permissions Data!").ConfigureAwait(false);
+            return;
+        }
+
+        // handle the action differently depending on the update kind.
+
+        // If the UpdateKind is a global update:
+        if (dto.UpdateKind == DataUpdateKind.PiShockGlobalUpdated)
+        {
+            // get the recipient UID list from the recipient list of the dto
+            var recipientUidList = dto.Recipients.Select(r => r.UID).ToList();
+            bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUidList, Context.ConnectionAborted).ConfigureAwait(false);
+            if (!allCached)
+            {
+                var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+                recipientUidList = allPairedUsers.Where(f => recipientUidList.Contains(f, StringComparer.Ordinal)).ToList();
+                await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
+            }
+
+            // REVIEW: We can input checks against active state data here if we run into concurrency issues.
+            if (dto.UpdateKind == DataUpdateKind.Safeword)
+            {
+                var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+                if (userActiveState == null)
+                {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update own userActiveStateData!").ConfigureAwait(false);
+                    return;
+                }
+                userActiveState.ToyboxActivePatternId = Guid.Empty;
+                // update the database with the new appearance data.
+                DbContext.UserActiveStateData.Update(userActiveState);
+            }
+            _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUidList.Count));
+            // we should update all our pairs.
+            await Clients.Users(recipientUidList).Client_UserReceiveDataPiShock(new(new UserData(UserUID), dto.ShockPermissions, dto.UpdateKind)).ConfigureAwait(false);
+            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShock);
+            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShockTo, recipientUidList.Count);
+        }
+        else
+        {
+            // it is a push to update a spesific pair. So we should ensure the Recipients list only contains 1 element.
+            if (dto.Recipients.Count != 1)
+            {
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Should not be notifying multiple users when updating permissions for one!").ConfigureAwait(false);
+                return;
+            }
+
+            // only search for that user and cache in online synced service.
+            var recipientUid = dto.Recipients[0].UID;
+            bool isCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, new List<string>() { recipientUid }, Context.ConnectionAborted).ConfigureAwait(false);
+            if (!isCached)
+            {
+                var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+                await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
+            }
+
+            // return the client call to that user.
+            await Clients.User(recipientUid).Client_UserReceiveDataPiShock(new
+                (new UserData(UserUID), dto.ShockPermissions, DataUpdateKind.PiShockPairPermsForUserUpdated)).ConfigureAwait(false);
+
+            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShock);
+            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShockTo, 1);
+        }
+    }
+
+
+
 
     /// <summary>
     /// <b> PLEASE READ THE PROCESS BELOW AS HANDLING THINGS THIS WAY ON THE SERVER IS VERY CRITICAL </b>

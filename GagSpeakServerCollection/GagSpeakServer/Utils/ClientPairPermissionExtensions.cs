@@ -85,6 +85,8 @@ public static class ClientPairPermissionExtensions
         result.LockToyboxUI = globalPermsModel.LockToyboxUI;
         result.ToyIsActive = globalPermsModel.ToyIsActive;
         result.SpatialVibratorAudio = globalPermsModel.SpatialVibratorAudio;
+        result.GlobalShockShareCode = globalPermsModel.GlobalShockShareCode;
+        result.GlobalShockVibrateDuration = globalPermsModel.GlobalShockVibrateDuration;
 
         return result;
     }
@@ -111,6 +113,8 @@ public static class ClientPairPermissionExtensions
         currentModelGlobalPerms.LockToyboxUI = apiGlobalPerms.LockToyboxUI;
         currentModelGlobalPerms.ToyIsActive = apiGlobalPerms.ToyIsActive;
         currentModelGlobalPerms.SpatialVibratorAudio = apiGlobalPerms.SpatialVibratorAudio;
+        currentModelGlobalPerms.GlobalShockShareCode = apiGlobalPerms.GlobalShockShareCode;
+        currentModelGlobalPerms.GlobalShockVibrateDuration = apiGlobalPerms.GlobalShockVibrateDuration;
 
         return currentModelGlobalPerms;
     }
@@ -162,6 +166,8 @@ public static class ClientPairPermissionExtensions
         result.CanExecutePatterns = clientPairPermsModel.CanExecutePatterns;
         result.CanStopPatterns = clientPairPermsModel.CanStopPatterns;
         result.CanToggleTriggers = clientPairPermsModel.CanToggleTriggers;
+        result.ShockCollarShareCode = clientPairPermsModel.ShockCollarShareCode;
+        result.MaxVibrateDuration = clientPairPermsModel.MaxVibrateDuration;
 
         result.AllowForcedFollow = clientPairPermsModel.AllowForcedFollow;
         result.IsForcedToFollow = clientPairPermsModel.IsForcedToFollow;
@@ -216,6 +222,8 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.CanExecutePatterns = apiPairPerms.CanExecutePatterns;
         currentModelPerms.CanStopPatterns = apiPairPerms.CanStopPatterns;
         currentModelPerms.CanToggleTriggers = apiPairPerms.CanToggleTriggers;
+        currentModelPerms.ShockCollarShareCode = apiPairPerms.ShockCollarShareCode;
+        currentModelPerms.MaxVibrateDuration = apiPairPerms.MaxVibrateDuration;
 
         currentModelPerms.AllowForcedFollow = apiPairPerms.AllowForcedFollow;
         currentModelPerms.IsForcedToFollow = apiPairPerms.IsForcedToFollow;

@@ -21,6 +21,8 @@ public class MetricsAPI
     public const string CounterUserPushDataWardrobe = "gagspeak_user_push_wardrobe";
     public const string CounterUserPushDataAlias = "gagspeak_user_push_alias";
     public const string CounterUserPushDataToybox = "gagspeak_user_push_toybox";
+    public const string CounterUserPushDataPiShock = "gagspeak_user_push_pishock";
+
 
     public const string CounterUserPushDataCompositeTo = "gagspeak_user_push_composite_to";
     public const string CounterUserPushDataIpcTo = "gagspeak_user_push_ipc_to";
@@ -28,6 +30,7 @@ public class MetricsAPI
     public const string CounterUserPushDataWardrobeTo = "gagspeak_user_push_wardrobe_to";
     public const string CounterUserPushDataAliasTo = "gagspeak_user_push_alias_to";
     public const string CounterUserPushDataToyboxTo = "gagspeak_user_push_toybox_to";
+    public const string CounterUserPushDataPiShockTo = "gagspeak_user_push_pishock_to";
 
     public const string CounterAuthenticationRequests = "gagspeak_auth_requests";
     public const string CounterAuthenticationCacheHits = "gagspeak_auth_requests_cachehit";
