@@ -55,7 +55,6 @@ public partial class AccountWizard
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
-    // TODO: Find a way to prevent people from spamming this button, so they can only make one per alt character.
     public async Task HandleAddAltProfile(GagspeakDbContext db, EmbedBuilder embed, string primaryUID)
     {
         // construct a new user to the DB, set to have logged in right now.
@@ -79,7 +78,7 @@ public partial class AccountWizard
         var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
         var auth = new Auth()
         {
-            HashedKey = StringUtils.Sha256String(computedHash),
+            HashedKey = computedHash,
             User = newUser,
             PrimaryUserUID = primaryUID
         };

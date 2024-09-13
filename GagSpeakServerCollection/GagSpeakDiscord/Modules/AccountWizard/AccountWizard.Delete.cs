@@ -5,7 +5,7 @@ namespace GagspeakDiscord.Modules.AccountWizard;
 
 public partial class AccountWizard
 {
-    [ComponentInteraction("wizard-delete")]
+    [ComponentInteraction("wizard-remove")]
     public async Task ComponentDelete()
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
@@ -23,12 +23,12 @@ public partial class AccountWizard
         eb.WithColor(Color.Magenta);
 
         ComponentBuilder cb = new();
-        await AddUserSelection(gagspeakDb, cb, "wizard-delete-select").ConfigureAwait(false);
+        await AddUserSelection(gagspeakDb, cb, "wizard-remove-select").ConfigureAwait(false);
         AddHome(cb);
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
-    [ComponentInteraction("wizard-delete-select")]
+    [ComponentInteraction("wizard-remove-select")]
     public async Task SelectionDeleteAccount(string uid)
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
@@ -39,28 +39,27 @@ public partial class AccountWizard
         bool isPrimary = gagspeakDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID == null;
         EmbedBuilder eb = new();
         eb.WithTitle($"Are you sure you want to delete {uid}?");
-        eb.WithDescription($"This operation is irreversible. All your pairs, joined syncshells and information stored on the service for {uid} will be " +
-            $"irrevocably deleted." +
-            (isPrimary ? (Environment.NewLine + Environment.NewLine +
+        eb.WithDescription($"This operation is irreversible. All pairs of {uid}, your settings, and permissions " +
+            $"for them will be irrevocably deleted." + (isPrimary ? (Environment.NewLine + Environment.NewLine +
             "⚠️ **You are about to delete a Primary UID, all attached Secondary UIDs and their information will be deleted as well.** ⚠️") : string.Empty));
         eb.WithColor(Color.Purple);
         ComponentBuilder cb = new();
-        cb.WithButton("Cancel", "wizard-delete", emote: new Emoji("❌"));
-        cb.WithButton($"Delete {uid}", "wizard-delete-confirm:" + uid, ButtonStyle.Danger, emote: new Emoji("🗑️"));
+        cb.WithButton("Cancel", "wizard-remove", emote: new Emoji("❌"));
+        cb.WithButton($"Delete {uid}", "wizard-remove-confirm:" + uid, ButtonStyle.Danger, emote: new Emoji("🗑️"));
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
-    [ComponentInteraction("wizard-delete-confirm:*")]
+    [ComponentInteraction("wizard-remove-confirm:*")]
     public async Task ComponentDeleteAccountConfirm(string uid)
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
 
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(ComponentDeleteAccountConfirm), Context.Interaction.User.Id, uid);
 
-        await RespondWithModalAsync<ConfirmDeletionModal>("wizard-delete-confirm-modal:" + uid).ConfigureAwait(false);
+        await RespondWithModalAsync<ConfirmDeletionModal>("wizard-remove-confirm-modal:" + uid).ConfigureAwait(false);
     }
 
-    [ModalInteraction("wizard-delete-confirm-modal:*")]
+    [ModalInteraction("wizard-remove-confirm-modal:*")]
     public async Task ModalDeleteAccountConfirm(string uid, ConfirmDeletionModal modal)
     {
         if (!(await ValidateInteraction().ConfigureAwait(false))) return;
@@ -76,8 +75,8 @@ public partial class AccountWizard
                 eb.WithDescription($"You entered {modal.Delete} but requested was DELETE. Please try again and enter DELETE to confirm.");
                 eb.WithColor(Color.Red);
                 ComponentBuilder cb = new();
-                cb.WithButton("Cancel", "wizard-delete", emote: new Emoji("❌"));
-                cb.WithButton("Retry", "wizard-delete-confirm:" + uid, emote: new Emoji("🔁"));
+                cb.WithButton("Cancel", "wizard-remove", emote: new Emoji("❌"));
+                cb.WithButton("Retry", "wizard-remove-confirm:" + uid, emote: new Emoji("🔁"));
 
                 await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
             }

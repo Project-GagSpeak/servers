@@ -5,7 +5,6 @@ using GagspeakShared.Models;
 using GagspeakShared.Services;
 using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
-using GagspeakShared.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -142,7 +141,7 @@ public class JwtController : Controller
             if (string.IsNullOrEmpty(charaIdent)) return BadRequest("No CharaIdent");
 
             // handle localcontentID based authentication
-            if(!string.IsNullOrEmpty(localContentID))
+            if (!string.IsNullOrEmpty(localContentID))
             {
                 // validate the localcontentID here (e.g., check if it exists in your database)
                 // if validation fails, return appropriate responce

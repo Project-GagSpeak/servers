@@ -118,7 +118,7 @@ public partial class AccountWizard : InteractionModuleBase
     /// <summary> The modal for the confirm deletion display (a confirmation popup) </summary>
     public class ConfirmDeletionModal : IModal
     {
-        public string Title => "Confirm Account Deletion. This deletes all profiles under your account. Are you sure?";
+        public string Title => "Confirm Account Profile Deletion";
 
         [InputLabel("Enter \"DELETE\" in all Caps")]
         [ModalTextInput("confirmation", TextInputStyle.Short, "Enter DELETE")]
