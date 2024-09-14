@@ -110,6 +110,7 @@ public partial class GagspeakHub
 		object newValue = dto.ChangedPermission.Value;
 		// Get the PropertyInfo object for the property with the matching name in globalPerms
 		PropertyInfo propertyInfo = typeof(GagspeakShared.Models.UserGlobalPermissions).GetProperty(propertyName);
+
 		if (propertyInfo != null)
 		{
 			// Catches Boolean & String recognition
@@ -118,11 +119,12 @@ public partial class GagspeakHub
 				// [YES THIS IS WHERE IT UPDATES THE ACTUAL GLOBALPERMS OBJECT]
 				propertyInfo.SetValue(globalPerms, newValue);
 			}
-			// timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
-			else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
-			{
-				propertyInfo.SetValue(globalPerms, TimeSpan.FromTicks((long)(ulong)newValue));
-			}
+            // timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
+            else if (newValue is UInt64 && propertyInfo.PropertyType == typeof(TimeSpan))
+            {
+                long ticks = (long)(ulong)newValue;  // Safe cast from ulong to long
+                propertyInfo.SetValue(globalPerms, TimeSpan.FromTicks(ticks));
+            }
 			// char recognition. (these are converted to byte for Dto's instead of char)
 			else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
 			{
@@ -130,7 +132,8 @@ public partial class GagspeakHub
 			}
 			else
 			{
-				await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Type miss-match on requested update").ConfigureAwait(false);
+                _logger.LogMessage($"PropertyType: {propertyInfo.PropertyType}, NewValueType: {newValue.GetType()}");
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Type miss-match on requested update").ConfigureAwait(false);
 				return;
 			}
 		}
@@ -192,11 +195,12 @@ public partial class GagspeakHub
 				// [YES THIS IS WHERE IT UPDATES THE ACTUAL GLOBALPERMS OBJECT]
 				propertyInfo.SetValue(globalPerms, newValue);
 			}
-			// timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
-			else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
-			{
-				propertyInfo.SetValue(globalPerms, TimeSpan.FromTicks((long)(ulong)newValue));
-			}
+            // timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
+            else if (newValue is UInt64 && propertyInfo.PropertyType == typeof(TimeSpan))
+            {
+                long ticks = (long)(ulong)newValue;  // Safe cast from ulong to long
+                propertyInfo.SetValue(globalPerms, TimeSpan.FromTicks(ticks));
+            }
 			// char recognition. (these are converted to byte for Dto's instead of char)
 			else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
 			{
@@ -277,10 +281,11 @@ public partial class GagspeakHub
 
 				propertyInfo.SetValue(pairPerms, newValue);
 			}
-			// timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
-			else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
-			{
-				propertyInfo.SetValue(pairPerms, TimeSpan.FromTicks((long)(ulong)newValue));
+            // timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
+            else if (newValue is UInt64 && propertyInfo.PropertyType == typeof(TimeSpan))
+            {
+                long ticks = (long)(ulong)newValue;  // Safe cast from ulong to long
+                propertyInfo.SetValue(pairPerms, TimeSpan.FromTicks(ticks));
 			}
 			// char recognition. (these are converted to byte for Dto's instead of char)
 			else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
@@ -370,10 +375,11 @@ public partial class GagspeakHub
 				propertyInfo.SetValue(pairPerms, newValue);
 			}
 			// timespan recognition. (these are converted to Uint64 for Dto's instead of TimeSpan)
-			else if (newValue.GetType() == typeof(UInt64) && propertyInfo.PropertyType == typeof(TimeSpan))
+			else if (newValue is UInt64 && propertyInfo.PropertyType == typeof(TimeSpan))
 			{
-				propertyInfo.SetValue(pairPerms, TimeSpan.FromTicks((long)(ulong)newValue));
-			}
+                long ticks = (long)(ulong)newValue;  // Safe cast from ulong to long
+                propertyInfo.SetValue(pairPerms, TimeSpan.FromTicks(ticks));
+            }
 			// char recognition. (these are converted to byte for Dto's instead of char)
 			else if (newValue.GetType() == typeof(byte) && propertyInfo.PropertyType == typeof(char))
 			{

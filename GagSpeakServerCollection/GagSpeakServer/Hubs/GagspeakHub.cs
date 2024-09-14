@@ -127,32 +127,35 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             DbContext.UserGlobalPermissions.Add(clientCallerGlobalPerms);
         }
 
+        if(clientCallerGlobalPerms.GlobalShockShareCode == null)
+        {
+            clientCallerGlobalPerms.GlobalShockShareCode = "";
+            clientCallerGlobalPerms.GlobalShockVibrateDuration = TimeSpan.Zero;
+            DbContext.UserGlobalPermissions.Update(clientCallerGlobalPerms);
+        }
+
+        // this is mainly to update beta testers. It shouldnt really help with serving any other purpose.
+        var clientCallerUserPairPermsList = await DbContext.ClientPairPermissions.Where(f => f.UserUID == UserUID).ToListAsync().ConfigureAwait(false);
+        if (clientCallerUserPairPermsList.Count == 0)
+        {
+            // see if the pair permission has the ShareCode as null, if so, set the values.
+            foreach (var pair in clientCallerUserPairPermsList)
+            {
+                if (pair.ShockCollarShareCode == null)
+                {
+                    pair.ShockCollarShareCode = "";
+                    pair.MaxVibrateDuration = TimeSpan.Zero;
+                    DbContext.ClientPairPermissions.Update(pair);
+                }
+            }
+        }
+
         // because it also contains the appearance data, we should fetch that as well
         var clientCallerAppearanceData = await DbContext.UserAppearanceData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
         if (clientCallerAppearanceData == null)
         {
             clientCallerAppearanceData = new UserGagAppearanceData() { UserUID = UserUID };
             DbContext.UserAppearanceData.Add(clientCallerAppearanceData);
-        }
-        if(string.IsNullOrEmpty(clientCallerAppearanceData.SlotOneGagType))
-        {
-            clientCallerAppearanceData.SlotOneGagType = None;
-            clientCallerAppearanceData.SlotOneGagPadlock = None;
-            clientCallerAppearanceData.SlotOneGagPassword = "";
-            clientCallerAppearanceData.SlotOneGagTimer = DateTimeOffset.UtcNow;
-            clientCallerAppearanceData.SlotOneGagAssigner = "";
-            clientCallerAppearanceData.SlotTwoGagType = None;
-            clientCallerAppearanceData.SlotTwoGagPadlock = None;
-            clientCallerAppearanceData.SlotTwoGagPassword = "";
-            clientCallerAppearanceData.SlotTwoGagTimer = DateTimeOffset.UtcNow;
-            clientCallerAppearanceData.SlotTwoGagAssigner = "";
-            clientCallerAppearanceData.SlotThreeGagType = None;
-            clientCallerAppearanceData.SlotThreeGagPadlock = None;
-            clientCallerAppearanceData.SlotThreeGagPassword = "";
-            clientCallerAppearanceData.SlotThreeGagTimer = DateTimeOffset.UtcNow;
-            clientCallerAppearanceData.SlotThreeGagAssigner = "";
-            // full reset incase they happen to have malformed data.
-            DbContext.UserAppearanceData.Update(clientCallerAppearanceData);
         }
 
         // we should also perform a check for the current active-state-data. It is server-side only, but we need to create it if it does not exist,.
@@ -161,13 +164,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             clientCallerActiveStateData = new UserActiveStateData() { UserUID = UserUID };
             DbContext.UserActiveStateData.Add(clientCallerActiveStateData);
-        }
-
-        // Precaution: If WardrobeActiveSetPadLock is string.Empty, set it to "None" and update the database
-        if (string.IsNullOrEmpty(clientCallerActiveStateData.WardrobeActiveSetPadLock))
-        {
-            clientCallerActiveStateData.WardrobeActiveSetPadLock = "None";
-            DbContext.UserActiveStateData.Update(clientCallerActiveStateData);
         }
 
         // Save the DbContext (never know if it was added or not so always good to be safe.
