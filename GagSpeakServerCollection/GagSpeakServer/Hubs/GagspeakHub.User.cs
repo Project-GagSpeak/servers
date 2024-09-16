@@ -427,7 +427,7 @@ public partial class GagspeakHub
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
-        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
             return;

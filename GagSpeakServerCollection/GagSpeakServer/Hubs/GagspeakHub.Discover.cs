@@ -282,9 +282,6 @@ public partial class GagspeakHub
             case SearchFilter.UsesRotation:
                 patternsQuery = patternsQuery.Where(p => p.UsesRotations);
                 break;
-            case SearchFilter.UsesOscillation:
-                patternsQuery = patternsQuery.Where(p => p.UsesOscillation);
-                break;
             case SearchFilter.DurationTiny:
                 patternsQuery = patternsQuery.Where(p => p.Length < TimeSpan.FromMinutes(1));
                 patternsQuery = dto.Sort == SearchSort.Ascending
