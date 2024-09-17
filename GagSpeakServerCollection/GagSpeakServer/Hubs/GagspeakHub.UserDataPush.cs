@@ -899,7 +899,7 @@ public partial class GagspeakHub
                         return;
                     }
                     // throw if the userActiveStateData's activeSet exists and is locked.
-                    if (!string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName) && !string.Equals(userActiveState.WardrobeActiveSetPadLock, Padlocks.None.ToString(), StringComparison.OrdinalIgnoreCase))
+                    if (!string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName) && !string.Equals(userActiveState.WardrobeActiveSetPadLock, Padlocks.None.ToName(), StringComparison.OrdinalIgnoreCase))
                     {
                         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Replace Currently Active Set because it is currently locked!").ConfigureAwait(false);
                         return;
