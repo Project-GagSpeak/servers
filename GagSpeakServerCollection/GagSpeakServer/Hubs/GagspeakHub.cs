@@ -127,29 +127,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             DbContext.UserGlobalPermissions.Add(clientCallerGlobalPerms);
         }
 
-        if(clientCallerGlobalPerms.GlobalShockShareCode == null)
-        {
-            clientCallerGlobalPerms.GlobalShockShareCode = "";
-            clientCallerGlobalPerms.GlobalShockVibrateDuration = TimeSpan.Zero;
-            DbContext.UserGlobalPermissions.Update(clientCallerGlobalPerms);
-        }
-
-        // this is mainly to update beta testers. It shouldnt really help with serving any other purpose.
-        var clientCallerUserPairPermsList = await DbContext.ClientPairPermissions.Where(f => f.UserUID == UserUID).ToListAsync().ConfigureAwait(false);
-        if (clientCallerUserPairPermsList.Count == 0)
-        {
-            // see if the pair permission has the ShareCode as null, if so, set the values.
-            foreach (var pair in clientCallerUserPairPermsList)
-            {
-                if (pair.ShockCollarShareCode == null)
-                {
-                    pair.ShockCollarShareCode = "";
-                    pair.MaxVibrateDuration = TimeSpan.Zero;
-                    DbContext.ClientPairPermissions.Update(pair);
-                }
-            }
-        }
-
         // because it also contains the appearance data, we should fetch that as well
         var clientCallerAppearanceData = await DbContext.UserAppearanceData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
         if (clientCallerAppearanceData == null)
