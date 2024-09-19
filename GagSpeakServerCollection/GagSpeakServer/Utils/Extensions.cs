@@ -1,7 +1,7 @@
 using GagspeakAPI.Data;
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Data.Character;
+using GagspeakAPI.Enums;
 using GagspeakShared.Models;
-using Microsoft.EntityFrameworkCore;
 using System.Reflection;
 using static GagspeakServer.Hubs.GagspeakHub;
 
@@ -49,4 +49,36 @@ public static class Extensions
             }
         }
     }
+
+    public static CharacterAppearanceData ToApiAppearance(this UserGagAppearanceData data)
+    => new CharacterAppearanceData
+    {
+        GagSlots = new GagSlot[]
+        {
+            new GagSlot
+            {
+                GagType = data.SlotOneGagType,
+                Padlock = data.SlotOneGagPadlock,
+                Password = data.SlotOneGagPassword,
+                Timer = data.SlotOneGagTimer,
+                Assigner = data.SlotOneGagAssigner
+            },
+            new GagSlot
+            {
+                GagType = data.SlotTwoGagType,
+                Padlock = data.SlotTwoGagPadlock,
+                Password = data.SlotTwoGagPassword,
+                Timer = data.SlotTwoGagTimer,
+                Assigner = data.SlotTwoGagAssigner
+            },
+            new GagSlot
+            {
+                GagType = data.SlotThreeGagType,
+                Padlock = data.SlotThreeGagPadlock,
+                Password = data.SlotThreeGagPassword,
+                Timer = data.SlotThreeGagTimer,
+                Assigner = data.SlotThreeGagAssigner
+            }
+        }
+    };
 }

@@ -1,8 +1,7 @@
 ﻿using GagspeakAPI.Data;
-using GagspeakAPI.Data.Character;
-using GagspeakAPI.Data.Enum;
 using GagspeakAPI.Dto.Patterns;
 using GagspeakAPI.Dto.Toybox;
+using GagspeakAPI.Enums;
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -35,9 +34,9 @@ public partial class GagspeakHub
         // ensure the right person is doing this and that they exist.
         var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == dto.User.UID).ConfigureAwait(false);
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || user == null
-          ||!string.Equals(dto.User.UID, user.UID, StringComparison.Ordinal))
+          || !string.Equals(dto.User.UID, user.UID, StringComparison.Ordinal))
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, 
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
                 "Your User Doesnt exist, or you're trying to upload under someone else's name.").ConfigureAwait(false);
             return false;
         }
@@ -63,7 +62,7 @@ public partial class GagspeakHub
         // Check if the user has exceeded the upload limit
         if (user.UploadLimitCounter >= maxUploadsPerWeek)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, 
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
                 $"Upload limit exceeded. You can only upload {maxUploadsPerWeek} patterns per week.").ConfigureAwait(false);
             return false;
         }
@@ -140,7 +139,7 @@ public partial class GagspeakHub
 
         if (pattern == null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, 
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
                 "Pattern not found or you do not have permission to delete it.").ConfigureAwait(false);
             return false;
         }
@@ -248,7 +247,7 @@ public partial class GagspeakHub
         // Apply search string filter if provided (be it pattern name or author name.)
         if (!string.IsNullOrEmpty(dto.SearchString))
         {
-            if(dto.Filter == SearchFilter.Author)
+            if (dto.Filter == SearchFilter.Author)
                 patternsQuery = patternsQuery.Where(p => p.Author.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
             else
                 patternsQuery = patternsQuery.Where(p => p.Name.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));

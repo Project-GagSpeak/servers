@@ -17,10 +17,11 @@ public class UserProfileData
 
     /* ---------- Profile Data ---------- */
     public string Base64ProfilePic { get; set; } // the base64 string of the user's profile picture
-    public bool FlaggedForReport { get; set; }   // TODO: / REFLECT: Flagged profiles should be tagged as something to lookup for review when reported.
-    public bool ProfileDisabled { get; set; }    // If profile is disabled. 
-    public string UserDescription { get; set; }  // the user's description
+    public string UserDescription { get; set; }  // the user's description.
 
-    // TODO: Add customization / Cosmetic feature presets below here:
-    // (prefer to not store cosmetics actually since they are preset templates included with the plugin and should be downloadable assets.)
+    public bool FlaggedForReport { get; set; }   // if a profile is flagged for report.
+    public bool ProfileDisabled { get; set; }    // If profile is disabled.
+    public DateTime ProfileTimeoutTimeStamp { get; set; } // the time the profile was disabled.
+
+    // For Profile customization unlocks & progress, we could store a whole other table with lots of unlock categories, or throw a base64 string in here of the class.
 }

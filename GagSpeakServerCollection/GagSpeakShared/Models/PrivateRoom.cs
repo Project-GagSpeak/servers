@@ -1,5 +1,4 @@
 using System.ComponentModel.DataAnnotations;
-using GagspeakAPI.Data.Enum;
 
 namespace GagspeakShared.Models;
 

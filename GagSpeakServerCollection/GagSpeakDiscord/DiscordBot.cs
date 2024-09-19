@@ -3,22 +3,25 @@ using Discord;
 using Discord.Interactions;
 using Discord.Rest;
 using Discord.WebSocket;
+using GagspeakAPI.Dto.User;
+using GagspeakAPI.Enums;
 using GagspeakDiscord.Commands;
 using GagspeakDiscord.Modules.AccountWizard;
 using GagspeakDiscord.Modules.KinkDispenser;
 using GagspeakServer.Hubs;
+using GagspeakShared.Data;
+using GagspeakShared.Models;
 using GagspeakShared.Services;
+using GagspeakShared.Utils.Configuration;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-using GagspeakShared.Data;
-using GagspeakShared.Utils.Configuration;
-using GagspeakShared.Models;
-using GagspeakAPI.Data.Enum;
+using System.Globalization;
+using System.Text;
 
 namespace GagspeakDiscord;
 
-internal class DiscordBot : IHostedService
+internal partial class DiscordBot : IHostedService
 {
     private readonly DiscordBotServices _botServices;                               // The class for the discord bot services
     private readonly IConfigurationService<DiscordConfiguration> _discordConfigService;    // The configuration service for the discord bot
@@ -136,6 +139,7 @@ internal class DiscordBot : IHostedService
             _ = UpdateVanityRoles(guild);
             _ = AddPerksToUsersWithVanityRole(guild);
             _ = RemovePerksFromUsersNotInVanityRole();
+            _ = ProcessReportsQueue(guild);
         }
     }
 
@@ -235,6 +239,148 @@ internal class DiscordBot : IHostedService
         return Task.CompletedTask;
     }
 
+    /// <summary> Processes the reports queue </summary>
+    private async Task ProcessReportsQueue(RestGuild guild)
+    {
+        // reset the CTS
+        _processReportQueueCts?.Cancel();
+        _processReportQueueCts?.Dispose();
+        _processReportQueueCts = new();
+        var token = _processReportQueueCts.Token;
+
+        // while the token is not cancelled,
+        while (!token.IsCancellationRequested)
+        {
+            // wait for 30 minutes
+            await Task.Delay(TimeSpan.FromMinutes(30)).ConfigureAwait(false);
+
+            // if the discord client is not connected, continue to next cycle.
+            if (_discordClient.ConnectionState != ConnectionState.Connected) continue;
+
+            // otherwise grab our channel report ID
+            var reportChannelId = _discordConfigService.GetValue<ulong?>(nameof(DiscordConfiguration.DiscordChannelForReports));
+            if (reportChannelId == null) continue;
+
+            try
+            {
+                // within the scope of the service provider, execute actions using the GagSpeak DbContext
+                using (var scope = _services.CreateScope())
+                {
+                    _logger.LogInformation("Checking for Profile Reports");
+                    var dbContext = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
+                    if (!dbContext.UserProfileReports.Any()) {
+                        continue; // continue is no Profile Reports are found
+                    }
+
+                    // collect the list of profile reports otherwise and get the report channel
+                    var reports = await dbContext.UserProfileReports.ToListAsync().ConfigureAwait(false);
+                    var restChannel = await guild.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
+
+                    // for each report, generate an embed and send it to the report channel
+                    foreach (var report in reports)
+                    {
+                        // get the user who reported
+                        var reportedUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportedUserUID).ConfigureAwait(false);
+                        var reportedUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportedUserUID).ConfigureAwait(false);
+
+                        // get the user who was reported
+                        var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
+                        var reportingUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
+                        
+                        // get the profile data of the reported user.
+                        var reportedUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
+
+
+                        // create an embed post to display reported profiles.
+                        EmbedBuilder eb = new();
+                        eb.WithTitle("GagSpeak Profile Report");
+
+                        StringBuilder reportedUserSb = new();
+                        StringBuilder reportingUserSb = new();
+                        reportedUserSb.Append(reportedUser.UID);
+                        reportingUserSb.Append(reportingUser.UID);
+                        if (reportedUserAccountClaim != null)
+                        {
+                            reportedUserSb.AppendLine($" (<@{reportedUserAccountClaim.DiscordId}>)");
+                        }
+                        if (reportingUserAccountClaim != null)
+                        {
+                            reportingUserSb.AppendLine($" (<@{reportingUserAccountClaim.DiscordId}>)");
+                        }
+                        eb.AddField("Reported User", reportedUserSb.ToString());
+                        eb.AddField("Reporting User", reportingUserSb.ToString());
+                        var reportTimeUtc = new DateTimeOffset(report.ReportTime, TimeSpan.Zero);
+                        var formattedTimestamp = string.Create(CultureInfo.InvariantCulture, $"<t:{reportTimeUtc.ToUnixTimeSeconds()}:F>");
+                        eb.AddField("Report Time (UTC)", report.ReportTime);
+                        eb.AddField("Report Time (Local)", formattedTimestamp);
+
+                        eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
+                        eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
+                        eb.AddField("Reported User Profile Current Image vs reported Image", "Reported Image is shown below");
+
+                        var cb = new ComponentBuilder();
+                        cb.WithButton("Dismiss Report", customId: $"gagspeak-report-button-dismissreport-{reportedUser.UID}", style: ButtonStyle.Primary);
+                        cb.WithButton("Clear Profile Image", customId: $"gagspeak-report-button-clearprofileimage-{reportedUser.UID}", style: ButtonStyle.Secondary);
+                        cb.WithButton("Ban Profile Access", customId: $"gagspeak-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
+                        cb.WithButton("Ban User", customId: $"gagspeak-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
+                        cb.WithButton("Dismiss & Flag Reporting User", customId: $"gagspeak-report-button-flagreporter-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
+                        
+                        // Create a list for FileAttachments
+                        var attachments = new List<FileAttachment>();
+
+                        // Conditionally add the current profile image
+                        if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfilePic))
+                        {
+                            var currentImageFileName = reportedUser.UID + "_profile_current_" + Guid.NewGuid().ToString("N") + ".png";
+                            using var currentImageStream = new MemoryStream(Convert.FromBase64String(reportedUserProfile.Base64ProfilePic));
+                            var currentImageAttachment = new FileAttachment(currentImageStream, currentImageFileName);
+                            attachments.Add(currentImageAttachment);
+
+                            // Update embed image URL if current image is available
+                            eb.WithImageUrl($"attachment://{currentImageFileName}");
+                        }
+
+                        // Conditionally add the reported image
+                        if (!string.IsNullOrEmpty(report.ReportedBase64Picture))
+                        {
+                            var reportedImageFileName = reportedUser.UID + "_profile_reported_" + Guid.NewGuid().ToString("N") + ".png";
+                            using var reportedImageStream = new MemoryStream(Convert.FromBase64String(report.ReportedBase64Picture));
+                            var reportedImageAttachment = new FileAttachment(reportedImageStream, reportedImageFileName);
+                            attachments.Add(reportedImageAttachment);
+
+                            // Optionally, you can add another embed image for the reported picture
+                            eb.WithImageUrl($"attachment://{reportedImageFileName}");
+                        }
+
+                        // Send files if there are any attachments
+                        if (attachments.Count > 0)
+                        {
+                            await restChannel.SendFilesAsync(
+                                attachments,
+                                text: "User Report",
+                                embed: eb.Build(),
+                                components: cb.Build()
+                            ).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            // If no attachments, send the message with only the embed and components
+                            await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+                        }
+
+                        // remove the report from the dbcontext now that it has been processed by the server.
+                        dbContext.Remove(report);
+                    }
+
+                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to process reports");
+            }
+        }
+    }
 
     /// <summary>
     /// Updates the vanity roles in the concurrent dictionary for the bot services to reflect the list in the appsettings.json

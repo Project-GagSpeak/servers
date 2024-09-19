@@ -1,4 +1,4 @@
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Enums;
 
 namespace GagspeakShared.Utils;
 

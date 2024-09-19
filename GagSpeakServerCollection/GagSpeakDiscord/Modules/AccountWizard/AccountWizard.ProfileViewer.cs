@@ -1,7 +1,7 @@
 using System.Globalization;
 using Discord;
 using Discord.Interactions;
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Enums;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 

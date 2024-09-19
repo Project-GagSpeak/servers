@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Enums;
 
 namespace GagspeakShared.Models;
 
@@ -20,6 +20,7 @@ public class User
 
     public CkSupporterTier VanityTier { get; set; } // The vanity tier of the user (if a CK supporter)
 
+    public bool ProfileReportingTimedOut { get; set; } // If the user's profile is currently timed out from reporting
     public int UploadLimitCounter { get; set; } = 0; // Counter for uploads in the current week (should be 10 by default)
     public DateTime FirstUploadTimestamp { get; set; } = DateTime.MinValue; // Timestamp of the first upload in the current week
 

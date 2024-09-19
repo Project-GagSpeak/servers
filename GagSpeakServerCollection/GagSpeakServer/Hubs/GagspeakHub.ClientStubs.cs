@@ -1,10 +1,10 @@
-﻿using GagspeakAPI.Data.Enum;
-using GagspeakAPI.Dto.User;
-using GagspeakAPI.Dto.Connection;
-using GagspeakAPI.Dto.Permissions;
-using GagspeakAPI.Dto.UserPair;
-using GagspeakAPI.Dto.Toybox;
+﻿using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.IPC;
+using GagspeakAPI.Dto.Permissions;
+using GagspeakAPI.Dto.Toybox;
+using GagspeakAPI.Dto.User;
+using GagspeakAPI.Dto.UserPair;
+using GagspeakAPI.Enums;
 
 namespace GagspeakServer.Hubs
 {
@@ -29,7 +29,7 @@ namespace GagspeakServer.Hubs
         public Task Client_UserAddClientPair(UserPairDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserRemoveClientPair(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UpdateUserIndividualPairStatusDto(UserIndividualPairStatusDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        
+
         public Task Client_UserUpdateSelfAllGlobalPerms(UserAllGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateSelfAllUniquePerms(UserPairUpdateAllUniqueDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateSelfPairPermsGlobal(UserGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
@@ -37,11 +37,11 @@ namespace GagspeakServer.Hubs
         public Task Client_UserUpdateSelfPairPermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateOtherAllPairPerms(UserPairUpdateAllPermsDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateOtherAllGlobalPerms(UserAllGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-		public Task Client_UserUpdateOtherAllUniquePerms(UserPairUpdateAllUniqueDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserUpdateOtherAllUniquePerms(UserPairUpdateAllUniqueDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateOtherPairPermsGlobal(UserGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-		public Task Client_UserUpdateOtherPairPerms(UserPairPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserUpdateOtherPairPerms(UserPairPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateOtherPairPermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        
+
         public Task Client_UserReceiveCharacterDataComposite(OnlineUserCompositeDataDto dataDto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveOwnDataIpc(OnlineUserCharaIpcDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveOtherDataIpc(OnlineUserCharaIpcDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");

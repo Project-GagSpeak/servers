@@ -1,4 +1,4 @@
-﻿using GagspeakAPI.Data.Enum;
+﻿using GagspeakAPI.Enums;
 using GagspeakAPI.Data.IPC;
 using GagspeakAPI.Dto.IPC;
 using GagspeakAPI.Dto.User;

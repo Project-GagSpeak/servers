@@ -1,4 +1,4 @@
-﻿using GagspeakAPI.Data.Enum;
+﻿using GagspeakAPI.Enums;
 using GagspeakAPI.Dto;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
@@ -126,10 +126,8 @@ public partial class GagspeakHub
     }
 
     /// <summary> 
-    /// 
     /// Called upon by a client whenever they logout from the servers / go offline.
     /// This call then sends to all paired users of the client who are offline, a User DTO.
-    /// 
     /// </summary>
     /// <returns> 
     /// A list of UID's of all users that are paired with the provided UID 
@@ -144,10 +142,8 @@ public partial class GagspeakHub
     }
 
     /// <summary> 
-    /// 
     /// Called upon by a client whenever they login to the servers / go online.
     /// This call then sends to all paired users of the client who are online, an OnlineUserIdent DTO.
-    /// 
     /// </summary>
     /// <returns> 
     /// A list of UID's of all users that are paired with the provided UID 
@@ -209,10 +205,8 @@ public partial class GagspeakHub
 
 
     /// <summary> 
-    /// 
     /// A helper function to get the pair information of a user and another user from the database.
     /// This is a very detailed function, i did my best to comment its logic and how it works.
-    /// 
     /// </summary>
     private async Task<UserInfo?> GetPairInfo(string uid, string otheruid)
     {

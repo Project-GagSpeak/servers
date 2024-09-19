@@ -1,7 +1,7 @@
-using GagspeakAPI.Data.Enum;
-using GagspeakAPI.Dto.User;
-using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Dto.Connection;
+using GagspeakAPI.Dto.Toybox;
+using GagspeakAPI.Dto.User;
+using GagspeakAPI.Enums;
 
 namespace GagspeakServer.Hubs
 {

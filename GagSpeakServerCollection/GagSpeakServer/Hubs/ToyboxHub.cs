@@ -1,4 +1,4 @@
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Enums;
 using GagspeakAPI.SignalR;
 using GagspeakAPI.Dto.Connection;
 using GagspeakServer.Services;
@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
-using GagspeakAPI.Data.VibeServer;
+using GagspeakAPI.Data;
 using GagspeakAPI.Dto.Toybox;
 
 namespace GagspeakServer.Hubs;

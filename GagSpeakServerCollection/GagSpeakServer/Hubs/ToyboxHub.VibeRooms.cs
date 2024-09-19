@@ -1,7 +1,7 @@
-using GagspeakAPI.Data.Enum;
-using GagspeakAPI.Data.VibeServer;
+using GagspeakAPI.Data;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.Toybox;
+using GagspeakAPI.Enums;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.SignalR;
@@ -94,11 +94,11 @@ public partial class ToyboxHub
         var privateRoomUsers = await DbContext.PrivateRoomPairs
             .Where(pru => pru.PrivateRoomNameID == dto.NewRoomName)
             .Select(pru => new PrivateRoomUser
-            { 
-                UserUID = pru.PrivateRoomUserUID, 
-                ChatAlias = pru.ChatAlias, 
-                ActiveInRoom = pru.InRoom, 
-                VibeAccess = pru.AllowingVibe 
+            {
+                UserUID = pru.PrivateRoomUserUID,
+                ChatAlias = pru.ChatAlias,
+                ActiveInRoom = pru.InRoom,
+                VibeAccess = pru.AllowingVibe
             })
             .ToListAsync()
             .ConfigureAwait(false);
@@ -108,11 +108,11 @@ public partial class ToyboxHub
         {
             NewRoomName = dto.NewRoomName,
             RoomHost = new PrivateRoomUser
-            { 
-                UserUID = UserUID, 
-                ChatAlias = newRoomUser.ChatAlias, 
-                ActiveInRoom = newRoomUser.InRoom, 
-                VibeAccess = newRoomUser.AllowingVibe 
+            {
+                UserUID = UserUID,
+                ChatAlias = newRoomUser.ChatAlias,
+                ActiveInRoom = newRoomUser.InRoom,
+                VibeAccess = newRoomUser.AllowingVibe
             },
             ConnectedUsers = privateRoomUsers
         };

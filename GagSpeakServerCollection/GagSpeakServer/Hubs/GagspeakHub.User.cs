@@ -1,5 +1,5 @@
 ﻿using GagspeakAPI.Data;
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Enums;
 using GagspeakAPI.Dto.User;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.Permissions;
@@ -587,16 +587,14 @@ public partial class GagspeakHub
 
         // if the client caller has already reported this profile, inform them and return.
         UserProfileDataReport? report = await DbContext.UserProfileReports.SingleOrDefaultAsync(u => u.ReportedUserUID == dto.User.UID && u.ReportingUserUID == UserUID).ConfigureAwait(false);
-        if (report != null)
-        {
+        if (report != null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "You already reported this profile and it's pending validation").ConfigureAwait(false);
             return;
         }
 
         // grab the profile of the user being reported. If it doesn't exist, inform the client caller and return.
         UserProfileData? profile = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (profile == null)
-        {
+        if (profile == null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "This user has no profile").ConfigureAwait(false);
             return;
         }
@@ -605,6 +603,7 @@ public partial class GagspeakHub
         UserProfileDataReport reportToAdd = new()
         {
             ReportTime = DateTime.UtcNow,
+            ReportedBase64Picture = profile.Base64ProfilePic,
             ReportingUserUID = UserUID,
             ReportReason = dto.ProfileReport,
             ReportedUserUID = dto.User.UID,
@@ -618,6 +617,9 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         // log the report
         _logger.LogWarning($"User {UserUID} reported user {dto.User.UID} for {dto.ProfileReport}");
+        
+        // DO NOT INFORM CLIENT THEIR PROFILE HAS BEEN REPORTED. THIS IS TO MAINTAIN CONFIDENTIALITY OF REPORTS.
+        // if we did, people who got reported would go on a witch hunt for the people they have added. This is not ok to have.
     }
 
 

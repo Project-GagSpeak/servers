@@ -1,4 +1,4 @@
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Enums;
 using GagspeakAPI.SignalR;
 using GagspeakAPI.Dto.Connection;
 using GagspeakServer.Services;

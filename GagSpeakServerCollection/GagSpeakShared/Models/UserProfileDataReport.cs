@@ -15,19 +15,22 @@ public class UserProfileDataReport
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int ReportID { get; set; }
 
+
     // store the day / time of the report, & the user reported.
     public DateTime ReportTime { get; set; }
-    public User ReportedUser { get; set; }
+    public string ReportedBase64Picture { get; set; } // snapshot the pic at time of report so they cant remove it later.
 
     // store the UID belonging to the reported user as a foreign key.
     [ForeignKey(nameof(ReportedUser))]
     public string ReportedUserUID { get; set; }
+    public User ReportedUser { get; set; }
+
 
     // store the User and UserUID of the person reporting the profile, so we can punish for abusive reports.
-    public User ReportingUser { get; set; }
-
     [ForeignKey(nameof(ReportingUser))]
     public string ReportingUserUID { get; set; }
+    public User ReportingUser { get; set; }
+
 
     // store the reason for the report.
     public string ReportReason { get; set; }

@@ -1,6 +1,6 @@
 using Discord;
 using Discord.Interactions;
-using GagspeakAPI.Data.Enum;
+using GagspeakAPI.Enums;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
@@ -26,7 +26,7 @@ public partial class AccountWizard
         eb.WithColor(Color.Magenta);
         eb.WithTitle("Add New Profile");
         eb.WithDescription("Acquire a profile for one of your Alt Characters. " + Environment.NewLine + Environment.NewLine
-            + "Alt Character Profiles have separate config files, pairs, and permissions. " + Environment.NewLine 
+            + "Alt Character Profiles have separate config files, pairs, and permissions. " + Environment.NewLine
             + "You could have everything set up to be a Dom on one character, a Sub on another, and a Switch on another. It's possible." + Environment.NewLine + Environment.NewLine
             + $"You may create {remainingProfilesAllowed} more Profiles. (Capped at 10)");
         ComponentBuilder cb = new();
