@@ -8,6 +8,8 @@ using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using System.Net.Http.Headers;
+using System.Text.Json;
 
 namespace GagspeakDiscord.Commands;
 #nullable enable
@@ -15,15 +17,17 @@ namespace GagspeakDiscord.Commands;
 #pragma warning disable CS8602
 public class GagspeakCommands : InteractionModuleBase
 {
+    private readonly ServerTokenGenerator _serverTokenGenerator;                   // the server token generator
     private readonly ILogger<GagspeakCommands> _logger;                               // the logger for the GagspeakCommands
     private readonly IServiceProvider _services;                                    // our service provider
     private readonly IConfigurationService<DiscordConfiguration> _discordConfigService;    // the discord configuration service
     private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
 
-    public GagspeakCommands(ILogger<GagspeakCommands> logger, IServiceProvider services,
+    public GagspeakCommands(ServerTokenGenerator tokenGenerator, ILogger<GagspeakCommands> logger, IServiceProvider services,
         IConfigurationService<DiscordConfiguration> gagspeakDiscordConfiguration,
         IConnectionMultiplexer connectionMultiplexer)
     {
+        _serverTokenGenerator = tokenGenerator;
         _logger = logger;
         _services = services;
         _discordConfigService = gagspeakDiscordConfiguration;
@@ -107,50 +111,54 @@ public class GagspeakCommands : InteractionModuleBase
         try
         {
             // An HttpClient is created to send a POST request to a specific URI
-            using HttpClient c = new HttpClient();
-            // The POST request is sent asynchronously with a JSON payload containing a new ClientMessage
-            var responce = await c.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>
-                (nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), new ClientMessage(messageType, message, uid ?? string.Empty))
-                .ConfigureAwait(false);
-            // ensure the message was sent.
-            responce.EnsureSuccessStatusCode();
+            using HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
 
-            // The Discord channel for messages is retrieved from the configuration service
-            var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
-            // If the user ID is null and a Discord channel for messages exists
-            if (uid == null && discordChannelForMessages != null)
+            var payload = new ClientMessage(messageType, message, uid ?? string.Empty);
+            string jsonPayload = JsonSerializer.Serialize(payload);
+            _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), jsonPayload);
+
+            var response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), payload).ConfigureAwait(false);
+
+
+            if (response.IsSuccessStatusCode)
             {
-                // The context of the channel the command was used in is retrieved to respond in the same channel
-                var discordChannel = await Context.Guild.GetChannelAsync(discordChannelForMessages.Value) as IMessageChannel;
-                // If the Discord channel exists
-                if (discordChannel != null)
+                var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
+                if (uid == null && discordChannelForMessages != null)
                 {
-                    // The color of the embed message is determined based on the message severity
-                    var embedColor = messageType switch
+                    var discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
+                    if (discordChannel != null)
                     {
-                        MessageSeverity.Information => Color.Blue,
-                        MessageSeverity.Warning => new Color(255, 255, 0),
-                        MessageSeverity.Error => Color.Red,
-                        _ => Color.Blue
-                    };
+                        var embedColor = messageType switch
+                        {
+                            MessageSeverity.Information => Color.Blue,
+                            MessageSeverity.Warning => new Color(255, 255, 0),
+                            MessageSeverity.Error => Color.Red,
+                            _ => Color.Blue
+                        };
 
-                    // An EmbedBuilder is created to build the embed message
-                    EmbedBuilder eb = new();
-                    eb.WithTitle(messageType + " server message");
-                    eb.WithColor(embedColor);
-                    eb.WithDescription(message);
+                        EmbedBuilder eb = new();
+                        eb.WithTitle(messageType + " server message");
+                        eb.WithColor(embedColor);
+                        eb.WithDescription(message);
 
-                    // The embed message is sent to the Discord channel
-                    await discordChannel.SendMessageAsync(embed: eb.Build());
+                        await discordChannel.SendMessageAsync(embed: eb.Build());
+                    }
                 }
-            }
 
-            // A response is sent indicating that the message was sent
-            await RespondAsync("Message sent", ephemeral: true).ConfigureAwait(false);
+                await RespondAsync("Message sent", ephemeral: true).ConfigureAwait(false);
+            }
+            else
+            {
+                string errorResponse = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                _logger.LogError("Failed to send message. Status Code: {StatusCode}, Response: {Response}", response.StatusCode, errorResponse);
+                await RespondAsync("Failed to send message: " + errorResponse, ephemeral: true).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {
             // If an exception occurs, a response is sent indicating that the message failed to be sent
+            _logger.LogError(ex, "Failed to send message");
             await RespondAsync("Failed to send message: " + ex.ToString(), ephemeral: true).ConfigureAwait(false);
         }
     }
@@ -199,7 +207,7 @@ public class GagspeakCommands : InteractionModuleBase
     public async Task ForceReconnectOnlineUsers([Summary("message", "Message to send with reconnection notification")] string message,
     [Summary("severity", "Severity of the message")] MessageSeverity messageType = MessageSeverity.Information)
     {
-        _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}:{uid}", Context.Interaction.User.Id, nameof(ForceReconnectOnlineUsers), message, messageType);
+        _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}", Context.Interaction.User.Id, nameof(ForceReconnectOnlineUsers), message, messageType);
 
         var user = await Context.Guild.GetUserAsync(Context.User.Id);
         var isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
@@ -215,36 +223,51 @@ public class GagspeakCommands : InteractionModuleBase
 
         try
         {
-            using HttpClient c = new HttpClient();
-            await c.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>
-                (nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), 
-                new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect))
-                .ConfigureAwait(false);
+            using HttpClient client = new HttpClient();
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
 
-            var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
-            if (discordChannelForMessages != null)
+            var payload = new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect);
+            string jsonPayload = JsonSerializer.Serialize(payload);
+            _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", 
+                new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), jsonPayload);
+
+            var response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)),
+                "/msgc/forceHardReconnect"), payload).ConfigureAwait(false);
+
+
+            if (response.IsSuccessStatusCode)
             {
-                var discordChannel = await Context.Guild.GetChannelAsync(discordChannelForMessages.Value) as IMessageChannel;
-                if (discordChannel != null)
+                var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
+                if (discordChannelForMessages != null)
                 {
-                    var embedColor = messageType switch
+                    var discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
+                    if (discordChannel != null)
                     {
-                        MessageSeverity.Information => Color.Blue,
-                        MessageSeverity.Warning => new Color(255, 255, 0),
-                        MessageSeverity.Error => Color.Red,
-                        _ => Color.Blue
-                    };
+                        var embedColor = messageType switch
+                        {
+                            MessageSeverity.Information => Color.Blue,
+                            MessageSeverity.Warning => new Color(255, 255, 0),
+                            MessageSeverity.Error => Color.Red,
+                            _ => Color.Blue
+                        };
 
-                    EmbedBuilder eb = new();
-                    eb.WithTitle(messageType + " server message");
-                    eb.WithColor(embedColor);
-                    eb.WithDescription(message);
+                        EmbedBuilder eb = new();
+                        eb.WithTitle("Force Reconnecting Players");
+                        eb.WithColor(embedColor);
+                        eb.WithDescription(message);
 
-                    await discordChannel.SendMessageAsync(embed: eb.Build());
+                        await discordChannel.SendMessageAsync(embed: eb.Build());
+                    }
                 }
-            }
 
-            await RespondAsync("Forced Hard Reconnection to all Online Users", ephemeral: true).ConfigureAwait(false);
+                await RespondAsync("Forced Hard Reconnection to all Online Users", ephemeral: true).ConfigureAwait(false);
+            }
+            else
+            {
+                string errorResponse = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                _logger.LogError("Failed to send message. Status Code: {StatusCode}, Response: {Response}", response.StatusCode, errorResponse);
+                await RespondAsync("Failed to send message: " + errorResponse, ephemeral: true).ConfigureAwait(false);
+            }
         }
         catch (Exception ex)
         {

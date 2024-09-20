@@ -134,7 +134,7 @@ public partial class GagspeakHub
                 foreach (GagLayer layer in Enum.GetValues(typeof(GagLayer)))
                 {
                     curGagData.UpdateGagState(layer, GagType.None);
-                    curGagData.UpdateGagLockState(layer, Padlocks.None, string.Empty, string.Empty, DateTimeOffset.UtcNow);
+                    curGagData.UpdateGagLockState(layer, Padlocks.None, string.Empty, string.Empty, DateTimeOffset.UtcNow, true);
                 }
                 break;
 
@@ -187,25 +187,31 @@ public partial class GagspeakHub
 
             case DataUpdateKind.WardrobeRestraintApplied:
                 userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
-                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
             case DataUpdateKind.WardrobeRestraintLocked:
-                userActiveState.UpdateWardrobeSetLock(dto.WardrobeData.Padlock.ToPadlock(), dto.WardrobeData.Password, dto.WardrobeData.Assigner, dto.WardrobeData.Timer);
+                userActiveState.UpdateWardrobeSetLock(
+                    dto.WardrobeData.Padlock.ToPadlock(), 
+                    dto.WardrobeData.Password, 
+                    dto.WardrobeData.Assigner, 
+                    dto.WardrobeData.Timer);
                 break;
 
             case DataUpdateKind.WardrobeRestraintUnlocked:
-                userActiveState.UpdateWardrobeSetLock(Padlocks.None, string.Empty, string.Empty, DateTimeOffset.UtcNow);
+                userActiveState.UpdateWardrobeSetLock(
+                    dto.WardrobeData.Padlock.ToPadlock(),
+                    string.Empty, 
+                    string.Empty, 
+                    DateTimeOffset.UtcNow, 
+                    true);
                 break;
 
             case DataUpdateKind.WardrobeRestraintDisabled:
                 userActiveState.WardrobeActiveSetName = string.Empty;
-                userActiveState.WardrobeActiveSetAssigner = string.Empty;
                 break;
             case DataUpdateKind.Safeword:
                 userActiveState.WardrobeActiveSetName = string.Empty;
-                userActiveState.WardrobeActiveSetAssigner = string.Empty;
-                userActiveState.UpdateWardrobeSetLock(Padlocks.None, string.Empty, string.Empty, DateTimeOffset.UtcNow);
+                userActiveState.UpdateWardrobeSetLock(dto.WardrobeData.Padlock.ToPadlock(), string.Empty, string.Empty, DateTimeOffset.UtcNow, true);
                 break;
 
             default:
@@ -248,7 +254,7 @@ public partial class GagspeakHub
         }
 
         await Clients.User(recipientUid).Client_UserReceiveOtherDataAlias(new(new(UserUID), dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOtherDataAlias(new(dto.RecipientUser, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOwnDataAlias(new(dto.RecipientUser, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false); // don't see why we need it, remove if excess overhead in the end.
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAlias);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAliasTo, 2);
@@ -479,7 +485,12 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, unlockError).ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.UpdateGagLockState(requestLayer, Padlocks.None, string.Empty, string.Empty, DateTimeOffset.UtcNow);
+                currentAppearanceData.UpdateGagLockState(requestLayer, 
+                    dto.AppearanceData.GagSlots[(int)requestLayer].Padlock.ToPadlock(), 
+                    string.Empty,
+                    string.Empty,
+                    DateTimeOffset.UtcNow,
+                    true);
                 break;
 
             // for removal, throw if gag is locked, or if GagFeatures not allowed.
@@ -505,8 +516,8 @@ public partial class GagspeakHub
 
         var newAppearanceData = currentAppearanceData.ToApiAppearanceData();
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAppearance(new(new(UserUID), dto.AppearanceData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataAppearance(dto).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataAppearance(new(new(dto.User.UID), newAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
 
         // Inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
@@ -560,16 +571,19 @@ public partial class GagspeakHub
                     return;
                 }
                 userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
-                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
             case DataUpdateKind.WardrobeRestraintLocked:
-                if (DataUpdateHelpers.CanLockRestraint(userActiveState, pairPermissions, dto.WardrobeData, out string lockError))
+                if (!DataUpdateHelpers.CanLockRestraint(userActiveState, pairPermissions, dto.WardrobeData, out string lockError))
                 {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, lockError).ConfigureAwait(false);
                     return;
                 }
-                userActiveState.UpdateWardrobeSetLock(dto.WardrobeData.Padlock.ToPadlock(), dto.WardrobeData.Password, dto.WardrobeData.Assigner, dto.WardrobeData.Timer);
+                userActiveState.UpdateWardrobeSetLock(
+                    dto.WardrobeData.Padlock.ToPadlock(), 
+                    dto.WardrobeData.Password, 
+                    dto.WardrobeData.Assigner, 
+                    dto.WardrobeData.Timer);
                 break;
 
             case DataUpdateKind.WardrobeRestraintUnlocked:
@@ -578,7 +592,12 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, unlockError).ConfigureAwait(false);
                     return;
                 }
-                userActiveState.UpdateWardrobeSetLock(Padlocks.None, string.Empty, string.Empty, DateTimeOffset.UtcNow);
+                userActiveState.UpdateWardrobeSetLock(
+                    dto.WardrobeData.Padlock.ToPadlock(),
+                    string.Empty, 
+                    string.Empty, 
+                    DateTimeOffset.UtcNow,
+                    true);
                 break;
 
             case DataUpdateKind.WardrobeRestraintDisabled:
@@ -593,7 +612,6 @@ public partial class GagspeakHub
                     return;
                 }
                 userActiveState.WardrobeActiveSetName = string.Empty;
-                userActiveState.WardrobeActiveSetAssigner = string.Empty;
                 break;
 
             default:
@@ -627,15 +645,14 @@ public partial class GagspeakHub
         if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // ensure that the update kind of to change the registered names. If it is not, throw exception.
-        if (dto.UpdateKind != DataUpdateKind.PuppeteerPlayerNameRegistered) throw new Exception("Invalid UpdateKind for Alias Data!");
+        if (dto.UpdateKind != DataUpdateKind.PuppeteerPlayerNameRegistered) throw new Exception("Invalid UpdateKind for Pair Alias Data!");
 
         // in our dto, we have the PAIR WE ARE PROVIDING OUR NAME TO as the user-data, with our name info inside.
         // so when we construct the message to update the client's OWN data, we need to place the client callers name info inside.
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAlias(
-            new OnlineUserCharaAliasDataDto(new UserData(UserUID), dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAlias(new(new UserData(UserUID), dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
 
         // when we push the update back to our client caller, we must inform them that the client callers name was updated.
-        await Clients.Caller.Client_UserReceiveOtherDataAlias(new OnlineUserCharaAliasDataDto(dto.User, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOtherDataAlias(new(dto.User, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
     }
 
     public async Task UserPushPairDataToyboxUpdate(OnlineUserCharaToyboxDataDto dto)

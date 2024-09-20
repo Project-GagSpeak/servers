@@ -395,7 +395,6 @@ public partial class GagspeakHub
 
         // Aquire the query result and form it into an established list
         var resultList = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
-        _logger.LogMessage($"resultList count: {resultList.Count}");
         // Example of logging the first few items
         //resultList.Take(15).ToList().ForEach(item => _logger.LogWarning($"Item: {JsonConvert.SerializeObject(item)}"));
 

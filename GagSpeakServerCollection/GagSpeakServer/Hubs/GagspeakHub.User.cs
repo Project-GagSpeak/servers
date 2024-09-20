@@ -329,7 +329,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<List<UserPairDto>> UserGetPairedClients()
     {
-        _logger.LogCallInfo();
+        //_logger.LogCallInfo();
 
         // fetch our user from the users table via our UserUID claim
         User ClientCallerUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);

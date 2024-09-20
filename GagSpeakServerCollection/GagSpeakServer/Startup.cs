@@ -395,8 +395,6 @@ public class Startup
 
         // use websocket connections
         app.UseWebSockets();
-
-        // use the http metrics for the server
         app.UseHttpMetrics();
 
         // for the metrics server, initialize it with the metrics port from the configuration
@@ -430,8 +428,6 @@ public class Startup
 
             // map the health checks to the health endpoint
             endpoints.MapHealthChecks("/health").AllowAnonymous(); // allow anonymous access to the health checks
-            
-            // the controllers to the endpoints should be mapped
             endpoints.MapControllers();
 
             // log the endpoints for the server if they are not null

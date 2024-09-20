@@ -33,8 +33,13 @@ public class ClientMessageController : Controller
     // Define the route and HTTP method for sending a message
     [Route("sendMessage")]
     [HttpPost]
-    public async Task<IActionResult> SendMessage(ClientMessage msg)
+    public async Task<IActionResult> SendMessage([FromBody] ClientMessage msg)
     {
+        if(msg is null)
+        {
+            _logger.LogError("Received a null message");
+            return Empty;
+        }
         // Check if the message has a UID
         bool hasUid = !string.IsNullOrEmpty(msg.UID);
 
@@ -58,8 +63,13 @@ public class ClientMessageController : Controller
     // Forces all users to reconnect to the main server. (fixing any prone internal reconnection errors.
     [Route("forceHardReconnect")]
     [HttpPost]
-    public async Task<IActionResult> ForceHardReconnect(HardReconnectMessage msg)
+    public async Task<IActionResult> ForceHardReconnect([FromBody] HardReconnectMessage msg)
     {
+        if(msg is null)
+        {
+            _logger.LogError("Received a null message");
+            return Empty;
+        }
         _logger.LogInformation("Sending Message of severity {severity} to all online users: {message}", msg.Severity, msg.Message);
         await _hubContextMain.Clients.All.Client_ReceiveHardReconnectMessage(msg.Severity, msg.Message, msg.State).ConfigureAwait(false);
 

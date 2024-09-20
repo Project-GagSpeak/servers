@@ -62,7 +62,7 @@ public class UserRequirementHandler : AuthorizationHandler<UserRequirement, HubI
                 ident = await _redis.GetAsync<string>("ToyboxHub:UID:" + uid).ConfigureAwait(false);
                 if (ident == RedisValue.EmptyString)
                 {
-                    _logger.LogInformation("Ident not found in ToyboxHub");
+                    //_logger.LogInformation("Ident not found in ToyboxHub");
                     context.Fail();
                 }
             }

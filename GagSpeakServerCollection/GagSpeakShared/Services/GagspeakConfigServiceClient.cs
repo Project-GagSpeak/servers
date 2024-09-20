@@ -127,7 +127,7 @@ public class GagspeakConfigServiceClient<T> : IHostedService, IConfigurationServ
     {
         while (!ct.IsCancellationRequested)
         {
-            _logger.LogInformation("Getting Properties from Remote for " + typeof(T));
+            //_logger.LogInformation("Getting Properties from Remote for " + typeof(T));
             try
             {
                 var properties = _config.CurrentValue.GetType().GetProperties();
@@ -136,7 +136,7 @@ public class GagspeakConfigServiceClient<T> : IHostedService, IConfigurationServ
                     try
                     {
                         if (!prop.GetCustomAttributes(typeof(RemoteConfigAttribute), true).Any()) continue;
-                        _logger.LogInformation("Checking Property " + prop.Name);
+                        //_logger.LogInformation("Checking Property " + prop.Name);
                         var mi = GetType().GetMethod(nameof(GetValueFromRemote), BindingFlags.NonPublic | BindingFlags.Instance).MakeGenericMethod(prop.PropertyType);
                         var defaultValue = prop.PropertyType.IsValueType ? Activator.CreateInstance(prop.PropertyType) : null;
                         var task = (Task)mi.Invoke(this, new[] { prop.Name, defaultValue });

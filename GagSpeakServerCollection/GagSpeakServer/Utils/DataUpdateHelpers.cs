@@ -138,26 +138,32 @@ public static class DataUpdateHelpers
 
     // while the type conversions are not necessary, it ensures a valid state is always set.
     public static void UpdateGagLockState(this UserGagAppearanceData data, 
-        GagLayer layer, Padlocks padlock, string password, string assigner, DateTimeOffset offsetTime)
+        GagLayer layer, Padlocks padlock, string password, string assigner, DateTimeOffset offsetTime, bool unlocking = false)
     {
         switch (layer)
         {
             case GagLayer.UnderLayer:
-                data.SlotOneGagPadlock = padlock.ToName();
-                data.SlotOneGagPassword = password;
-                data.SlotOneGagTimer = offsetTime;
+                data.SlotOneGagPadlock = unlocking ? Padlocks.None.ToName() : padlock.ToName();
+                if (padlock is Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock or Padlocks.CombinationPadlock)
+                    data.SlotOneGagPassword = password;
+                if(padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock)
+                    data.SlotOneGagTimer = offsetTime;
                 data.SlotOneGagAssigner = assigner;
                 break;
             case GagLayer.MiddleLayer:
-                data.SlotTwoGagPadlock = padlock.ToName();
-                data.SlotTwoGagPassword = password;
-                data.SlotTwoGagTimer = offsetTime;
+                data.SlotTwoGagPadlock = unlocking ? Padlocks.None.ToName() : padlock.ToName();
+                if (padlock is Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock or Padlocks.CombinationPadlock)
+                    data.SlotTwoGagPassword = password;
+                if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock)
+                    data.SlotTwoGagTimer = offsetTime;
                 data.SlotTwoGagAssigner = assigner;
                 break;
             case GagLayer.TopLayer:
-                data.SlotThreeGagPadlock = padlock.ToName();
-                data.SlotThreeGagPassword = password;
-                data.SlotThreeGagTimer = offsetTime;
+                data.SlotThreeGagPadlock = unlocking ? Padlocks.None.ToName() : padlock.ToName();
+                if (padlock is Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock or Padlocks.CombinationPadlock)
+                    data.SlotThreeGagPassword = password;
+                if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock)
+                    data.SlotThreeGagTimer = offsetTime;
                 data.SlotThreeGagAssigner = assigner;
                 break;
             default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
@@ -206,12 +212,17 @@ public static class DataUpdateHelpers
         return true;
     }
 
-    public static void UpdateWardrobeSetLock(this UserActiveStateData activeState, Padlocks padlock, string password, string assigner, DateTimeOffset offsetTime)
+    public static void UpdateWardrobeSetLock(this UserActiveStateData activeState, Padlocks padlock, string password, string assigner, DateTimeOffset offsetTime, bool unlocking = false)
     {
-        activeState.WardrobeActiveSetPadLock = padlock.ToName();
-        activeState.WardrobeActiveSetPassword = password;
-        activeState.WardrobeActiveSetLockTime = offsetTime;
-        activeState.WardrobeActiveSetAssigner = assigner;
+        activeState.WardrobeActiveSetPadLock = unlocking ? Padlocks.None.ToName() : padlock.ToName();
+
+        if (padlock is Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock or Padlocks.CombinationPadlock)
+            activeState.WardrobeActiveSetPassword = password;
+        
+        if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock)
+            activeState.WardrobeActiveSetLockTime = offsetTime;
+        
+        activeState.WardrobeActiveSetLockAssigner = assigner;
     }
 
 

@@ -118,6 +118,7 @@ internal partial class DiscordBot : IHostedService
             _processReportQueueCts?.Cancel();
             _updateStatusCts?.Cancel();
             _vanityUpdateCts?.Cancel();
+            _vanityAddUsersCts?.Cancel();
 
             // await for the bot to logout
             await _discordClient.LogoutAsync().ConfigureAwait(false);
