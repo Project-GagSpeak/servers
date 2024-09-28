@@ -23,5 +23,7 @@ public class UserProfileData
     public bool ProfileDisabled { get; set; }    // If profile is disabled.
     public DateTime ProfileTimeoutTimeStamp { get; set; } // the time the profile was disabled.
 
+    
+
     // For Profile customization unlocks & progress, we could store a whole other table with lots of unlock categories, or throw a base64 string in here of the class.
 }

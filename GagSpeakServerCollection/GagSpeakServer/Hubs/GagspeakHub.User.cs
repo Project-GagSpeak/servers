@@ -483,6 +483,52 @@ public partial class GagspeakHub
         return new UserProfileDto(user.User, false, data.Base64ProfilePic, data.UserDescription);
     }
 
+    /// <summary>
+    /// Called by the client who wishes to update the database with their latest achievement data.
+    /// </summary>
+    [Authorize(Policy = "Identified")]
+    public async Task UserUpdateAchievementData(UserAchievementsDto dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        // return if the client caller doesnt match the user dto.
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot modify achievement data for anyone but yourself").ConfigureAwait(false);
+            return;
+        }
+
+        // Grab Client Callers current profile data from the database
+        var existingData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (existingData is not null)
+        {
+            if (!dto.AchievementDataBase64.IsNullOrEmpty())
+            {
+                existingData.Base64AchievementData = dto.AchievementDataBase64;
+                // should also sync this with profile data down the line but for now dont worry about it.
+            }
+            else
+            {
+                // they tried to update with null data, which shouldnt ever happen.
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot update achievement data with null data").ConfigureAwait(false);
+                return;
+            }
+        }
+        // otherwise profile data has not been made, so create a fresh instance.
+        else
+        {
+            UserAchievementData userProfileData = new()
+            {
+                UserUID = dto.User.UID,
+                Base64AchievementData = dto.AchievementDataBase64,
+            };
+            await DbContext.UserAchievementData.AddAsync(userProfileData).ConfigureAwait(false);
+        }
+
+        // Save DB Changes
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+    }
+
     /// <summary> 
     /// Called by a connected client who wishes to set or update their profile data.
     /// </summary>

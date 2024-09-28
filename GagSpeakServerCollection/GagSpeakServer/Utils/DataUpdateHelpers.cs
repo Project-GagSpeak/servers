@@ -28,11 +28,11 @@ public static class DataUpdateHelpers
         switch (layer)
         {
             case GagLayer.UnderLayer:
-                return !string.Equals(gagData.SlotOneGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
+                return string.Equals(gagData.SlotOneGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
             case GagLayer.MiddleLayer:
-                return !string.Equals(gagData.SlotTwoGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
+                return string.Equals(gagData.SlotTwoGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
             case GagLayer.TopLayer:
-                return !string.Equals(gagData.SlotThreeGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
+                return string.Equals(gagData.SlotThreeGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
             default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
         }
     }

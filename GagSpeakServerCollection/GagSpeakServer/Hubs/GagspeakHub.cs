@@ -143,6 +143,14 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             DbContext.UserActiveStateData.Add(clientCallerActiveStateData);
         }
 
+        // grab the achievement data.
+        var clientCallerAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        if (clientCallerAchievementData == null)
+        {
+            clientCallerAchievementData = new UserAchievementData() { UserUID = UserUID };
+            DbContext.UserAchievementData.Add(clientCallerAchievementData);
+        }
+
         // Save the DbContext (never know if it was added or not so always good to be safe.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
@@ -153,7 +161,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             ServerVersion = IGagspeakHub.ApiVersion,
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
             CharacterAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
-			CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData()
+			CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData(),
+            UserAchievements = clientCallerAchievementData.Base64AchievementData
         };
     }
 
@@ -207,16 +216,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
     /// <summary> 
-    /// 
     /// Called by a connected client when they want to check if the client is healthy.
-    /// 
     /// <para> 
-    /// 
     /// This method required the requesting client to have the authorize policy "Authenticated"
-    /// 
     /// It should technically be updating the user on redi's but for now we wont worry about it 
     /// (unless it is critical to the discord bot)
-    /// 
     /// </para>
     /// </summary>
     [Authorize(Policy = "Authenticated")]
@@ -230,13 +234,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
     /// <summary> 
-    /// 
     /// Called by a client once they are fully connected to the server. Overrides original OnConnectedASync from base hub
-	/// 
     /// <para>
-	/// 
     /// The _userConnections is the concurrent dictionary of connected users to the server.
-    /// 
     /// </para>
     /// </summary>
     public override async Task OnConnectedAsync()
@@ -291,17 +291,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
     /// <summary> 
-    /// 
     /// Called by a client when they disconnect from the server.
-    /// 
     /// <para>
-    /// 
     /// This method ensure everything is properly disconnected once the function is called upon.
     /// Note that we dont require the authenticated policy for disconnect because the temp access could be using it as well.
-    /// 
     /// </para>
     /// </summary>
-    /// <param name="exception"> An exception that triggered the disconnected if any.</param>
     public override async Task OnDisconnectedAsync(Exception exception)
     {
         /* -------------------- Temporary Connection -------------------- */

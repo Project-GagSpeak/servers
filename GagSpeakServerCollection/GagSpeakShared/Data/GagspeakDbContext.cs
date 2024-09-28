@@ -48,6 +48,7 @@ public class GagspeakDbContext : DbContext
     public DbSet<PrivateRoom> PrivateRooms { get; set; } // The set of created private rooms.
     public DbSet<PrivateRoomPair> PrivateRoomPairs { get; set; } // users who exist in a particular private room.
 
+    /* Tables for the Pattern Hub */
     public DbSet<PatternEntry> Patterns { get; set; } // the set of patterns that can be used in the toybox.
     public DbSet<PatternEntryTag> PatternEntryTags { get; set; } // the tags associated with the patterns.
     public DbSet<PatternTag> PatternTags { get; set; } // the tags that can be associated with the patterns.
@@ -59,6 +60,7 @@ public class GagspeakDbContext : DbContext
     public DbSet<UserGagAppearanceData> UserAppearanceData { get; set; } // appearance data should be stored server side, as even when offline, it should display to your profile data, or be accessible to be viewed.
     public DbSet<UserActiveStateData> UserActiveStateData { get; set; } // contains generic info about the user's current state that should be stored in the database for reference.
     public DbSet<UserPatternLikes> UserPatternLikes { get; set; } // tracks the patterns a user has liked.
+    public DbSet<UserAchievementData> UserAchievementData { get; set; } // tracks the achievements a user has unlocked.
     public DbSet<UserProfileData> UserProfileData { get; set; } // every user has a profile associated with them, this contains information unique to the profile.
     public DbSet<UserProfileDataReport> UserProfileReports { get; set; } // Holds info about reported profiles for assistants to overview.
 
@@ -107,6 +109,8 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserActiveStateData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserPatternLikes>().ToTable("user_pattern_likes");
         modelBuilder.Entity<UserPatternLikes>().HasKey(upl => new { upl.UserUID, upl.PatternEntryId });
+        modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");
+        modelBuilder.Entity<UserAchievementData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
         modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserProfileDataReport>().ToTable("user_profile_data_reports");

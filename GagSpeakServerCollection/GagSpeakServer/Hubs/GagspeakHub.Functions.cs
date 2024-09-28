@@ -37,10 +37,14 @@ public partial class GagspeakHub
         UserGagAppearanceData? ownAppearanceData = await DbContext.UserAppearanceData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         UserActiveStateData? ownActiveStateData = await DbContext.UserActiveStateData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         List<UserPatternLikes> ownLikedPatterns = await DbContext.UserPatternLikes.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        UserAchievementData? ownAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         UserProfileData? userProfileData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
 
         // first, check if the accountclaimauth is not null, and remove it from the database.
         if (accountClaimAuth != null) { DbContext.AccountClaimAuth.Remove(accountClaimAuth); }
+
+        // next check if the user achievement data is not null, and remove it from the database.
+        if (ownAchievementData != null) { DbContext.UserAchievementData.Remove(ownAchievementData); }
 
         // next check if the user profile data is not null, and remove it from the database.
         if (userProfileData != null) { DbContext.UserProfileData.Remove(userProfileData); }
