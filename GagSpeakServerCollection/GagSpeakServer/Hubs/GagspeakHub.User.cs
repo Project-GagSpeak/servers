@@ -489,7 +489,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task UserUpdateAchievementData(UserAchievementsDto dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
 
         // return if the client caller doesnt match the user dto.
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
