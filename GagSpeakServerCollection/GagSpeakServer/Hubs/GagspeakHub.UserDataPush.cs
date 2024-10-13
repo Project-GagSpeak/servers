@@ -110,13 +110,13 @@ public partial class GagspeakHub
             case DataUpdateKind.AppearanceGagLockedLayerTwo:
             case DataUpdateKind.AppearanceGagLockedLayerThree:
                 var slotData = dto.AppearanceData.GagSlots[(int)requestLayer];
-                curGagData.UpdateGagLockState(requestLayer, slotData.Padlock.ToPadlock(), slotData.Password, slotData.Assigner, slotData.Timer);
+                curGagData.GagLockUpdate(requestLayer, slotData.Padlock.ToPadlock(), slotData.Password, slotData.Assigner, slotData.Timer);
                 break;
 
             case DataUpdateKind.AppearanceGagUnlockedLayerOne:
             case DataUpdateKind.AppearanceGagUnlockedLayerTwo:
             case DataUpdateKind.AppearanceGagUnlockedLayerThree:
-                curGagData.UpdateGagLockState(requestLayer, dto.AppearanceData.GagSlots[(int)requestLayer].Padlock.ToPadlock(), string.Empty, string.Empty, DateTimeOffset.UtcNow, true);
+                curGagData.GagUnlockUpdate(requestLayer);
                 break;
 
             // for removal, throw if gag is locked, or if GagFeatures not allowed.
@@ -131,7 +131,7 @@ public partial class GagspeakHub
                 foreach (GagLayer layer in Enum.GetValues(typeof(GagLayer)))
                 {
                     curGagData.UpdateGagState(layer, GagType.None);
-                    curGagData.UpdateGagLockState(layer, dto.AppearanceData.GagSlots[(int)requestLayer].Padlock.ToPadlock(), string.Empty, string.Empty, DateTimeOffset.UtcNow, true);
+                    curGagData.GagUnlockUpdate(layer);
                 }
                 break;
 
@@ -178,6 +178,15 @@ public partial class GagspeakHub
 
         switch (dto.UpdateKind)
         {
+            case DataUpdateKind.FullDataUpdate:
+                userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
+                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
+                userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.Padlock;
+                userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.Password;
+                userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.Timer;
+                userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.Assigner;
+                break;
+
             case DataUpdateKind.WardrobeRestraintOutfitsUpdated:
                 break;
 
@@ -186,7 +195,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateKind.WardrobeRestraintLocked:
-                userActiveState.UpdateWardrobeSetLock(
+                userActiveState.RestraintLockUpdate(
                     dto.WardrobeData.Padlock.ToPadlock(), 
                     dto.WardrobeData.Password, 
                     dto.WardrobeData.Assigner, 
@@ -194,12 +203,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateKind.WardrobeRestraintUnlocked:
-                userActiveState.UpdateWardrobeSetLock(
-                    dto.WardrobeData.Padlock.ToPadlock(),
-                    string.Empty, 
-                    string.Empty, 
-                    DateTimeOffset.UtcNow, 
-                    true);
+                userActiveState.RestraintUnlockUpdate();
                 break;
 
             case DataUpdateKind.WardrobeRestraintDisabled:
@@ -207,7 +211,7 @@ public partial class GagspeakHub
                 break;
             case DataUpdateKind.Safeword:
                 userActiveState.WardrobeActiveSetName = string.Empty;
-                userActiveState.UpdateWardrobeSetLock(dto.WardrobeData.Padlock.ToPadlock(), string.Empty, string.Empty, DateTimeOffset.UtcNow, true);
+                userActiveState.RestraintUnlockUpdate();
                 break;
 
             default:
@@ -462,7 +466,7 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, ErrorMsg).ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.UpdateGagLockState(requestLayer,
+                currentAppearanceData.GagLockUpdate(requestLayer,
                     dto.AppearanceData.GagSlots[(int)requestLayer].Padlock.ToPadlock(),
                     dto.AppearanceData.GagSlots[(int)requestLayer].Password,
                     dto.AppearanceData.GagSlots[(int)requestLayer].Assigner,
@@ -476,12 +480,7 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, unlockError).ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.UpdateGagLockState(requestLayer, 
-                    dto.AppearanceData.GagSlots[(int)requestLayer].Padlock.ToPadlock(), 
-                    string.Empty,
-                    string.Empty,
-                    DateTimeOffset.UtcNow,
-                    true);
+                currentAppearanceData.GagUnlockUpdate(requestLayer);
                 break;
 
             // for removal, throw if gag is locked, or if GagFeatures not allowed.
@@ -567,7 +566,7 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, lockError).ConfigureAwait(false);
                     return;
                 }
-                userActiveState.UpdateWardrobeSetLock(
+                userActiveState.RestraintLockUpdate(
                     dto.WardrobeData.Padlock.ToPadlock(), 
                     dto.WardrobeData.Password, 
                     dto.WardrobeData.Assigner, 
@@ -580,12 +579,7 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, unlockError).ConfigureAwait(false);
                     return;
                 }
-                userActiveState.UpdateWardrobeSetLock(
-                    dto.WardrobeData.Padlock.ToPadlock(),
-                    string.Empty, 
-                    string.Empty, 
-                    DateTimeOffset.UtcNow,
-                    true);
+                userActiveState.RestraintUnlockUpdate();
                 break;
 
             case DataUpdateKind.WardrobeRestraintDisabled:

@@ -133,6 +133,7 @@ public static class ClientPairPermissionExtensions
         result.IsPaused = clientPairPermsModel.IsPaused;
         result.GagFeatures = clientPairPermsModel.GagFeatures;
         result.OwnerLocks = clientPairPermsModel.OwnerLocks;
+        result.DevotionalLocks = clientPairPermsModel.DevotionalLocks;
         result.ExtendedLockTimes = clientPairPermsModel.ExtendedLockTimes;
         result.MaxLockTime = clientPairPermsModel.MaxLockTime;
         result.InHardcore = clientPairPermsModel.InHardcore;
@@ -189,6 +190,7 @@ public static class ClientPairPermissionExtensions
 		currentModelPerms.IsPaused = apiPairPerms.IsPaused;
         currentModelPerms.GagFeatures = apiPairPerms.GagFeatures;
         currentModelPerms.OwnerLocks = apiPairPerms.OwnerLocks;
+        currentModelPerms.DevotionalLocks = apiPairPerms.DevotionalLocks;
         currentModelPerms.ExtendedLockTimes = apiPairPerms.ExtendedLockTimes;
         currentModelPerms.MaxLockTime = apiPairPerms.MaxLockTime;
         currentModelPerms.InHardcore = apiPairPerms.InHardcore;

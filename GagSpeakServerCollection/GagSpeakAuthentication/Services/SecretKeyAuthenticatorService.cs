@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 
 namespace GagspeakAuthentication.Services;
+#pragma warning disable CS8604 // Possible nulls for auth replies should be valid. (change if they shouldnt)
 
 /// <summary> Authenticator Service for our secret key authentication system. </summary>
 public class SecretKeyAuthenticatorService
@@ -137,3 +138,4 @@ public class SecretKeyAuthenticatorService
 #pragma warning restore CS8625
     }
 }
+#pragma warning restore CS8604

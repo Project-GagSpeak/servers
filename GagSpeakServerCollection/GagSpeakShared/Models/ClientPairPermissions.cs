@@ -21,7 +21,8 @@ public class ClientPairPermissions
     // unique permissions stored here:
     public bool IsPaused { get; set; } = false;  // if the pair is paused, a unique unmodifiable permission by other pairs.
     public bool GagFeatures { get; set; } = false; // if this pair can apply / lock (/ unlock / remove ??) gag features on you.
-    public bool OwnerLocks { get; set; } = false; // if the pair can use OwnerPadlocks & OwnerTimerPadlocks on you. Only other pairs with this permission can unlock these.
+    public bool OwnerLocks { get; set; } = false; // if the pair can use OwnerPadlocks & Timer variants. Only the others with this permission can remove them.
+    public bool DevotionalLocks { get; set; } = false; // if the pair can use Devotional Padlocks & Timer variants. Only the assigner of these locks can remove them.
     public bool ExtendedLockTimes { get; set; } = false;  // if user allowed extended lock times for this paired user
     public TimeSpan MaxLockTime { get; set; } = TimeSpan.Zero;    // the max lock time for this paired user
     public bool InHardcore { get; set; } = false;         // if the user is in hardcore mode with this paired user
