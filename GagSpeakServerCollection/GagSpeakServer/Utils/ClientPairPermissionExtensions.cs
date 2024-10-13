@@ -254,6 +254,7 @@ public static class ClientPairPermissionExtensions
         result.LiveChatGarblerLockedAllowed = pairAccessPermsModel.LiveChatGarblerLockedAllowed;
         result.GagFeaturesAllowed = pairAccessPermsModel.GagFeaturesAllowed;
         result.OwnerLocksAllowed = pairAccessPermsModel.OwnerLocksAllowed;
+        result.DevotionalLocksAllowed = pairAccessPermsModel.DevotionalLocksAllowed;
         result.ExtendedLockTimesAllowed = pairAccessPermsModel.ExtendedLockTimesAllowed;
         result.MaxLockTimeAllowed = pairAccessPermsModel.MaxLockTimeAllowed;
 
@@ -303,6 +304,7 @@ public static class ClientPairPermissionExtensions
         currentPermAccess.LiveChatGarblerLockedAllowed = apiPairAccessPerms.LiveChatGarblerLockedAllowed;
         currentPermAccess.GagFeaturesAllowed = apiPairAccessPerms.GagFeaturesAllowed;
         currentPermAccess.OwnerLocksAllowed = apiPairAccessPerms.OwnerLocksAllowed;
+        currentPermAccess.DevotionalLocksAllowed = apiPairAccessPerms.DevotionalLocksAllowed;
         currentPermAccess.ExtendedLockTimesAllowed = apiPairAccessPerms.ExtendedLockTimesAllowed;
         currentPermAccess.MaxLockTimeAllowed = apiPairAccessPerms.MaxLockTimeAllowed;
         currentPermAccess.WardrobeEnabledAllowed = apiPairAccessPerms.WardrobeEnabledAllowed;

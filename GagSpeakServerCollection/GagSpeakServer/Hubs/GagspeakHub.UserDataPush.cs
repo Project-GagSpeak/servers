@@ -116,6 +116,7 @@ public partial class GagspeakHub
             case DataUpdateKind.AppearanceGagUnlockedLayerOne:
             case DataUpdateKind.AppearanceGagUnlockedLayerTwo:
             case DataUpdateKind.AppearanceGagUnlockedLayerThree:
+                _logger.LogMessage("Current Gag Padlock: [" + curGagData.SlotOneGagPadlock+"]");
                 curGagData.GagUnlockUpdate(requestLayer);
                 break;
 
@@ -147,8 +148,8 @@ public partial class GagspeakHub
 
         var newAppearance = curGagData.ToApiAppearanceData();
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataAppearance(new(new(UserUID), dto.AppearanceData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataAppearance(new(new(UserUID), dto.AppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataAppearance(new(new(UserUID), newAppearance, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearance, dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearanceTo, recipientUids.Count);

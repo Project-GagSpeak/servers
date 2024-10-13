@@ -197,18 +197,27 @@ public static class DataUpdateHelpers
         switch (layer)
         {
             case GagLayer.UnderLayer:
+                if (string.Equals(data.SlotOneGagPadlock, Padlocks.MimicPadlock.ToName(), StringComparison.OrdinalIgnoreCase))
+                    data.SlotOneGagType = GagType.None.GagName();
+
                 data.SlotOneGagPadlock = Padlocks.None.ToName();
                 data.SlotOneGagPassword = string.Empty;
                 data.SlotOneGagTimer = DateTimeOffset.UtcNow;
                 data.SlotOneGagAssigner = string.Empty;
                 break;
             case GagLayer.MiddleLayer:
+                if (string.Equals(data.SlotTwoGagPadlock, Padlocks.MimicPadlock.ToName(), StringComparison.OrdinalIgnoreCase))
+                    data.SlotTwoGagType = GagType.None.GagName();
+
                 data.SlotTwoGagPadlock = Padlocks.None.ToName();
                 data.SlotTwoGagPassword = string.Empty;
                 data.SlotTwoGagTimer = DateTimeOffset.UtcNow;
                 data.SlotTwoGagAssigner = string.Empty;
                 break;
             case GagLayer.TopLayer:
+                if(string.Equals(data.SlotThreeGagPadlock, Padlocks.MimicPadlock.ToName(), StringComparison.OrdinalIgnoreCase))
+                    data.SlotThreeGagType = GagType.None.GagName();
+
                 data.SlotThreeGagPadlock = Padlocks.None.ToName();
                 data.SlotThreeGagPassword = string.Empty;
                 data.SlotThreeGagTimer = DateTimeOffset.UtcNow;
