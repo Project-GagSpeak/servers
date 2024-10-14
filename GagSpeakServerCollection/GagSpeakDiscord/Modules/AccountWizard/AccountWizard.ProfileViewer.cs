@@ -70,7 +70,7 @@ public partial class AccountWizard
 
         // Last login UTC & Last login Local
         var lastOnlineUtc = new DateTimeOffset(dbUser.LastLoggedIn, TimeSpan.Zero);
-        eb.AddField("Last Online (UTC)", lastOnlineUtc.ToString("U", CultureInfo.InvariantCulture));
+        eb.AddField("Last Online (UTC)", lastOnlineUtc.ToString("u", CultureInfo.InvariantCulture));
         var formattedTimestamp = string.Create(CultureInfo.InvariantCulture, $"<t:{lastOnlineUtc.ToUnixTimeSeconds()}:F>");
         eb.AddField("Last Online (Local)", formattedTimestamp);
 
