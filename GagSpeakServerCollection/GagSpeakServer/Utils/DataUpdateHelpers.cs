@@ -160,7 +160,7 @@ public static class DataUpdateHelpers
                 default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
             }
         }
-        else if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock
+        if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock
             or Padlocks.OwnerTimerPadlock or Padlocks.DevotionalTimerPadlock or Padlocks.MimicPadlock)
         {
             switch (layer)
@@ -250,12 +250,12 @@ public static class DataUpdateHelpers
             ErrorMsg = "Set is already Locked!";
             return false;
         }
-        else if (dtoData.ActiveSetName.ToPadlock() is Padlocks.OwnerPadlock or Padlocks.OwnerTimerPadlock && !perms.OwnerLocks)
+        else if (dtoData.Padlock.ToPadlock() is Padlocks.OwnerPadlock or Padlocks.OwnerTimerPadlock && !perms.OwnerLocks)
         {
             ErrorMsg = "Cannot Lock Owner Padlocks. Not Allowed!";
             return false;
         }
-        else if (dtoData.ActiveSetName.ToPadlock() is Padlocks.DevotionalPadlock or Padlocks.DevotionalTimerPadlock && !perms.DevotionalLocks)
+        else if (dtoData.Padlock.ToPadlock() is Padlocks.DevotionalPadlock or Padlocks.DevotionalTimerPadlock && !perms.DevotionalLocks)
         {
             ErrorMsg = "Cannot Lock Devotional Padlocks. Not Allowed!";
             return false;
@@ -325,12 +325,12 @@ public static class DataUpdateHelpers
     public static void RestraintLockUpdate(this UserActiveStateData activeState, Padlocks padlock, string password, string assigner, DateTimeOffset offsetTime)
     {
         // do not do anything with these locks
-        if (padlock is Padlocks.None or Padlocks.MetalPadlock)
+        if (padlock is Padlocks.None)
             return;
 
         if (padlock is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock)
             activeState.WardrobeActiveSetPassword = password;
-        else if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock or Padlocks.DevotionalTimerPadlock)
+        if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock or Padlocks.DevotionalTimerPadlock)
             activeState.WardrobeActiveSetLockTime = offsetTime;
 
         // Assign lock and assigner regardless.

@@ -567,10 +567,11 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, lockError).ConfigureAwait(false);
                     return;
                 }
+
                 userActiveState.RestraintLockUpdate(
-                    dto.WardrobeData.Padlock.ToPadlock(), 
-                    dto.WardrobeData.Password, 
-                    dto.WardrobeData.Assigner, 
+                    dto.WardrobeData.Padlock.ToPadlock(),
+                    dto.WardrobeData.Password,
+                    dto.WardrobeData.Assigner,
                     dto.WardrobeData.Timer);
                 break;
 
@@ -603,7 +604,6 @@ public partial class GagspeakHub
         DbContext.UserActiveStateData.Update(userActiveState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // build new DTO to send off.
         var updatedWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
         await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(new(new(UserUID), updatedWardrobeData, dto.UpdateKind)).ConfigureAwait(false);
