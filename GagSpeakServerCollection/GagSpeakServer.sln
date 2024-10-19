@@ -11,7 +11,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeakAuthentication", "G
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "GagSpeakDiscord", "GagSpeakDiscord\GagSpeakDiscord.csproj", "{AF0ADB09-8B83-4D66-9D98-92A4DBB62CF6}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ProjectGagspeakAPI", "..\GagSpeak-API\ProjectGagspeakAPI\ProjectGagspeakAPI.csproj", "{59D26FDE-A0C0-4937-88A3-341CE3FB45B3}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ProjectGagspeakAPI", "..\GagSpeak-API\ProjectGagspeakAPI\ProjectGagspeakAPI.csproj", "{59D26FDE-A0C0-4937-88A3-341CE3FB45B3}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

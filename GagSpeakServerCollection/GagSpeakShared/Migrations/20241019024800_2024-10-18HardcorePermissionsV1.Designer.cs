@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241019024800_2024-10-18HardcorePermissionsV1")]
+    partial class _20241018HardcorePermissionsV1
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
