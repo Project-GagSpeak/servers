@@ -63,14 +63,13 @@ public class ClientPairPermissions
     public string ShockCollarShareCode { get; set; } = ""; // the share Code for the shock collar unique to this user.
     public TimeSpan MaxVibrateDuration { get; set; } = TimeSpan.Zero; // separate value since vibrations have diff limits.
 
-    // unique hardcore permissions.
-    public bool AllowForcedFollow { get; set; } = false;     // if you give player permission
-    public bool IsForcedToFollow { get; set; } = false;      // if the player has activated it
-    public bool AllowForcedSit { get; set; } = false;        // if you give player permission
-    public bool IsForcedToSit { get; set; } = false;         // if the player has activated it 
-    public bool AllowForcedToStay { get; set; } = false;     // if you give player permission
-    public bool IsForcedToStay { get; set; } = false;        // if the player has activated it
-    public bool AllowBlindfold { get; set; } = false;       // if you give player permission
-    public bool ForceLockFirstPerson { get; set; } = false; // if you force first person view
-    public bool IsBlindfolded { get; set; } = false;      // if the player has activated it
+    // unique hardcore permissions. Can only be set by the User, not their pair. Must ensure safety.
+    public bool DevotionalStatesForPair { get; set; } = false;
+    public bool AllowForcedFollow { get; set; } = false;
+    public bool AllowForcedSit { get; set; } = false;
+    public bool AllowForcedToStay { get; set; } = false;
+    public bool AllowBlindfold { get; set; } = false;
+    public bool AllowHidingChatboxes { get; set; } = false;
+    public bool AllowHidingChatInput { get; set; } = false;
+    public bool AllowChatInputBlocking { get; set; } = false;
 }

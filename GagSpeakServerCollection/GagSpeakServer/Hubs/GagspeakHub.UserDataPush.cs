@@ -193,6 +193,7 @@ public partial class GagspeakHub
 
             case DataUpdateKind.WardrobeRestraintApplied:
                 userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
+                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
             case DataUpdateKind.WardrobeRestraintLocked:
@@ -209,9 +210,11 @@ public partial class GagspeakHub
 
             case DataUpdateKind.WardrobeRestraintDisabled:
                 userActiveState.WardrobeActiveSetName = string.Empty;
+                userActiveState.WardrobeActiveSetAssigner = string.Empty;
                 break;
             case DataUpdateKind.Safeword:
                 userActiveState.WardrobeActiveSetName = string.Empty;
+                userActiveState.WardrobeActiveSetAssigner = string.Empty;
                 userActiveState.RestraintUnlockUpdate();
                 break;
 
@@ -559,6 +562,7 @@ public partial class GagspeakHub
                     return;
                 }
                 userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
+                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
             case DataUpdateKind.WardrobeRestraintLocked:

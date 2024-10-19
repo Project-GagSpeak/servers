@@ -51,6 +51,7 @@ public static class ClientPairPermissionExtensions
         result.Timer = activeStateDataModel.WardrobeActiveSetLockTime;
         result.Assigner = activeStateDataModel.WardrobeActiveSetLockAssigner;
         result.ToyboxActivePatternName = activeStateDataModel.ToyboxActivePatternId;
+        
 		return result;
 	}
 	#endregion ActiveStateDataMigrations
@@ -87,6 +88,15 @@ public static class ClientPairPermissionExtensions
         result.SpatialVibratorAudio = globalPermsModel.SpatialVibratorAudio;
         result.GlobalShockShareCode = globalPermsModel.GlobalShockShareCode;
         result.GlobalShockVibrateDuration = globalPermsModel.GlobalShockVibrateDuration;
+        
+        result.ForcedFollow = globalPermsModel.ForcedFollow;
+        result.ForcedSit = globalPermsModel.ForcedSit;
+        result.ForcedGroundsit = globalPermsModel.ForcedGroundsit;
+        result.ForcedStay = globalPermsModel.ForcedStay;
+        result.ForcedBlindfold = globalPermsModel.ForcedBlindfold;
+        result.ChatboxesHidden = globalPermsModel.ChatboxesHidden;
+        result.ChatInputHidden = globalPermsModel.ChatInputHidden;
+        result.ChatInputBlocked = globalPermsModel.ChatInputBlocked;
 
         return result;
     }
@@ -100,21 +110,35 @@ public static class ClientPairPermissionExtensions
         currentModelGlobalPerms.HardcoreSafewordUsed = apiGlobalPerms.HardcoreSafewordUsed;
         currentModelGlobalPerms.LiveChatGarblerActive = apiGlobalPerms.LiveChatGarblerActive;
         currentModelGlobalPerms.LiveChatGarblerLocked = apiGlobalPerms.LiveChatGarblerLocked;
+        
         currentModelGlobalPerms.WardrobeEnabled = apiGlobalPerms.WardrobeEnabled;
         currentModelGlobalPerms.ItemAutoEquip = apiGlobalPerms.ItemAutoEquip;
         currentModelGlobalPerms.RestraintSetAutoEquip = apiGlobalPerms.RestraintSetAutoEquip;
+        
         currentModelGlobalPerms.PuppeteerEnabled = apiGlobalPerms.PuppeteerEnabled;
         currentModelGlobalPerms.GlobalTriggerPhrase = apiGlobalPerms.GlobalTriggerPhrase;
         currentModelGlobalPerms.GlobalAllowSitRequests = apiGlobalPerms.GlobalAllowSitRequests;
         currentModelGlobalPerms.GlobalAllowMotionRequests = apiGlobalPerms.GlobalAllowMotionRequests;
         currentModelGlobalPerms.GlobalAllowAllRequests = apiGlobalPerms.GlobalAllowAllRequests;
+        
         currentModelGlobalPerms.MoodlesEnabled = apiGlobalPerms.MoodlesEnabled;
+        
         currentModelGlobalPerms.ToyboxEnabled = apiGlobalPerms.ToyboxEnabled;
         currentModelGlobalPerms.LockToyboxUI = apiGlobalPerms.LockToyboxUI;
         currentModelGlobalPerms.ToyIsActive = apiGlobalPerms.ToyIsActive;
         currentModelGlobalPerms.SpatialVibratorAudio = apiGlobalPerms.SpatialVibratorAudio;
+        
         currentModelGlobalPerms.GlobalShockShareCode = apiGlobalPerms.GlobalShockShareCode;
         currentModelGlobalPerms.GlobalShockVibrateDuration = apiGlobalPerms.GlobalShockVibrateDuration;
+
+        currentModelGlobalPerms.ForcedFollow = apiGlobalPerms.ForcedFollow;
+        currentModelGlobalPerms.ForcedSit = apiGlobalPerms.ForcedSit;
+        currentModelGlobalPerms.ForcedGroundsit = apiGlobalPerms.ForcedGroundsit;
+        currentModelGlobalPerms.ForcedStay = apiGlobalPerms.ForcedStay;
+        currentModelGlobalPerms.ForcedBlindfold = apiGlobalPerms.ForcedBlindfold;
+        currentModelGlobalPerms.ChatboxesHidden = apiGlobalPerms.ChatboxesHidden;
+        currentModelGlobalPerms.ChatInputHidden = apiGlobalPerms.ChatInputHidden;
+        currentModelGlobalPerms.ChatInputBlocked = apiGlobalPerms.ChatInputBlocked;
 
         return currentModelGlobalPerms;
     }
@@ -170,16 +194,15 @@ public static class ClientPairPermissionExtensions
         result.ShockCollarShareCode = clientPairPermsModel.ShockCollarShareCode;
         result.MaxVibrateDuration = clientPairPermsModel.MaxVibrateDuration;
 
+        result.DevotionalStatesForPair = clientPairPermsModel.DevotionalStatesForPair;
         result.AllowForcedFollow = clientPairPermsModel.AllowForcedFollow;
-        result.IsForcedToFollow = clientPairPermsModel.IsForcedToFollow;
         result.AllowForcedSit = clientPairPermsModel.AllowForcedSit;
-        result.IsForcedToSit = clientPairPermsModel.IsForcedToSit;
         result.AllowForcedToStay = clientPairPermsModel.AllowForcedToStay;
-        result.IsForcedToStay = clientPairPermsModel.IsForcedToStay;
         result.AllowBlindfold = clientPairPermsModel.AllowBlindfold;
-        result.ForceLockFirstPerson = clientPairPermsModel.ForceLockFirstPerson;
-        result.IsBlindfolded = clientPairPermsModel.IsBlindfolded;
-
+        result.AllowHidingChatboxes = clientPairPermsModel.AllowHidingChatboxes;
+        result.AllowHidingChatInput = clientPairPermsModel.AllowHidingChatInput;
+        result.AllowChatInputBlocking = clientPairPermsModel.AllowChatInputBlocking;
+        
         return result;
     }
 
@@ -227,15 +250,14 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.ShockCollarShareCode = apiPairPerms.ShockCollarShareCode;
         currentModelPerms.MaxVibrateDuration = apiPairPerms.MaxVibrateDuration;
 
+        currentModelPerms.DevotionalStatesForPair = apiPairPerms.DevotionalStatesForPair;
         currentModelPerms.AllowForcedFollow = apiPairPerms.AllowForcedFollow;
-        currentModelPerms.IsForcedToFollow = apiPairPerms.IsForcedToFollow;
         currentModelPerms.AllowForcedSit = apiPairPerms.AllowForcedSit;
-        currentModelPerms.IsForcedToSit = apiPairPerms.IsForcedToSit;
         currentModelPerms.AllowForcedToStay = apiPairPerms.AllowForcedToStay;
-        currentModelPerms.IsForcedToStay = apiPairPerms.IsForcedToStay;
         currentModelPerms.AllowBlindfold = apiPairPerms.AllowBlindfold;
-        currentModelPerms.ForceLockFirstPerson = apiPairPerms.ForceLockFirstPerson;
-        currentModelPerms.IsBlindfolded = apiPairPerms.IsBlindfolded;
+        currentModelPerms.AllowHidingChatboxes = apiPairPerms.AllowHidingChatboxes;
+        currentModelPerms.AllowHidingChatInput = apiPairPerms.AllowHidingChatInput;
+        currentModelPerms.AllowChatInputBlocking = apiPairPerms.AllowChatInputBlocking;
 
         return currentModelPerms;
     }
