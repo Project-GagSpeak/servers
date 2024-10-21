@@ -761,33 +761,37 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("user_uid");
 
-                    b.Property<Guid>("ToyboxActivePatternId")
+                    b.Property<Guid>("ActivePatternId")
                         .HasColumnType("uuid")
-                        .HasColumnName("toybox_active_pattern_id");
+                        .HasColumnName("active_pattern_id");
 
-                    b.Property<string>("WardrobeActiveSetAssigner")
+                    b.Property<string>("ActiveSetEnabler")
                         .HasColumnType("text")
-                        .HasColumnName("wardrobe_active_set_assigner");
+                        .HasColumnName("active_set_enabler");
 
-                    b.Property<string>("WardrobeActiveSetLockAssigner")
+                    b.Property<Guid>("ActiveSetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("active_set_id");
+
+                    b.Property<string>("ActiveSetLockAssigner")
                         .HasColumnType("text")
-                        .HasColumnName("wardrobe_active_set_lock_assigner");
+                        .HasColumnName("active_set_lock_assigner");
 
-                    b.Property<DateTimeOffset>("WardrobeActiveSetLockTime")
+                    b.Property<DateTimeOffset>("ActiveSetLockTime")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("wardrobe_active_set_lock_time");
+                        .HasColumnName("active_set_lock_time");
 
-                    b.Property<string>("WardrobeActiveSetName")
+                    b.Property<string>("ActiveSetName")
                         .HasColumnType("text")
-                        .HasColumnName("wardrobe_active_set_name");
+                        .HasColumnName("active_set_name");
 
-                    b.Property<string>("WardrobeActiveSetPadLock")
+                    b.Property<string>("ActiveSetPadLock")
                         .HasColumnType("text")
-                        .HasColumnName("wardrobe_active_set_pad_lock");
+                        .HasColumnName("active_set_pad_lock");
 
-                    b.Property<string>("WardrobeActiveSetPassword")
+                    b.Property<string>("ActiveSetPassword")
                         .HasColumnType("text")
-                        .HasColumnName("wardrobe_active_set_password");
+                        .HasColumnName("active_set_password");
 
                     b.HasKey("UserUID")
                         .HasName("pk_user_active_state_data");

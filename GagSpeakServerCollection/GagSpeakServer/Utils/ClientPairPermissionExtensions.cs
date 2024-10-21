@@ -44,13 +44,14 @@ public static class ClientPairPermissionExtensions
 
 		GagspeakAPI.Data.Character.CharacterActiveStateData result = new GagspeakAPI.Data.Character.CharacterActiveStateData();
 
-        result.WardrobeActiveSetName = activeStateDataModel.WardrobeActiveSetName;
-        result.WardrobeActiveSetAssigner = activeStateDataModel.WardrobeActiveSetAssigner;
-        result.Padlock = activeStateDataModel.WardrobeActiveSetPadLock;
-        result.Password = activeStateDataModel.WardrobeActiveSetPassword;
-        result.Timer = activeStateDataModel.WardrobeActiveSetLockTime;
-        result.Assigner = activeStateDataModel.WardrobeActiveSetLockAssigner;
-        result.ToyboxActivePatternName = activeStateDataModel.ToyboxActivePatternId;
+        result.ActiveSetId = activeStateDataModel.ActiveSetId;
+        result.ActiveSetName = activeStateDataModel.ActiveSetName;
+        result.ActiveSetEnabler = activeStateDataModel.ActiveSetEnabler;
+        result.Padlock = activeStateDataModel.ActiveSetPadLock;
+        result.Password = activeStateDataModel.ActiveSetPassword;
+        result.Timer = activeStateDataModel.ActiveSetLockTime;
+        result.Assigner = activeStateDataModel.ActiveSetLockAssigner;
+        result.ActivePatternName = activeStateDataModel.ActivePatternId;
         
 		return result;
 	}

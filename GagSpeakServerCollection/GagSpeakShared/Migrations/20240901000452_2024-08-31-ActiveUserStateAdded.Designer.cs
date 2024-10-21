@@ -640,15 +640,15 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("text")
                         .HasColumnName("toybox_active_pattern_name");
 
-                    b.Property<string>("WardrobeActiveSetAssigner")
+                    b.Property<string>("ActiveSetEnabler")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_assigner");
 
-                    b.Property<string>("WardrobeActiveSetLockAssigner")
+                    b.Property<string>("ActiveSetLockAssigner")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_lock_assigner");
 
-                    b.Property<DateTimeOffset>("WardrobeActiveSetLockTime")
+                    b.Property<DateTimeOffset>("ActiveSetLockTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("wardrobe_active_set_lock_time");
 
@@ -656,7 +656,7 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("wardrobe_active_set_locked");
 
-                    b.Property<string>("WardrobeActiveSetName")
+                    b.Property<string>("ActiveSetName")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_name");
 

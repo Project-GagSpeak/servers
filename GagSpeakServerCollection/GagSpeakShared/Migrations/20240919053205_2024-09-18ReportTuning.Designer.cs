@@ -748,27 +748,27 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("toybox_active_pattern_id");
 
-                    b.Property<string>("WardrobeActiveSetAssigner")
+                    b.Property<string>("ActiveSetEnabler")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_assigner");
 
-                    b.Property<string>("WardrobeActiveSetLockAssigner")
+                    b.Property<string>("ActiveSetLockAssigner")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_lock_assigner");
 
-                    b.Property<DateTimeOffset>("WardrobeActiveSetLockTime")
+                    b.Property<DateTimeOffset>("ActiveSetLockTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("wardrobe_active_set_lock_time");
 
-                    b.Property<string>("WardrobeActiveSetName")
+                    b.Property<string>("ActiveSetName")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_name");
 
-                    b.Property<string>("WardrobeActiveSetPadLock")
+                    b.Property<string>("ActiveSetPadLock")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_pad_lock");
 
-                    b.Property<string>("WardrobeActiveSetPassword")
+                    b.Property<string>("ActiveSetPassword")
                         .HasColumnType("text")
                         .HasColumnName("wardrobe_active_set_password");
 

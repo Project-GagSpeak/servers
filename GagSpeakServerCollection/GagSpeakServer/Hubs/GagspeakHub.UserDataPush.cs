@@ -10,7 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 
 namespace GagspeakServer.Hubs;
-
+#pragma warning disable MA0051 // Method is too long
 /// <summary> 
 /// This partial class of the GagSpeakHub contains all the user related methods for pushing data.
 /// </summary>
@@ -180,20 +180,22 @@ public partial class GagspeakHub
         switch (dto.UpdateKind)
         {
             case DataUpdateKind.FullDataUpdate:
-                userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
-                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
-                userActiveState.WardrobeActiveSetPadLock = dto.WardrobeData.Padlock;
-                userActiveState.WardrobeActiveSetPassword = dto.WardrobeData.Password;
-                userActiveState.WardrobeActiveSetLockTime = dto.WardrobeData.Timer;
-                userActiveState.WardrobeActiveSetLockAssigner = dto.WardrobeData.Assigner;
+                userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
+                userActiveState.ActiveSetName = dto.WardrobeData.ActiveSetName;
+                userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
+                userActiveState.ActiveSetPadLock = dto.WardrobeData.Padlock;
+                userActiveState.ActiveSetPassword = dto.WardrobeData.Password;
+                userActiveState.ActiveSetLockTime = dto.WardrobeData.Timer;
+                userActiveState.ActiveSetLockAssigner = dto.WardrobeData.Assigner;
                 break;
 
             case DataUpdateKind.WardrobeRestraintOutfitsUpdated:
                 break;
 
             case DataUpdateKind.WardrobeRestraintApplied:
-                userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
-                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
+                userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
+                userActiveState.ActiveSetName = dto.WardrobeData.ActiveSetName;
+                userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
             case DataUpdateKind.WardrobeRestraintLocked:
@@ -209,12 +211,14 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateKind.WardrobeRestraintDisabled:
-                userActiveState.WardrobeActiveSetName = string.Empty;
-                userActiveState.WardrobeActiveSetAssigner = string.Empty;
+                userActiveState.ActiveSetId = Guid.Empty;
+                userActiveState.ActiveSetName = string.Empty;
+                userActiveState.ActiveSetEnabler = string.Empty;
                 break;
             case DataUpdateKind.Safeword:
-                userActiveState.WardrobeActiveSetName = string.Empty;
-                userActiveState.WardrobeActiveSetAssigner = string.Empty;
+                userActiveState.ActiveSetId = Guid.Empty;
+                userActiveState.ActiveSetName = string.Empty;
+                userActiveState.ActiveSetEnabler = string.Empty;
                 userActiveState.RestraintUnlockUpdate();
                 break;
 
@@ -230,8 +234,8 @@ public partial class GagspeakHub
 
         var newWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataWardrobe(new(new(UserUID), newWardrobeData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataWardrobe(new(new(UserUID), newWardrobeData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOwnDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, recipientUids.Count);
@@ -289,7 +293,7 @@ public partial class GagspeakHub
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update own userActiveStateData!").ConfigureAwait(false);
                 return;
             }
-            userActiveState.ToyboxActivePatternId = Guid.Empty;
+            userActiveState.ActivePatternId = Guid.Empty;
             // update the database with the new appearance data.
             DbContext.UserActiveStateData.Update(userActiveState);
         }
@@ -319,17 +323,6 @@ public partial class GagspeakHub
                 var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
                 recipientUidList = allPairedUsers.Where(f => recipientUidList.Contains(f, StringComparer.Ordinal)).ToList();
                 await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-            }
-
-            if (dto.UpdateKind == DataUpdateKind.Safeword)
-            {
-                var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-                if (userActiveState == null) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update own userActiveStateData!").ConfigureAwait(false);
-                    return;
-                }
-                userActiveState.ToyboxActivePatternId = Guid.Empty;
-                DbContext.UserActiveStateData.Update(userActiveState);
             }
 
             await Clients.Users(recipientUidList).Client_UserReceiveDataPiShock(new(new(UserUID), dto.ShockPermissions, dto.UpdateKind)).ConfigureAwait(false);
@@ -557,12 +550,13 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use WardrobeApplying on them!").ConfigureAwait(false);
                     return;
                 }
-                if (!string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName) && userActiveState.WardrobeActiveSetPadLock.ToPadlock() is not Padlocks.None) {
+                if (!string.IsNullOrEmpty(userActiveState.ActiveSetName) && userActiveState.ActiveSetPadLock.ToPadlock() is not Padlocks.None) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Replace Currently Active Set because it is currently locked!").ConfigureAwait(false);
                     return;
                 }
-                userActiveState.WardrobeActiveSetName = dto.WardrobeData.ActiveSetName;
-                userActiveState.WardrobeActiveSetAssigner = dto.WardrobeData.ActiveSetEnabledBy;
+                userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
+                userActiveState.ActiveSetName = dto.WardrobeData.ActiveSetName;
+                userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
             case DataUpdateKind.WardrobeRestraintLocked:
@@ -589,15 +583,16 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateKind.WardrobeRestraintDisabled:
-                if (string.IsNullOrEmpty(userActiveState.WardrobeActiveSetName)) {
+                if (string.IsNullOrEmpty(userActiveState.ActiveSetName)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active set to remove!").ConfigureAwait(false);
                     return;
                 }
-                if (!string.Equals(userActiveState.WardrobeActiveSetPadLock, None, StringComparison.Ordinal)) {
+                if (!string.Equals(userActiveState.ActiveSetPadLock, None, StringComparison.Ordinal)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Active set is still locked!").ConfigureAwait(false);
                     return;
                 }
-                userActiveState.WardrobeActiveSetName = string.Empty;
+                userActiveState.ActiveSetId = Guid.Empty;
+                userActiveState.ActiveSetName = string.Empty;
                 break;
 
             default:
@@ -610,8 +605,8 @@ public partial class GagspeakHub
 
         var updatedWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(new(new(UserUID), updatedWardrobeData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataWardrobe(new(dto.User, updatedWardrobeData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(new(new(UserUID), updatedWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataWardrobe(new(dto.User, updatedWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, allOnlinePairsOfAffectedPairUids.Count);
@@ -684,18 +679,18 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot activate Guid.Empty!").ConfigureAwait(false);
                     return;
                 }
-                userActiveState.ToyboxActivePatternId = dto.ToyboxInfo.ActivePatternGuid;
+                userActiveState.ActivePatternId = dto.ToyboxInfo.ActivePatternGuid;
                 break;
             case DataUpdateKind.ToyboxPatternStopped:
                 if (!pairPermissions.CanExecutePatterns) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use ToyboxPatternFeatures on them!").ConfigureAwait(false);
                     return;
                 }
-                if (userActiveState.ToyboxActivePatternId == Guid.Empty) {
+                if (userActiveState.ActivePatternId == Guid.Empty) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active pattern was playing, nothing to stop!").ConfigureAwait(false);
                     return;
                 }
-                userActiveState.ToyboxActivePatternId = Guid.Empty;
+                userActiveState.ActivePatternId = Guid.Empty;
                 break;
             case DataUpdateKind.ToyboxAlarmListUpdated:
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot modify this data!").ConfigureAwait(false);
@@ -731,3 +726,4 @@ public partial class GagspeakHub
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, allOnlinePairsOfAffectedPairUids.Count);
     }
 }
+#pragma warning restore MA0051 // Method is too long

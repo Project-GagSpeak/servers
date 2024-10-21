@@ -227,12 +227,6 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static void UpdateRestraintActiveSet(this UserActiveStateData activeState, CharacterWardrobeData newData)
-    {
-        activeState.WardrobeActiveSetName = newData.ActiveSetName;
-        activeState.WardrobeActiveSetAssigner = newData.ActiveSetEnabledBy;
-    }
-
     public static bool CanLockRestraint(UserActiveStateData data, ClientPairPermissions perms, CharacterWardrobeData dtoData, out string ErrorMsg)
     {
         if (!perms.LockRestraintSets)
@@ -240,12 +234,12 @@ public static class DataUpdateHelpers
             ErrorMsg = "Permission to Lock Restraint Sets not given!";
             return false;
         }
-        else if (data.WardrobeActiveSetName.IsNullOrEmpty())
+        else if (data.ActiveSetName.IsNullOrEmpty())
         {
             ErrorMsg = "No Active Set to Lock!";
             return false;
         }
-        else if (data.WardrobeActiveSetPadLock.ToPadlock() is not Padlocks.None)
+        else if (data.ActiveSetPadLock.ToPadlock() is not Padlocks.None)
         {
             ErrorMsg = "Set is already Locked!";
             return false;
@@ -273,12 +267,12 @@ public static class DataUpdateHelpers
             ErrorMsg = "Permission to Unlock Restraint Sets not given!";
             return false;
         }
-        else if (stateData.WardrobeActiveSetPadLock.ToPadlock() is Padlocks.None)
+        else if (stateData.ActiveSetPadLock.ToPadlock() is Padlocks.None)
         {
             ErrorMsg = "No Lock Present!";
             return false;
         }
-        switch (stateData.WardrobeActiveSetPadLock.ToPadlock())
+        switch (stateData.ActiveSetPadLock.ToPadlock())
         {
             case Padlocks.None:
                 ErrorMsg = "No Lock to Unlock!";
@@ -289,7 +283,7 @@ public static class DataUpdateHelpers
             case Padlocks.CombinationPadlock:
             case Padlocks.PasswordPadlock:
             case Padlocks.TimerPasswordPadlock:
-                if (!string.Equals(stateData.WardrobeActiveSetPassword, lockInfo.Password, StringComparison.Ordinal))
+                if (!string.Equals(stateData.ActiveSetPassword, lockInfo.Password, StringComparison.Ordinal))
                 {
                     ErrorMsg = "Password does not match!";
                     return false;
@@ -310,7 +304,7 @@ public static class DataUpdateHelpers
                     ErrorMsg = "Cannot Unlock Owner Padlocks. Not Allowed!";
                     return false;
                 }
-                else if (!string.Equals(stateData.WardrobeActiveSetLockAssigner, lockInfo.Assigner, StringComparison.Ordinal))
+                else if (!string.Equals(stateData.ActiveSetLockAssigner, lockInfo.Assigner, StringComparison.Ordinal))
                 {
                     ErrorMsg = "You did not Assign this Devotional Padlock. Not Allowed!";
                     return false;
@@ -329,34 +323,35 @@ public static class DataUpdateHelpers
             return;
 
         if (padlock is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock)
-            activeState.WardrobeActiveSetPassword = password;
+            activeState.ActiveSetPassword = password;
         if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock or Padlocks.DevotionalTimerPadlock)
-            activeState.WardrobeActiveSetLockTime = offsetTime;
+            activeState.ActiveSetLockTime = offsetTime;
 
         // Assign lock and assigner regardless.
-        activeState.WardrobeActiveSetPadLock = padlock.ToName();
-        activeState.WardrobeActiveSetLockAssigner = assigner;
+        activeState.ActiveSetPadLock = padlock.ToName();
+        activeState.ActiveSetLockAssigner = assigner;
     }
 
     public static void RestraintUnlockUpdate(this UserActiveStateData activeState)
     {
-        activeState.WardrobeActiveSetPadLock = Padlocks.None.ToName();
-        activeState.WardrobeActiveSetPassword = string.Empty;
-        activeState.WardrobeActiveSetLockTime = DateTimeOffset.UtcNow;
-        activeState.WardrobeActiveSetLockAssigner = string.Empty;
+        activeState.ActiveSetPadLock = Padlocks.None.ToName();
+        activeState.ActiveSetPassword = string.Empty;
+        activeState.ActiveSetLockTime = DateTimeOffset.UtcNow;
+        activeState.ActiveSetLockAssigner = string.Empty;
     }
 
     public static CharacterWardrobeData BuildUpdatedWardrobeData(CharacterWardrobeData prevData, UserActiveStateData userActiveState)
     {
         return new CharacterWardrobeData
         {
-            OutfitNames = prevData.OutfitNames, // this becomes irrelevant since none of these settings change this.
-            ActiveSetName = userActiveState.WardrobeActiveSetName,
-            ActiveSetEnabledBy = userActiveState.WardrobeActiveSetAssigner,
-            Padlock = userActiveState.WardrobeActiveSetPadLock,
-            Password = userActiveState.WardrobeActiveSetPassword,
-            Timer = userActiveState.WardrobeActiveSetLockTime,
-            Assigner = userActiveState.WardrobeActiveSetLockAssigner,
+            Outfits = prevData.Outfits,
+            ActiveSetId = prevData.ActiveSetId,
+            ActiveSetName = userActiveState.ActiveSetName,
+            ActiveSetEnabledBy = userActiveState.ActiveSetEnabler,
+            Padlock = userActiveState.ActiveSetPadLock,
+            Password = userActiveState.ActiveSetPassword,
+            Timer = userActiveState.ActiveSetLockTime,
+            Assigner = userActiveState.ActiveSetLockAssigner,
         };
     }
 }
