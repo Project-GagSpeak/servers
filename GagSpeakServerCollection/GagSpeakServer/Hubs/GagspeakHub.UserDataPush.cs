@@ -647,15 +647,9 @@ public partial class GagspeakHub
         var pairPermissions = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
         if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
-        // Fetch affected pair's current activeState data from the DB
-        var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (userActiveState == null) throw new Exception("User has no Active State Data!");
-
         // Grabs all Pairs of the affected pair
         var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        // Filter the list to only include online pairs
         var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        // Convert from Dictionary<string,string> to List<string> of UID's.
         var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
 
         // Verify all these pairs are cached for that pair. If not, cache them.
@@ -671,53 +665,34 @@ public partial class GagspeakHub
         switch (dto.UpdateKind)
         {
             case DataUpdateKind.ToyboxPatternExecuted:
-                if (!pairPermissions.CanExecutePatterns) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to play their Patterns!").ConfigureAwait(false);
+                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to execute Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
-                if (dto.ToyboxInfo.ActivePatternGuid == Guid.Empty) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot activate Guid.Empty!").ConfigureAwait(false);
-                    return;
-                }
-                userActiveState.ActivePatternId = dto.ToyboxInfo.ActivePatternGuid;
                 break;
             case DataUpdateKind.ToyboxPatternStopped:
-                if (!pairPermissions.CanExecutePatterns) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use ToyboxPatternFeatures on them!").ConfigureAwait(false);
+                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to stop Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
-                if (userActiveState.ActivePatternId == Guid.Empty) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active pattern was playing, nothing to stop!").ConfigureAwait(false);
-                    return;
-                }
-                userActiveState.ActivePatternId = Guid.Empty;
                 break;
-            case DataUpdateKind.ToyboxAlarmListUpdated:
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot modify this data!").ConfigureAwait(false);
-                return;
-            case DataUpdateKind.ToyboxAlarmToggled:
-                if (!pairPermissions.CanToggleAlarms) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle Alarms!").ConfigureAwait(false);
-                    return;
-                }
 
+            case DataUpdateKind.ToyboxAlarmToggled:
+                if (!pairPermissions.CanToggleAlarms || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle Alarms, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
+                    return;
+                }
                 break;
-            case DataUpdateKind.ToyboxTriggerListUpdated:
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot modify this data!").ConfigureAwait(false);
-                return;
+
             case DataUpdateKind.ToyboxTriggerToggled:
-                if (!pairPermissions.CanToggleTriggers) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Toggle Triggers for this Pair!").ConfigureAwait(false);
+                if (!pairPermissions.CanToggleTriggers || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle triggers, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
                 break;
             default:
                 throw new Exception("Invalid UpdateKind for Toybox Data!");
         }
-
-        // update the changes to the database.
-        DbContext.UserActiveStateData.Update(userActiveState);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         await Clients.User(dto.User.UID).Client_UserReceiveOwnDataToybox(new(new(UserUID), dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
         await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataToybox(new(dto.User, dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
