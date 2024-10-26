@@ -15,7 +15,7 @@ public class SelectionBoardService : ResultsPageInfo
     public Board CurBoard => Boards[BoardSearchIdx]; // the current board we are looking at (reference)
 
     
-    // search terms and page referer in base class
+    // search terms and page referrer in base class
     public void AddBoard(Board newBoard) => Boards.Add(newBoard);
     public void UpdateBoardSearchIdx(int newIndex) => BoardSearchIdx = newIndex;
 

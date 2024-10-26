@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
+#pragma warning disable MA0051, MA0048 // Method is too long
 
 namespace GagSpeakShared.Migrations
 {
@@ -606,3 +607,6 @@ namespace GagSpeakShared.Migrations
         }
     }
 }
+
+#pragma warning restore MA0051, MA0048 // Method is too long
+

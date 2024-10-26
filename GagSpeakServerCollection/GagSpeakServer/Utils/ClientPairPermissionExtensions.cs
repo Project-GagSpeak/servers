@@ -91,8 +91,7 @@ public static class ClientPairPermissionExtensions
         result.GlobalShockVibrateDuration = globalPermsModel.GlobalShockVibrateDuration;
         
         result.ForcedFollow = globalPermsModel.ForcedFollow;
-        result.ForcedSit = globalPermsModel.ForcedSit;
-        result.ForcedGroundsit = globalPermsModel.ForcedGroundsit;
+        result.ForcedEmoteState = globalPermsModel.ForcedEmoteState;
         result.ForcedStay = globalPermsModel.ForcedStay;
         result.ForcedBlindfold = globalPermsModel.ForcedBlindfold;
         result.ChatboxesHidden = globalPermsModel.ChatboxesHidden;
@@ -133,8 +132,7 @@ public static class ClientPairPermissionExtensions
         currentModelGlobalPerms.GlobalShockVibrateDuration = apiGlobalPerms.GlobalShockVibrateDuration;
 
         currentModelGlobalPerms.ForcedFollow = apiGlobalPerms.ForcedFollow;
-        currentModelGlobalPerms.ForcedSit = apiGlobalPerms.ForcedSit;
-        currentModelGlobalPerms.ForcedGroundsit = apiGlobalPerms.ForcedGroundsit;
+        currentModelGlobalPerms.ForcedEmoteState = apiGlobalPerms.ForcedEmoteState;
         currentModelGlobalPerms.ForcedStay = apiGlobalPerms.ForcedStay;
         currentModelGlobalPerms.ForcedBlindfold = apiGlobalPerms.ForcedBlindfold;
         currentModelGlobalPerms.ChatboxesHidden = apiGlobalPerms.ChatboxesHidden;
@@ -198,6 +196,7 @@ public static class ClientPairPermissionExtensions
         result.DevotionalStatesForPair = clientPairPermsModel.DevotionalStatesForPair;
         result.AllowForcedFollow = clientPairPermsModel.AllowForcedFollow;
         result.AllowForcedSit = clientPairPermsModel.AllowForcedSit;
+        result.AllowForcedEmote = clientPairPermsModel.AllowForcedEmote;
         result.AllowForcedToStay = clientPairPermsModel.AllowForcedToStay;
         result.AllowBlindfold = clientPairPermsModel.AllowBlindfold;
         result.AllowHidingChatboxes = clientPairPermsModel.AllowHidingChatboxes;
@@ -254,6 +253,7 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.DevotionalStatesForPair = apiPairPerms.DevotionalStatesForPair;
         currentModelPerms.AllowForcedFollow = apiPairPerms.AllowForcedFollow;
         currentModelPerms.AllowForcedSit = apiPairPerms.AllowForcedSit;
+        currentModelPerms.AllowForcedEmote = apiPairPerms.AllowForcedEmote;
         currentModelPerms.AllowForcedToStay = apiPairPerms.AllowForcedToStay;
         currentModelPerms.AllowBlindfold = apiPairPerms.AllowBlindfold;
         currentModelPerms.AllowHidingChatboxes = apiPairPerms.AllowHidingChatboxes;

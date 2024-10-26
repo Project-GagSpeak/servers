@@ -44,8 +44,7 @@ public class UserGlobalPermissions
     // global hardcore permissions (readonly for everyone)
     // Contains the UID who applied it when active. If Devotional, will have    |pairlocked    appended.
     public string ForcedFollow { get; set; } = string.Empty;
-    public string ForcedSit { get; set; } = string.Empty;
-    public string ForcedGroundsit { get; set; } = string.Empty;
+    public string ForcedEmoteState { get; set; } = string.Empty; // Format: UID|EmoteID|CposeByte|pairlocked
     public string ForcedStay { get; set; } = string.Empty;
     public string ForcedBlindfold { get; set; } = string.Empty;
     public string ChatboxesHidden { get; set; } = string.Empty;

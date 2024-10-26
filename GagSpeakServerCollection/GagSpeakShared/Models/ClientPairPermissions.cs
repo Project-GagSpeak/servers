@@ -67,6 +67,7 @@ public class ClientPairPermissions
     public bool DevotionalStatesForPair { get; set; } = false;
     public bool AllowForcedFollow { get; set; } = false;
     public bool AllowForcedSit { get; set; } = false;
+    public bool AllowForcedEmote { get; set; } = false;
     public bool AllowForcedToStay { get; set; } = false;
     public bool AllowBlindfold { get; set; } = false;
     public bool AllowHidingChatboxes { get; set; } = false;

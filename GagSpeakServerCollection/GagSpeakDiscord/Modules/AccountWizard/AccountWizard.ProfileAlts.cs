@@ -57,11 +57,13 @@ public partial class AccountWizard
 
     public async Task HandleAddAltProfile(GagspeakDbContext db, EmbedBuilder embed, string primaryUID)
     {
+        // get the vanity tier of the primary user UID.
+        var primaryUser = await db.Users.SingleAsync(u => u.UID == primaryUID).ConfigureAwait(false);
         // construct a new user to the DB, set to have logged in right now.
         User newUser = new()
         {
             LastLoggedIn = DateTime.UtcNow,
-            VanityTier = CkSupporterTier.NoRole // TODO: Figure out how to set this based on the context interaction user's roles.
+            VanityTier = primaryUser.VanityTier
         };
 
         // while the UID is not unique, generate a new one.

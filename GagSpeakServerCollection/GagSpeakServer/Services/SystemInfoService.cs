@@ -67,7 +67,7 @@ public class SystemInfoService : IHostedService, IDisposable
                 // can always just refer to discord bot for this number instead of letting it spam my logs.
                 // _logger.LogInformation("Online Users: {onlineUsers}", gagspeakOnlineUsers);
 
-                _hubContext.Clients.All.Client_UpdateSystemInfo(SystemInfoDto);
+                _ = _hubContext.Clients.All.Client_UpdateSystemInfo(SystemInfoDto);
 
                 using var scope = _services.CreateScope();
                 using var db = scope.ServiceProvider.GetService<GagspeakDbContext>()!;

@@ -24,9 +24,6 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<bool> UserApplyMoodlesByGuid(ApplyMoodlesByGuidDto dto)
     {
-        // TODO: REMOVE THIS to prevent log spamming.
-        _logger.LogCallInfo();
-
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
         if (pairPerms == null)
@@ -65,9 +62,6 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<bool> UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto)
     {
-        // TODO: REMOVE THIS to prevent log spamming.
-        _logger.LogCallInfo();
-
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
         if (pairPerms == null)
@@ -75,8 +69,6 @@ public partial class GagspeakHub
              await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
              return false;
         }
-
-        // TODO: This is likely going to get mixed up along the path, so ensure that it works during transfer.
         if (!pairPerms.PairCanApplyOwnMoodlesToYou)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
@@ -137,9 +129,6 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<bool> UserRemoveMoodles(RemoveMoodlesDto dto)
     {
-        // TODO: REMOVE THIS to prevent log spamming.
-        _logger.LogCallInfo();
-
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
         if (pairPerms == null)
@@ -168,9 +157,6 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<bool> UserClearMoodles(UserDto dto)
     {
-        // TODO: REMOVE THIS to prevent log spamming.
-        _logger.LogCallInfo();
-
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
         if (pairPerms == null)

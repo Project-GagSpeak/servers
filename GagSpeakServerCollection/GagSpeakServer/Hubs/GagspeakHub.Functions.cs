@@ -10,10 +10,9 @@ using Newtonsoft.Json;
 using System.Runtime.CompilerServices;
 
 namespace GagspeakServer.Hubs;
-
+#pragma warning disable MA0016
 /// <summary>
 /// This partial class of the GagspeakHub handles helper functions used in the servers function responses to make them cleaner.
-/// <para> Contains the Client Caller context Claims as well for the client caller accessing the gagspeak hub functions </para>
 /// </summary>
 public partial class GagspeakHub
 {
@@ -68,9 +67,9 @@ public partial class GagspeakHub
         // if the users active state data is not null, remove it from the database.
         if (ownActiveStateData != null) { DbContext.UserActiveStateData.Remove(ownActiveStateData); }
 
-        // remove the range of pairpermissions
+        // remove the range of pair permissions
         DbContext.ClientPairPermissions.RemoveRange(ownPairPermData);
-        // remove the range of pairpermissionaccesses
+        // remove the range of pair permission accesses
         DbContext.ClientPairPermissionAccess.RemoveRange(ownPairAccessData);
 
         // remove all UserPatternLike entries by our user.
@@ -188,8 +187,6 @@ public partial class GagspeakHub
     /// <summary>
     /// A helper function that fetches all bidirectional (synced) client pairs for a given user.
     /// </summary>
-    /// <param name="uid"></param>
-    /// <returns></returns>
     public async Task<List<User>> GetSyncedPairs(string uid)
     {
         // Query to find bidirectional (synced) client pairs
@@ -504,3 +501,4 @@ public partial class GagspeakHub
         ClientPairPermissionAccess otherPairPermissionAccess
         );
 }
+#pragma warning restore MA0016
