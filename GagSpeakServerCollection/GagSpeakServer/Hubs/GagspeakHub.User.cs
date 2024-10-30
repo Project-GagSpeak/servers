@@ -461,7 +461,7 @@ public partial class GagspeakHub
     /// </summary>
     /// <returns> The UserProfileDto of the user requested </returns>
     [Authorize(Policy = "Identified")]
-    public async Task<UserProfileDto> UserGetProfile(UserDto user)
+    public async Task<UserKinkPlateDto> UserGetKinkPlate(UserDto user)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(user));
 
@@ -471,16 +471,24 @@ public partial class GagspeakHub
         // If requested User Profile is not in list of pairs, and is not self, return blank profile update.
         if (!allUserPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
         {
-            return new UserProfileDto(user.User, false, null, "Due to the pause status you cannot access this users profile.");
+            var newPlate = new KinkPlateContent() { Description = "Due to the pause status you cannot access this users profile." };
+            return new UserKinkPlateDto(user.User, newPlate, string.Empty);
         }
 
         // Grab the requested user's profile data from the database
         UserProfileData? data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
-        if (data == null) return new UserProfileDto(user.User, false, null, null); // return a null profile if invalid.
-        if (data.ProfileDisabled) return new UserProfileDto(user.User, true, null, "This profile is currently disabled");
-
-        // Return the valid profile. (nothing necessary to push to other pairs).
-        return new UserProfileDto(user.User, false, data.Base64ProfilePic, data.UserDescription);
+        if (data == null)
+        {
+            var newPlate = new KinkPlateContent() { Description = "Profile is Null!" };
+            return new UserKinkPlateDto(user.User, newPlate, string.Empty);
+        }
+        if (data.ProfileDisabled)
+        {
+            var newPlate = new KinkPlateContent() { Disabled = true, Description = "This profile is currently disabled" };
+            return new UserKinkPlateDto(user.User, newPlate, string.Empty);
+        }
+        // Return the valid profile.
+        return new UserKinkPlateDto(user.User, data.FromProfileData(), data.Base64ProfilePic);
     }
 
     /// <summary>
@@ -533,7 +541,7 @@ public partial class GagspeakHub
     /// Called by a connected client who wishes to set or update their profile data.
     /// </summary>
     [Authorize(Policy = "Identified")]
-    public async Task UserSetProfile(UserProfileDto dto)
+    public async Task UserSetKinkPlate(UserKinkPlateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
 
@@ -577,38 +585,22 @@ public partial class GagspeakHub
             // Ensure Image meets required parameters.
             if (image.Width > 256 || image.Height > 256)
             {
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your provided image file is larger than 256x256 or more than 250KiB.").ConfigureAwait(false);
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your provided image file is larger than 256x256").ConfigureAwait(false);
                 return;
             }
         }
 
         // Validate the rest of the profile data.
-        if (existingData != null)
+        if (existingData is not null)
         {
-            // Set ProfilePictureBase64 to null if string is not provided.
-            if (string.Equals("", dto.ProfilePictureBase64, StringComparison.OrdinalIgnoreCase))
-            {
-                existingData.Base64ProfilePic = null;
-            }
-            // If string is provided, set the new Base64ProfilePic.
-            else if (dto.ProfilePictureBase64 != null)
-            {
-                existingData.Base64ProfilePic = dto.ProfilePictureBase64;
-            }
-            // If description contains content, updated the description.
-            if (dto.Description != null)
-            {
-                existingData.UserDescription = dto.Description;
-            }
+            // If this causes any errors then return to the possible null value it had.
+            existingData.Base64ProfilePic = dto.ProfilePictureBase64;
+            // update all other values from the Info in the dto.
+            existingData.UpdateInfoFromDto(dto.Info);
         }
         else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
         {
-            UserProfileData userProfileData = new()
-            {
-                UserUID = dto.User.UID,
-                Base64ProfilePic = dto.ProfilePictureBase64 ?? null,
-                UserDescription = dto.Description ?? null,
-            };
+            UserProfileData userProfileData = DataUpdateHelpers.NewPlateFromDto(dto);
             await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
 
@@ -627,7 +619,7 @@ public partial class GagspeakHub
 
 
     [Authorize(Policy = "Identified")]
-    public async Task UserReportProfile(UserProfileReportDto dto)
+    public async Task UserReportKinkPlate(UserKinkPlateReportDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 

@@ -1,3 +1,4 @@
+using GagspeakAPI.Data.IPC;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -16,14 +17,34 @@ public class UserProfileData
     public User User { get; set; }
 
     /* ---------- Profile Data ---------- */
-    public string Base64ProfilePic { get; set; } // the base64 string of the user's profile picture
-    public string UserDescription { get; set; }  // the user's description.
+    public bool FlaggedForReport { get; set; } = false;
+    public bool ProfileDisabled { get; set; } = false;
+    public DateTime ProfileTimeoutTimeStamp { get; set; } // the time when the profile was timed out.
+    public string Base64ProfilePic { get; set; } = string.Empty; // string.empty == no image provided.
+    public string UserDescription { get; set; } = string.Empty;
 
-    public bool FlaggedForReport { get; set; }   // if a profile is flagged for report.
-    public bool ProfileDisabled { get; set; }    // If profile is disabled.
-    public DateTime ProfileTimeoutTimeStamp { get; set; } // the time the profile was disabled.
+    public ProfileStyleBG PlateBackground { get; set; } = ProfileStyleBG.Default;
+    public ProfileStyleBorder PlateBorder { get; set; } = ProfileStyleBorder.Default;
 
-    
+    public ProfileStyleBorder ProfilePictureBorder { get; set; } = ProfileStyleBorder.Default;
+    public ProfileStyleOverlay ProfilePictureOverlay { get; set; } = ProfileStyleOverlay.Default;
 
-    // For Profile customization unlocks & progress, we could store a whole other table with lots of unlock categories, or throw a base64 string in here of the class.
+    public ProfileStyleBG DescriptionBackground { get; set; } = ProfileStyleBG.Default;
+    public ProfileStyleBorder DescriptionBorder { get; set; } = ProfileStyleBorder.Default;
+    public ProfileStyleOverlay DescriptionOverlay { get; set; } = ProfileStyleOverlay.Default;
+
+    public ProfileStyleBG GagSlotBackground { get; set; } = ProfileStyleBG.Default;
+    public ProfileStyleBorder GagSlotBorder { get; set; } = ProfileStyleBorder.Default;
+    public ProfileStyleOverlay GagSlotOverlay { get; set; } = ProfileStyleOverlay.Default;
+
+    public ProfileStyleBG PadlockBackground { get; set; } = ProfileStyleBG.Default;
+    public ProfileStyleBorder PadlockBorder { get; set; } = ProfileStyleBorder.Default;
+    public ProfileStyleOverlay PadlockOverlay { get; set; } = ProfileStyleOverlay.Default;
+
+    public ProfileStyleBG BlockedSlotsBackground { get; set; } = ProfileStyleBG.Default;
+    public ProfileStyleBorder BlockedSlotsBorder { get; set; } = ProfileStyleBorder.Default;
+    public ProfileStyleOverlay BlockedSlotsOverlay { get; set; } = ProfileStyleOverlay.Default;
+
+    public ProfileStyleBorder BlockedSlotBorder { get; set; } = ProfileStyleBorder.Default;
+    public ProfileStyleOverlay BlockedSlotOverlay { get; set; } = ProfileStyleOverlay.Default;
 }

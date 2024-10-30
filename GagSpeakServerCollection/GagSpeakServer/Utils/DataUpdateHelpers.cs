@@ -1,4 +1,6 @@
-﻿using GagspeakAPI.Data.Character;
+﻿using GagspeakAPI.Data;
+using GagspeakAPI.Data.Character;
+using GagspeakAPI.Dto.User;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
 using GagspeakShared.Models;
@@ -352,6 +354,106 @@ public static class DataUpdateHelpers
             Password = userActiveState.ActiveSetPassword,
             Timer = userActiveState.ActiveSetLockTime,
             Assigner = userActiveState.ActiveSetLockAssigner,
+        };
+    }
+
+    public static void UpdateInfoFromDto(this UserProfileData storedData, KinkPlateContent dtoContent)
+    {
+        // update all other values from the Info in the dto.
+        storedData.UserDescription = dtoContent.Description;
+
+        storedData.PlateBackground = dtoContent.PlateBackground;
+        storedData.PlateBorder = dtoContent.PlateBorder;
+
+        storedData.ProfilePictureBorder = dtoContent.ProfilePictureBorder;
+        storedData.ProfilePictureOverlay = dtoContent.ProfilePictureOverlay;
+
+        storedData.DescriptionBackground = dtoContent.DescriptionBackground;
+        storedData.DescriptionBorder = dtoContent.DescriptionBorder;
+        storedData.DescriptionOverlay = dtoContent.DescriptionOverlay;
+
+        storedData.GagSlotBackground = dtoContent.GagSlotBackground;
+        storedData.GagSlotBorder = dtoContent.GagSlotBorder;
+        storedData.GagSlotOverlay = dtoContent.GagSlotOverlay;
+
+        storedData.PadlockBackground = dtoContent.PadlockBackground;
+        storedData.PadlockBorder = dtoContent.PadlockBorder;
+        storedData.PadlockOverlay = dtoContent.PadlockOverlay;
+
+        storedData.BlockedSlotsBackground = dtoContent.BlockedSlotsBackground;
+        storedData.BlockedSlotsBorder = dtoContent.BlockedSlotsBorder;
+        storedData.BlockedSlotsOverlay = dtoContent.BlockedSlotsOverlay;
+
+        storedData.BlockedSlotBorder = dtoContent.BlockedSlotBorder;
+        storedData.BlockedSlotOverlay = dtoContent.BlockedSlotOverlay;
+    }
+
+    public static KinkPlateContent FromProfileData(this UserProfileData data)
+    {
+        return new KinkPlateContent()
+        {
+            Flagged = data.FlaggedForReport,
+            Disabled = data.ProfileDisabled,
+            Description = data.UserDescription,
+
+            PlateBackground = data.PlateBackground,
+            PlateBorder = data.PlateBorder,
+
+            ProfilePictureBorder = data.ProfilePictureBorder,
+            ProfilePictureOverlay = data.ProfilePictureOverlay,
+
+            DescriptionBackground = data.DescriptionBackground,
+            DescriptionBorder = data.DescriptionBorder,
+            DescriptionOverlay = data.DescriptionOverlay,
+
+            GagSlotBackground = data.GagSlotBackground,
+            GagSlotBorder = data.GagSlotBorder,
+            GagSlotOverlay = data.GagSlotOverlay,
+
+            PadlockBackground = data.PadlockBackground,
+            PadlockBorder = data.PadlockBorder,
+            PadlockOverlay = data.PadlockOverlay,
+
+            BlockedSlotsBackground = data.BlockedSlotsBackground,
+            BlockedSlotsBorder = data.BlockedSlotsBorder,
+            BlockedSlotsOverlay = data.BlockedSlotsOverlay,
+
+            BlockedSlotBorder = data.BlockedSlotBorder,
+            BlockedSlotOverlay = data.BlockedSlotOverlay
+        };
+    }
+
+    public static UserProfileData NewPlateFromDto(this UserKinkPlateDto dto)
+    {
+        return new UserProfileData()
+        {
+            UserUID = dto.User.UID,
+            Base64ProfilePic = dto.ProfilePictureBase64,
+            UserDescription = dto.Info.Description,
+            PlateBackground = dto.Info.PlateBackground,
+            PlateBorder = dto.Info.PlateBorder,
+
+            ProfilePictureBorder = dto.Info.ProfilePictureBorder,
+            ProfilePictureOverlay = dto.Info.ProfilePictureOverlay,
+
+            DescriptionBackground = dto.Info.DescriptionBackground,
+            DescriptionBorder = dto.Info.DescriptionBorder,
+            DescriptionOverlay = dto.Info.DescriptionOverlay,
+
+            GagSlotBackground = dto.Info.GagSlotBackground,
+            GagSlotBorder = dto.Info.GagSlotBorder,
+            GagSlotOverlay = dto.Info.GagSlotOverlay,
+
+            PadlockBackground = dto.Info.PadlockBackground,
+            PadlockBorder = dto.Info.PadlockBorder,
+            PadlockOverlay = dto.Info.PadlockOverlay,
+
+            BlockedSlotsBackground = dto.Info.BlockedSlotsBackground,
+            BlockedSlotsBorder = dto.Info.BlockedSlotsBorder,
+            BlockedSlotsOverlay = dto.Info.BlockedSlotsOverlay,
+
+            BlockedSlotBorder = dto.Info.BlockedSlotBorder,
+            BlockedSlotOverlay = dto.Info.BlockedSlotOverlay
         };
     }
 }
