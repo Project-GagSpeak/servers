@@ -158,7 +158,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
-            CharacterAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
+            CharaAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
             CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData(),
             UserAchievements = clientCallerAchievementData.Base64AchievementData
         };
