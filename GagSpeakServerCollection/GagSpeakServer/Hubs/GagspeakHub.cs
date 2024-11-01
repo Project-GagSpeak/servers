@@ -1,6 +1,6 @@
+using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Enums;
 using GagspeakAPI.SignalR;
-using GagspeakAPI.Dto.Connection;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;
@@ -14,10 +14,8 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
-using GagspeakAPI.Data.Character;
 
 namespace GagspeakServer.Hubs;
-
 
 public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 {
@@ -161,7 +159,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             ServerVersion = IGagspeakHub.ApiVersion,
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
             CharacterAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
-			CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData(),
+            CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData(),
             UserAchievements = clientCallerAchievementData.Base64AchievementData
         };
     }

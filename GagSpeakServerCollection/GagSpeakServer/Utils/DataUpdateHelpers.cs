@@ -229,14 +229,14 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static bool CanLockRestraint(UserActiveStateData data, ClientPairPermissions perms, CharacterWardrobeData dtoData, out string ErrorMsg)
+    public static bool CanLockRestraint(UserActiveStateData data, ClientPairPermissions perms, CharaWardrobeData dtoData, out string ErrorMsg)
     {
         if (!perms.LockRestraintSets)
         {
             ErrorMsg = "Permission to Lock Restraint Sets not given!";
             return false;
         }
-        else if (data.ActiveSetName.IsNullOrEmpty())
+        else if (data.ActiveSetId == Guid.Empty)
         {
             ErrorMsg = "No Active Set to Lock!";
             return false;
@@ -261,7 +261,7 @@ public static class DataUpdateHelpers
         return true;
     }
 
-    public static bool CanUnlockRestraint(UserActiveStateData stateData, ClientPairPermissions perms, CharacterWardrobeData lockInfo, out string ErrorMsg)
+    public static bool CanUnlockRestraint(UserActiveStateData stateData, ClientPairPermissions perms, CharaWardrobeData lockInfo, out string ErrorMsg)
     {
         ErrorMsg = string.Empty;
         if (!perms.UnlockRestraintSets)
@@ -342,13 +342,11 @@ public static class DataUpdateHelpers
         activeState.ActiveSetLockAssigner = string.Empty;
     }
 
-    public static CharacterWardrobeData BuildUpdatedWardrobeData(CharacterWardrobeData prevData, UserActiveStateData userActiveState)
+    public static CharaWardrobeData BuildUpdatedWardrobeData(CharaWardrobeData prevData, UserActiveStateData userActiveState)
     {
-        return new CharacterWardrobeData
+        return new CharaWardrobeData
         {
-            Outfits = prevData.Outfits,
             ActiveSetId = prevData.ActiveSetId,
-            ActiveSetName = userActiveState.ActiveSetName,
             ActiveSetEnabledBy = userActiveState.ActiveSetEnabler,
             Padlock = userActiveState.ActiveSetPadLock,
             Password = userActiveState.ActiveSetPassword,

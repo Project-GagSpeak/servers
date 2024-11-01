@@ -16,11 +16,6 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class GagspeakHub
 {
-    private const string None = "None";
-    private const string OwnerPadlock = "OwnerPadlock";
-    private const string OwnerTimerPadlock = "OwnerTimerPadlock";
-
-
     /// <summary> 
     /// Called by a connected client that desires to push the latest updates for their character COMBINED data
     /// </summary>
@@ -181,7 +176,6 @@ public partial class GagspeakHub
         {
             case DataUpdateKind.FullDataUpdate:
                 userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
-                userActiveState.ActiveSetName = dto.WardrobeData.ActiveSetName;
                 userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 userActiveState.ActiveSetPadLock = dto.WardrobeData.Padlock;
                 userActiveState.ActiveSetPassword = dto.WardrobeData.Password;
@@ -189,12 +183,8 @@ public partial class GagspeakHub
                 userActiveState.ActiveSetLockAssigner = dto.WardrobeData.Assigner;
                 break;
 
-            case DataUpdateKind.WardrobeRestraintOutfitsUpdated:
-                break;
-
             case DataUpdateKind.WardrobeRestraintApplied:
                 userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
-                userActiveState.ActiveSetName = dto.WardrobeData.ActiveSetName;
                 userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
@@ -212,12 +202,10 @@ public partial class GagspeakHub
 
             case DataUpdateKind.WardrobeRestraintDisabled:
                 userActiveState.ActiveSetId = Guid.Empty;
-                userActiveState.ActiveSetName = string.Empty;
                 userActiveState.ActiveSetEnabler = string.Empty;
                 break;
             case DataUpdateKind.Safeword:
                 userActiveState.ActiveSetId = Guid.Empty;
-                userActiveState.ActiveSetName = string.Empty;
                 userActiveState.ActiveSetEnabler = string.Empty;
                 userActiveState.RestraintUnlockUpdate();
                 break;
@@ -284,116 +272,33 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        // REVIEW: We can input checks against active state data here if we run into concurrency issues.
-        if (dto.UpdateKind == DataUpdateKind.Safeword)
-        {
-            var userActiveState = await DbContext.UserActiveStateData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-            if (userActiveState == null)
-            {
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update own userActiveStateData!").ConfigureAwait(false);
-                return;
-            }
-            userActiveState.ActivePatternId = Guid.Empty;
-            // update the database with the new appearance data.
-            DbContext.UserActiveStateData.Update(userActiveState);
-        }
-
         await Clients.Users(recipientUids).Client_UserReceiveOtherDataToybox(new(new(UserUID), dto.PatternInfo, dto.UpdateKind)).ConfigureAwait(false);
         // could also send back data to caller if need be, but no real reason for that at the moment ? (maybe could remove it from others too? Idk
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, recipientUids.Count);
     }
 
-    public async Task UserPushPiShockUpdate(UserCharaPiShockPermMessageDto dto)
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        if (dto.UpdateKind != DataUpdateKind.PiShockGlobalUpdated && dto.UpdateKind != DataUpdateKind.PiShockOwnPermsForPairUpdated) {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Invalid UpdateKind for PiShock Permissions Data!").ConfigureAwait(false);
-            return;
-        }
-
-        if (dto.UpdateKind is DataUpdateKind.PiShockGlobalUpdated)
-        {
-            // get the recipient UID list from the recipient list of the dto
-            var recipientUidList = dto.Recipients.Select(r => r.UID).ToList();
-            bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUidList, Context.ConnectionAborted).ConfigureAwait(false);
-            if (!allCached)
-            {
-                var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-                recipientUidList = allPairedUsers.Where(f => recipientUidList.Contains(f, StringComparer.Ordinal)).ToList();
-                await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-            }
-
-            await Clients.Users(recipientUidList).Client_UserReceiveDataPiShock(new(new(UserUID), dto.ShockPermissions, dto.UpdateKind)).ConfigureAwait(false);
-            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShock);
-            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShockTo, recipientUidList.Count);
-        }
-        else if (dto.UpdateKind is DataUpdateKind.PiShockOwnPermsForPairUpdated or DataUpdateKind.PiShockPairPermsForUserUpdated)
-        {
-            // it is a push to update a spesific pair. So we should ensure the Recipients list only contains 1 element.
-            if (dto.Recipients.Count != 1) {
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Should not be notifying multiple users when updating permissions for one!").ConfigureAwait(false);
-                return;
-            }
-
-            // only search for that user and cache in online synced service.
-            var recipientUid = dto.Recipients[0].UID;
-            bool isCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, new List<string>() { recipientUid }, Context.ConnectionAborted).ConfigureAwait(false);
-            if (!isCached)
-            {
-                var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-                await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-            }
-
-            await Clients.User(recipientUid).Client_UserReceiveDataPiShock(new(new(UserUID), dto.ShockPermissions, DataUpdateKind.PiShockPairPermsForUserUpdated)).ConfigureAwait(false);
-            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShock);
-            _metrics.IncCounter(MetricsAPI.CounterUserPushDataPiShockTo, 1);
-        }
-    }
-
-
-    /// <summary>
-    /// Bumps the change in Moodles Data to another pair.
+    /// <summary> 
+    /// Called by a connected client that desires to push the latest updates for their character's ToyboxData 
     /// </summary>
-    public async Task UserPushPairDataIpcUpdate(OnlineUserCharaIpcDataDto dto)
+    public async Task UserPushDataLightStorage(UserCharaStorageUpdateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update self, only use this to update another pair!").ConfigureAwait(false);
-            return;
-        }
-
-        var pairPermissions = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPermissions == null) {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?").ConfigureAwait(false);
-            return;
-        }
-
-        // Because the person changing the pairs permission doesnt know all of the pair's added UserPairs, fetch them.
-        var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        // grab the subset of them that are online.
-        var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all online pairs of pair are cached. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
+        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
         if (!allCached)
         {
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+            var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
+            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
-
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataIpc(new(new(UserUID), dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataIpc(new(dto.User, dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpc);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpcTo, allOnlinePairsOfAffectedPairUids.Count);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherLightStorage(new(new(UserUID), dto.LightStorage)).ConfigureAwait(false);
+        // could also send back data to caller if need be, but no real reason for that at the moment ? (maybe could remove it from others too? Idk
+        _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
+        _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, recipientUids.Count);
     }
-
 
     /// <summary>
     /// Bumps the change in Appearance Data to another pair.
@@ -550,12 +455,11 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use WardrobeApplying on them!").ConfigureAwait(false);
                     return;
                 }
-                if (!string.IsNullOrEmpty(userActiveState.ActiveSetName) && userActiveState.ActiveSetPadLock.ToPadlock() is not Padlocks.None) {
+                if (!userActiveState.ActiveSetId.IsEmptyGuid() && userActiveState.ActiveSetPadLock.ToPadlock() is not Padlocks.None) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Replace Currently Active Set because it is currently locked!").ConfigureAwait(false);
                     return;
                 }
                 userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
-                userActiveState.ActiveSetName = dto.WardrobeData.ActiveSetName;
                 userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
@@ -583,16 +487,15 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateKind.WardrobeRestraintDisabled:
-                if (string.IsNullOrEmpty(userActiveState.ActiveSetName)) {
+                if (userActiveState.ActiveSetId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active set to remove!").ConfigureAwait(false);
                     return;
                 }
-                if (!string.Equals(userActiveState.ActiveSetPadLock, None, StringComparison.Ordinal)) {
+                if (userActiveState.ActiveSetPadLock.ToPadlock() is Padlocks.None) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Active set is still locked!").ConfigureAwait(false);
                     return;
                 }
                 userActiveState.ActiveSetId = Guid.Empty;
-                userActiveState.ActiveSetName = string.Empty;
                 break;
 
             default:
@@ -665,27 +568,27 @@ public partial class GagspeakHub
         switch (dto.UpdateKind)
         {
             case DataUpdateKind.ToyboxPatternExecuted:
-                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to execute Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
                 break;
             case DataUpdateKind.ToyboxPatternStopped:
-                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to stop Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
                 break;
 
             case DataUpdateKind.ToyboxAlarmToggled:
-                if (!pairPermissions.CanToggleAlarms || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                if (!pairPermissions.CanToggleAlarms || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle Alarms, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
                 break;
 
             case DataUpdateKind.ToyboxTriggerToggled:
-                if (!pairPermissions.CanToggleTriggers || dto.ToyboxInfo.TransactionId == Guid.Empty) {
+                if (!pairPermissions.CanToggleTriggers || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle triggers, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }

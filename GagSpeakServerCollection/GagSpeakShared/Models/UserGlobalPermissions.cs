@@ -37,19 +37,24 @@ public class UserGlobalPermissions
     public bool ToyIsActive { get; set; } = false;              // if the user's toy is active
     public bool SpatialVibratorAudio { get; set; } = false;    // if the user's toybox local audio is active
 
-    // global hardcore permissions (only modifiable by GlobalPerm User)
-    public string GlobalShockShareCode { get; set; } = "";
-    public TimeSpan GlobalShockVibrateDuration { get; set; } = TimeSpan.Zero;
 
     // global hardcore permissions (readonly for everyone)
-    // Contains the UID who applied it when active. If Devotional, will have    |pairlocked    appended.
     public string ForcedFollow { get; set; } = string.Empty;
-    public string ForcedEmoteState { get; set; } = string.Empty; // Format: UID|EmoteID|CposeByte|pairlocked
+    public string ForcedEmoteState { get; set; } = string.Empty; // Format: UID|EmoteID|CyclePoseByte|pairlocked
     public string ForcedStay { get; set; } = string.Empty;
     public string ForcedBlindfold { get; set; } = string.Empty;
-    public string ChatboxesHidden { get; set; } = string.Empty;
+    public string ChatBoxesHidden { get; set; } = string.Empty;
     public string ChatInputHidden { get; set; } = string.Empty;
     public string ChatInputBlocked { get; set; } = string.Empty;
+
+    // Global PiShock Permissions & Helpers.
+    public string GlobalShockShareCode { get; set; } = "";
+    public bool AllowShocks { get; set; } = false;
+    public bool AllowVibrations { get; set; } = false;
+    public bool AllowBeeps { get; set; } = false;
+    public int MaxIntensity { get; set; } = -1;
+    public int MaxDuration { get; set; } = -1;
+    public TimeSpan GlobalShockVibrateDuration { get; set; } = TimeSpan.Zero;
 
     public User User { get; set; }
     // the UserUID is a foreign key to the User table

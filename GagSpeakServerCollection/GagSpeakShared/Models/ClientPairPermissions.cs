@@ -60,8 +60,6 @@ public class ClientPairPermissions
     public bool CanExecutePatterns { get; set; } = false; // if the client pair can use patterns on your toy.
     public bool CanStopPatterns { get; set; } = false; // if the client pair can stop patterns on your toy.
     public bool CanToggleTriggers { get; set; } = false; // if the client pair can use triggers on your toy.
-    public string ShockCollarShareCode { get; set; } = ""; // the share Code for the shock collar unique to this user.
-    public TimeSpan MaxVibrateDuration { get; set; } = TimeSpan.Zero; // separate value since vibrations have diff limits.
 
     // unique hardcore permissions. Can only be set by the User, not their pair. Must ensure safety.
     public bool DevotionalStatesForPair { get; set; } = false;
@@ -70,7 +68,16 @@ public class ClientPairPermissions
     public bool AllowForcedEmote { get; set; } = false;
     public bool AllowForcedToStay { get; set; } = false;
     public bool AllowBlindfold { get; set; } = false;
-    public bool AllowHidingChatboxes { get; set; } = false;
+    public bool AllowHidingChatBoxes { get; set; } = false;
     public bool AllowHidingChatInput { get; set; } = false;
     public bool AllowChatInputBlocking { get; set; } = false;
+
+    // Global PiShock Permissions & Helpers.
+    public string ShockCollarShareCode { get; set; } = ""; // the share Code for the shock collar unique to this user.
+    public bool AllowShocks { get; set; } = false; // If we allow shocks from this pair.
+    public bool AllowVibrations { get; set; } = false; // If we allow vibrations from this pair.
+    public bool AllowBeeps { get; set; } = false; // If we allow beeps from this pair.
+    public int MaxIntensity { get; set; } = -1; // the max intensity of the shock, vibration, or beep.
+    public int MaxDuration { get; set; } = -1; // the max duration of the shock, vibration, or beep.
+    public TimeSpan MaxVibrateDuration { get; set; } = TimeSpan.Zero; // separate value since vibrations have diff limits.
 }

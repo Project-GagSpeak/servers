@@ -50,8 +50,8 @@ public static class Extensions
         }
     }
 
-    public static CharacterAppearanceData ToApiAppearance(this UserGagAppearanceData data)
-    => new CharacterAppearanceData
+    public static CharaAppearanceData ToApiAppearance(this UserGagAppearanceData data)
+    => new CharaAppearanceData
     {
         GagSlots = new GagSlot[]
         {

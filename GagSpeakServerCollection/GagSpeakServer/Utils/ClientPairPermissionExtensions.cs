@@ -8,11 +8,11 @@ namespace GagspeakServer.Utils;
 public static class ClientPairPermissionExtensions
 {
     #region AppearanceDataMigrations
-    public static GagspeakAPI.Data.Character.CharacterAppearanceData ToApiAppearanceData(this UserGagAppearanceData? appearanceDataModel)
+    public static GagspeakAPI.Data.Character.CharaAppearanceData ToApiAppearanceData(this UserGagAppearanceData? appearanceDataModel)
     {
-        if (appearanceDataModel == null) return new GagspeakAPI.Data.Character.CharacterAppearanceData();
+        if (appearanceDataModel == null) return new GagspeakAPI.Data.Character.CharaAppearanceData();
 
-        GagspeakAPI.Data.Character.CharacterAppearanceData result = new GagspeakAPI.Data.Character.CharacterAppearanceData();
+        GagspeakAPI.Data.Character.CharaAppearanceData result = new GagspeakAPI.Data.Character.CharaAppearanceData();
 
         // Assuming the slots are defined in order
         result.GagSlots[0].GagType = appearanceDataModel.SlotOneGagType;
@@ -38,20 +38,18 @@ public static class ClientPairPermissionExtensions
     #endregion AppearanceDataMigrations
 
     #region ActiveStateDataMigrations
-    public static GagspeakAPI.Data.Character.CharacterActiveStateData ToApiActiveStateData(this UserActiveStateData? activeStateDataModel)
+    public static GagspeakAPI.Data.Character.CharaActiveStateData ToApiActiveStateData(this UserActiveStateData? activeStateDataModel)
 	{
-		if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharacterActiveStateData();
+		if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharaActiveStateData();
 
-		GagspeakAPI.Data.Character.CharacterActiveStateData result = new GagspeakAPI.Data.Character.CharacterActiveStateData();
+		GagspeakAPI.Data.Character.CharaActiveStateData result = new GagspeakAPI.Data.Character.CharaActiveStateData();
 
         result.ActiveSetId = activeStateDataModel.ActiveSetId;
-        result.ActiveSetName = activeStateDataModel.ActiveSetName;
         result.ActiveSetEnabler = activeStateDataModel.ActiveSetEnabler;
         result.Padlock = activeStateDataModel.ActiveSetPadLock;
         result.Password = activeStateDataModel.ActiveSetPassword;
         result.Timer = activeStateDataModel.ActiveSetLockTime;
         result.Assigner = activeStateDataModel.ActiveSetLockAssigner;
-        result.ActivePatternName = activeStateDataModel.ActivePatternId;
         
 		return result;
 	}
@@ -87,16 +85,22 @@ public static class ClientPairPermissionExtensions
         result.LockToyboxUI = globalPermsModel.LockToyboxUI;
         result.ToyIsActive = globalPermsModel.ToyIsActive;
         result.SpatialVibratorAudio = globalPermsModel.SpatialVibratorAudio;
-        result.GlobalShockShareCode = globalPermsModel.GlobalShockShareCode;
-        result.GlobalShockVibrateDuration = globalPermsModel.GlobalShockVibrateDuration;
         
         result.ForcedFollow = globalPermsModel.ForcedFollow;
         result.ForcedEmoteState = globalPermsModel.ForcedEmoteState;
         result.ForcedStay = globalPermsModel.ForcedStay;
         result.ForcedBlindfold = globalPermsModel.ForcedBlindfold;
-        result.ChatboxesHidden = globalPermsModel.ChatboxesHidden;
+        result.ChatBoxesHidden = globalPermsModel.ChatBoxesHidden;
         result.ChatInputHidden = globalPermsModel.ChatInputHidden;
         result.ChatInputBlocked = globalPermsModel.ChatInputBlocked;
+
+        result.GlobalShockShareCode = globalPermsModel.GlobalShockShareCode;
+        result.AllowShocks = globalPermsModel.AllowShocks;
+        result.AllowVibrations = globalPermsModel.AllowVibrations;
+        result.AllowBeeps = globalPermsModel.AllowBeeps;
+        result.MaxIntensity = globalPermsModel.MaxIntensity;
+        result.MaxDuration = globalPermsModel.MaxDuration;
+        result.GlobalShockVibrateDuration = globalPermsModel.GlobalShockVibrateDuration;
 
         return result;
     }
@@ -127,17 +131,22 @@ public static class ClientPairPermissionExtensions
         currentModelGlobalPerms.LockToyboxUI = apiGlobalPerms.LockToyboxUI;
         currentModelGlobalPerms.ToyIsActive = apiGlobalPerms.ToyIsActive;
         currentModelGlobalPerms.SpatialVibratorAudio = apiGlobalPerms.SpatialVibratorAudio;
-        
-        currentModelGlobalPerms.GlobalShockShareCode = apiGlobalPerms.GlobalShockShareCode;
-        currentModelGlobalPerms.GlobalShockVibrateDuration = apiGlobalPerms.GlobalShockVibrateDuration;
 
         currentModelGlobalPerms.ForcedFollow = apiGlobalPerms.ForcedFollow;
         currentModelGlobalPerms.ForcedEmoteState = apiGlobalPerms.ForcedEmoteState;
         currentModelGlobalPerms.ForcedStay = apiGlobalPerms.ForcedStay;
         currentModelGlobalPerms.ForcedBlindfold = apiGlobalPerms.ForcedBlindfold;
-        currentModelGlobalPerms.ChatboxesHidden = apiGlobalPerms.ChatboxesHidden;
+        currentModelGlobalPerms.ChatBoxesHidden = apiGlobalPerms.ChatBoxesHidden;
         currentModelGlobalPerms.ChatInputHidden = apiGlobalPerms.ChatInputHidden;
         currentModelGlobalPerms.ChatInputBlocked = apiGlobalPerms.ChatInputBlocked;
+
+        currentModelGlobalPerms.GlobalShockShareCode = apiGlobalPerms.GlobalShockShareCode;
+        currentModelGlobalPerms.AllowShocks = apiGlobalPerms.AllowShocks;
+        currentModelGlobalPerms.AllowVibrations = apiGlobalPerms.AllowVibrations;
+        currentModelGlobalPerms.AllowBeeps = apiGlobalPerms.AllowBeeps;
+        currentModelGlobalPerms.MaxIntensity = apiGlobalPerms.MaxIntensity;
+        currentModelGlobalPerms.MaxDuration = apiGlobalPerms.MaxDuration;
+        currentModelGlobalPerms.GlobalShockVibrateDuration = apiGlobalPerms.GlobalShockVibrateDuration;
 
         return currentModelGlobalPerms;
     }
@@ -190,8 +199,6 @@ public static class ClientPairPermissionExtensions
         result.CanExecutePatterns = clientPairPermsModel.CanExecutePatterns;
         result.CanStopPatterns = clientPairPermsModel.CanStopPatterns;
         result.CanToggleTriggers = clientPairPermsModel.CanToggleTriggers;
-        result.ShockCollarShareCode = clientPairPermsModel.ShockCollarShareCode;
-        result.MaxVibrateDuration = clientPairPermsModel.MaxVibrateDuration;
 
         result.DevotionalStatesForPair = clientPairPermsModel.DevotionalStatesForPair;
         result.AllowForcedFollow = clientPairPermsModel.AllowForcedFollow;
@@ -199,10 +206,18 @@ public static class ClientPairPermissionExtensions
         result.AllowForcedEmote = clientPairPermsModel.AllowForcedEmote;
         result.AllowForcedToStay = clientPairPermsModel.AllowForcedToStay;
         result.AllowBlindfold = clientPairPermsModel.AllowBlindfold;
-        result.AllowHidingChatboxes = clientPairPermsModel.AllowHidingChatboxes;
+        result.AllowHidingChatBoxes = clientPairPermsModel.AllowHidingChatBoxes;
         result.AllowHidingChatInput = clientPairPermsModel.AllowHidingChatInput;
         result.AllowChatInputBlocking = clientPairPermsModel.AllowChatInputBlocking;
-        
+
+        result.ShockCollarShareCode = clientPairPermsModel.ShockCollarShareCode;
+        result.AllowShocks = clientPairPermsModel.AllowShocks;
+        result.AllowVibrations = clientPairPermsModel.AllowVibrations;
+        result.AllowBeeps = clientPairPermsModel.AllowBeeps;
+        result.MaxIntensity = clientPairPermsModel.MaxIntensity;
+        result.MaxDuration = clientPairPermsModel.MaxDuration;
+        result.MaxVibrateDuration = clientPairPermsModel.MaxVibrateDuration;
+
         return result;
     }
 
@@ -247,8 +262,6 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.CanExecutePatterns = apiPairPerms.CanExecutePatterns;
         currentModelPerms.CanStopPatterns = apiPairPerms.CanStopPatterns;
         currentModelPerms.CanToggleTriggers = apiPairPerms.CanToggleTriggers;
-        currentModelPerms.ShockCollarShareCode = apiPairPerms.ShockCollarShareCode;
-        currentModelPerms.MaxVibrateDuration = apiPairPerms.MaxVibrateDuration;
 
         currentModelPerms.DevotionalStatesForPair = apiPairPerms.DevotionalStatesForPair;
         currentModelPerms.AllowForcedFollow = apiPairPerms.AllowForcedFollow;
@@ -256,9 +269,17 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.AllowForcedEmote = apiPairPerms.AllowForcedEmote;
         currentModelPerms.AllowForcedToStay = apiPairPerms.AllowForcedToStay;
         currentModelPerms.AllowBlindfold = apiPairPerms.AllowBlindfold;
-        currentModelPerms.AllowHidingChatboxes = apiPairPerms.AllowHidingChatboxes;
+        currentModelPerms.AllowHidingChatBoxes = apiPairPerms.AllowHidingChatBoxes;
         currentModelPerms.AllowHidingChatInput = apiPairPerms.AllowHidingChatInput;
         currentModelPerms.AllowChatInputBlocking = apiPairPerms.AllowChatInputBlocking;
+
+        currentModelPerms.ShockCollarShareCode = apiPairPerms.ShockCollarShareCode;
+        currentModelPerms.AllowShocks = apiPairPerms.AllowShocks;
+        currentModelPerms.AllowVibrations = apiPairPerms.AllowVibrations;
+        currentModelPerms.AllowBeeps = apiPairPerms.AllowBeeps;
+        currentModelPerms.MaxIntensity = apiPairPerms.MaxIntensity;
+        currentModelPerms.MaxDuration = apiPairPerms.MaxDuration;
+        currentModelPerms.MaxVibrateDuration = apiPairPerms.MaxVibrateDuration;
 
         return currentModelPerms;
     }

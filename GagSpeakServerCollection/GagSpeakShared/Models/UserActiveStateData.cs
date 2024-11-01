@@ -25,13 +25,9 @@ public class UserActiveStateData
 
     /* User's WardrobeData state references */
     public Guid ActiveSetId { get; set; } = Guid.Empty; // the ID of the user's active outfit
-    public string ActiveSetName { get; set; } = ""; // the name of the user's active outfit
     public string ActiveSetEnabler { get; set; } = ""; // person who Enabled the set.
     public string ActiveSetPadLock { get; set; } = Padlocks.None.ToName(); // Type of padlock used to lock the set.
 	public string ActiveSetPassword { get; set; } = ""; // password bound to the set's lock type.
 	public DateTimeOffset ActiveSetLockTime { get; set; } = DateTimeOffset.UtcNow; // timer placed on the set's lock
 	public string ActiveSetLockAssigner { get; set; } = ""; // UID that locked the set.
-
-    /* User's ToyboxData state references */
-    public Guid ActivePatternId { get; set; } = Guid.Empty; // the name of the user's actively running pattern
 }
