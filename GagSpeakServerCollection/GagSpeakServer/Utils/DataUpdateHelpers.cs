@@ -358,7 +358,9 @@ public static class DataUpdateHelpers
     public static void UpdateInfoFromDto(this UserProfileData storedData, KinkPlateContent dtoContent)
     {
         // update all other values from the Info in the dto.
+        storedData.ProfileIsPublic = dtoContent.PublicPlate;
         storedData.UserDescription = dtoContent.Description;
+        storedData.ChosenTitleId = dtoContent.ChosenTitleId;
 
         storedData.PlateBackground = dtoContent.PlateBackground;
         storedData.PlateBorder = dtoContent.PlateBorder;
