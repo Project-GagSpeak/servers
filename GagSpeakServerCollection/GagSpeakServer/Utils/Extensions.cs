@@ -16,7 +16,7 @@ public static class Extensions
     // an extention method for the userData 
     public static UserData ToUserData(this User user)
     {
-        return new UserData(user.UID, string.IsNullOrWhiteSpace(user.Alias) ? null : user.Alias, user.VanityTier);
+        return new UserData(user.UID, string.IsNullOrWhiteSpace(user.Alias) ? null : user.Alias, user.VanityTier, user.CreatedDate);
     }
 
     public static UserData ToUserDataFromUID(this string UserUID)

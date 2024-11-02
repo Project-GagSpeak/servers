@@ -204,6 +204,9 @@ public partial class GagspeakHub
                 userActiveState.ActiveSetId = Guid.Empty;
                 userActiveState.ActiveSetEnabler = string.Empty;
                 break;
+
+            
+
             case DataUpdateKind.Safeword:
                 userActiveState.ActiveSetId = Guid.Empty;
                 userActiveState.ActiveSetEnabler = string.Empty;

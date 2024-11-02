@@ -11,14 +11,14 @@ public class User
     public string UID { get; set; }                 // The primary key for the User
 
     [Timestamp]
-    public byte[] Timestamp { get; set; }           // the timestamp of the user's creation
+    public DateTime CreatedDate { get; set; }       // the timestamp of the user's creation in UTC format.
 
     public DateTime LastLoggedIn { get; set; }      // Last time the user logged in.
 
     [MaxLength(15)]
     public string Alias { get; set; }               // Alias that the person sets for the user's UID, (Patreon reward)
 
-    public CkSupporterTier VanityTier { get; set; } // The vanity tier of the user (if a CK supporter)
+    public CkSupporterTier VanityTier { get; set; } = CkSupporterTier.NoRole; // The vanity tier of the user
 
     public bool ProfileReportingTimedOut { get; set; } // If the user's profile is currently timed out from reporting
     public int UploadLimitCounter { get; set; } = 0; // Counter for uploads in the current week (should be 10 by default)

@@ -173,7 +173,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     {
         // we will use this function to generate a new UID, and create an auth object for the user.
         // create a new user
-        var user = new User();
+        var user = new User() { CreatedDate = DateTime.UtcNow };
 
         // set has valid UID to false, so we can generate a new UID
         var hasValidUid = false;
