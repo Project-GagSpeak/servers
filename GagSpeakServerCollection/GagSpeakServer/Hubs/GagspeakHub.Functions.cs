@@ -282,6 +282,7 @@ public partial class GagspeakHub
                                 OtherUserUID = user.OtherUserUID,
                                 OtherUserAlias = u.Alias,
                                 OtherUserSupporterTier = u.VanityTier,
+                                OtherUserCreatedDate = u.CreatedDate,
                                 Synced = user.Synced,
                                 OwnGlobalPerms = userGlobalPerm,
                                 OwnPermissions = ownperm,
@@ -301,6 +302,7 @@ public partial class GagspeakHub
         return new UserInfo(
             resultList[0].OtherUserAlias, // the alias of the user.
             resultList[0].OtherUserSupporterTier,
+            resultList[0].OtherUserCreatedDate,
             resultList.Max(p => p.Synced), // if they are synced.
             resultList[0].OwnGlobalPerms,
             resultList[0].OwnPermissions,
@@ -386,6 +388,7 @@ public partial class GagspeakHub
                                 OtherUserUID = user.OtherUserUID,
                                 OtherUserAlias = u.Alias,
                                 OtherUserSupporterTier = u.VanityTier,
+                                OtherUserCreatedDate = u.CreatedDate,
                                 Synced = user.Synced,
                                 OwnGlobalPerms = userGlobalPerm,
                                 OwnPermissions = ownperm,
@@ -408,6 +411,7 @@ public partial class GagspeakHub
             var userInfo = new UserInfo(
                 g.First().OtherUserAlias, // the alias of the user.
                 g.First().OtherUserSupporterTier,
+                g.First().OtherUserCreatedDate,
                 g.Max(p => p.Synced), // if they are synced.
                 g.First().OwnGlobalPerms,
                 g.First().OwnPermissions,
@@ -493,6 +497,7 @@ public partial class GagspeakHub
     public record UserInfo(
         string Alias, 
         CkSupporterTier SupporterTier,
+        DateTime createdDate,
         bool IsSynced,
         UserGlobalPermissions ownGlobalPerms,
         ClientPairPermissions ownPairPermissions,

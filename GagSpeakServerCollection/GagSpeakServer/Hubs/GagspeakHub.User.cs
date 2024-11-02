@@ -401,12 +401,10 @@ public partial class GagspeakHub
         // fetch all the pair information of the client caller
         var pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
 
-        var userPairDtos = new List<UserPairDto>();
-
         // return the list of UserPair DTO's containing the paired clients of the client caller
         return pairs.Select(p =>
         {
-            var pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier),
+            var pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
                 p.Value.ToIndividualPairStatus(),
                 p.Value.ownPairPermissions.ToApiUserPairPerms(),
                 p.Value.ownPairPermissionAccess.ToApiUserPairEditAccessPerms(),
