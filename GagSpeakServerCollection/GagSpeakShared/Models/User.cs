@@ -10,7 +10,6 @@ public class User
     [MaxLength(10)]
     public string UID { get; set; }                 // The primary key for the User
 
-    [Timestamp]
     public DateTime CreatedDate { get; set; }       // the timestamp of the user's creation in UTC format.
 
     public DateTime LastLoggedIn { get; set; }      // Last time the user logged in.
