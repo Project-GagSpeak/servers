@@ -468,19 +468,22 @@ public partial class GagspeakHub
         // Grab all users Client Caller is paired with.
         var allUserPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
 
-        // If requested User Profile is not in list of pairs, and is not self, return blank profile update.
-        if (!allUserPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
-        {
-            var newPlate = new KinkPlateContent() { Description = "Due to the pause status you cannot access this users profile." };
-            return new UserKinkPlateDto(user.User, newPlate, string.Empty);
-        }
-
         // Grab the requested user's profile data from the database
         UserProfileData? data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
         if (data == null)
         {
             var newPlate = new KinkPlateContent() { Description = "Profile is Null!" };
             return new UserKinkPlateDto(user.User, newPlate, string.Empty);
+        }
+        // If requested User Profile is not in list of pairs, and is not self, return blank profile update.
+        if (!allUserPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
+        {
+            // if the profile is not public, and it was required from a non-paired user, return a blank profile.
+            if (!data.ProfileIsPublic)
+            {
+                var newPlate = new KinkPlateContent() { Description = "Profile is not Public!" };
+                return new UserKinkPlateDto(user.User, newPlate, string.Empty);
+            }
         }
         if (data.ProfileDisabled)
         {

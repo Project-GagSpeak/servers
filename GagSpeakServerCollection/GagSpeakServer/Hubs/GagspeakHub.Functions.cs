@@ -125,7 +125,8 @@ public partial class GagspeakHub
     /// <summary> A helper function to update the user's identity on the redi's by their UID</summary>
     private async Task UpdateUserOnRedis()
     {
-        await _redis.AddAsync("GagspeakHub:UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60), StackExchange.Redis.When.Always, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
+        await _redis.AddAsync("GagspeakHub:UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60), 
+            StackExchange.Redis.When.Always, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
     }
 
     /// <summary> 

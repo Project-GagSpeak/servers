@@ -17,11 +17,13 @@ public class UserProfileData
     public User User { get; set; }
 
     /* ---------- Profile Data ---------- */
-    public bool FlaggedForReport { get; set; } = false;
-    public bool ProfileDisabled { get; set; } = false;
+    public bool ProfileIsPublic { get; set; } = false; // If a LightKinkPlate can be viewed via GlobalChat or PrivateRooms.
+    public bool FlaggedForReport { get; set; } = false; // if profile has been flagged for report.
+    public bool ProfileDisabled { get; set; } = false; // If profile usage has been banned.
     public DateTime ProfileTimeoutTimeStamp { get; set; } // the time when the profile was timed out.
     public string Base64ProfilePic { get; set; } = string.Empty; // string.empty == no image provided.
-    public string UserDescription { get; set; } = string.Empty;
+    public string UserDescription { get; set; } = string.Empty; // Description of the user.
+    public int ChosenTitleId { get; set; } = 0; // Chosen Achievement Title. 0 == no title chosen.
 
     public ProfileStyleBG PlateBackground { get; set; } = ProfileStyleBG.Default;
     public ProfileStyleBorder PlateBorder { get; set; } = ProfileStyleBorder.Default;

@@ -42,7 +42,7 @@ public class UserCleanupService : IHostedService
             using var scope = _services.CreateScope();
             using var dbContext = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
 
-            CleanUpOutdatedLodestoneAuths(dbContext);
+            CleanUpOutdatedAccountAuths(dbContext);
 
             await PurgeUnusedAccounts(dbContext).ConfigureAwait(false);
 
@@ -156,11 +156,11 @@ public class UserCleanupService : IHostedService
         }
     }
 
-    private void CleanUpOutdatedLodestoneAuths(GagspeakDbContext dbContext)
+    private void CleanUpOutdatedAccountAuths(GagspeakDbContext dbContext)
     {
         try
         {
-            _logger.LogInformation($"Cleaning up expired lodestone authentications");
+            _logger.LogInformation($"Cleaning up expired account claim authentications");
             var accountClaimAuths = dbContext.AccountClaimAuth.Include(u => u.User).Where(a => a.StartedAt != null).ToList();
             List<AccountClaimAuth> expiredAuths = new List<AccountClaimAuth>();
             foreach (var auth in accountClaimAuths)
@@ -184,11 +184,11 @@ public class UserCleanupService : IHostedService
     {
         _logger.LogInformation("Purging user: {uid}", user.UID);
 
-        var lodestone = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User.UID == user.UID);
+        var claimAuth = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User.UID == user.UID);
 
-        if (lodestone != null)
+        if (claimAuth != null)
         {
-            dbContext.Remove(lodestone);
+            dbContext.Remove(claimAuth);
         }
 
         var auth = dbContext.Auth.Single(a => a.UserUID == user.UID);

@@ -390,9 +390,11 @@ public static class DataUpdateHelpers
     {
         return new KinkPlateContent()
         {
+            PublicPlate = data.ProfileIsPublic,
             Flagged = data.FlaggedForReport,
             Disabled = data.ProfileDisabled,
             Description = data.UserDescription,
+            ChosenTitleId = data.ChosenTitleId,
 
             PlateBackground = data.PlateBackground,
             PlateBorder = data.PlateBorder,
