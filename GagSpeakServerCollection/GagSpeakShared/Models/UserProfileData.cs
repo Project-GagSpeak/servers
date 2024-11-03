@@ -23,6 +23,7 @@ public class UserProfileData
     public DateTime ProfileTimeoutTimeStamp { get; set; } // the time when the profile was timed out.
     public string Base64ProfilePic { get; set; } = string.Empty; // string.empty == no image provided.
     public string UserDescription { get; set; } = string.Empty; // Description of the user.
+    public int CompletedAchievementsTotal { get; set; } = 0; // Total number of achievements completed.
     public int ChosenTitleId { get; set; } = 0; // Chosen Achievement Title. 0 == no title chosen.
 
     public ProfileStyleBG PlateBackground { get; set; } = ProfileStyleBG.Default;

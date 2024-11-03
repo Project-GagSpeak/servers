@@ -360,6 +360,7 @@ public static class DataUpdateHelpers
         // update all other values from the Info in the dto.
         storedData.ProfileIsPublic = dtoContent.PublicPlate;
         storedData.UserDescription = dtoContent.Description;
+        storedData.CompletedAchievementsTotal = dtoContent.CompletedAchievementsTotal;
         storedData.ChosenTitleId = dtoContent.ChosenTitleId;
 
         storedData.PlateBackground = dtoContent.PlateBackground;
@@ -396,6 +397,7 @@ public static class DataUpdateHelpers
             Flagged = data.FlaggedForReport,
             Disabled = data.ProfileDisabled,
             Description = data.UserDescription,
+            CompletedAchievementsTotal = data.CompletedAchievementsTotal,
             ChosenTitleId = data.ChosenTitleId,
 
             PlateBackground = data.PlateBackground,
@@ -431,7 +433,10 @@ public static class DataUpdateHelpers
         {
             UserUID = dto.User.UID,
             Base64ProfilePic = dto.ProfilePictureBase64,
+            ProfileIsPublic = dto.Info.PublicPlate,
             UserDescription = dto.Info.Description,
+            CompletedAchievementsTotal = dto.Info.CompletedAchievementsTotal,
+            ChosenTitleId = dto.Info.ChosenTitleId,
             PlateBackground = dto.Info.PlateBackground,
             PlateBorder = dto.Info.PlateBorder,
 

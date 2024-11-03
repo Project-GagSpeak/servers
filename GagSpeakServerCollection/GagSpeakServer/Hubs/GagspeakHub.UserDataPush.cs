@@ -205,7 +205,9 @@ public partial class GagspeakHub
                 userActiveState.ActiveSetEnabler = string.Empty;
                 break;
 
-            
+            case DataUpdateKind.CursedItemApplied:
+            case DataUpdateKind.CursedItemRemoved:
+                break;
 
             case DataUpdateKind.Safeword:
                 userActiveState.ActiveSetId = Guid.Empty;
@@ -494,11 +496,15 @@ public partial class GagspeakHub
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active set to remove!").ConfigureAwait(false);
                     return;
                 }
-                if (userActiveState.ActiveSetPadLock.ToPadlock() is Padlocks.None) {
+                if (userActiveState.ActiveSetPadLock.ToPadlock() is not Padlocks.None) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Active set is still locked!").ConfigureAwait(false);
                     return;
                 }
                 userActiveState.ActiveSetId = Guid.Empty;
+                break;
+
+            case DataUpdateKind.CursedItemApplied:
+            case DataUpdateKind.CursedItemRemoved:
                 break;
 
             default:
