@@ -149,7 +149,7 @@ public static class DataUpdateHelpers
     public static void GagLockUpdate(this UserGagAppearanceData data, GagLayer layer, Padlocks padlock, string pwd, string assigner, DateTimeOffset endTime)
     {
         // do not do anything with these locks
-        if (padlock is Padlocks.None or Padlocks.MetalPadlock)
+        if (padlock is Padlocks.None)
             return;
 
         if (padlock is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock)

@@ -111,7 +111,6 @@ public partial class GagspeakHub
             case DataUpdateKind.AppearanceGagUnlockedLayerOne:
             case DataUpdateKind.AppearanceGagUnlockedLayerTwo:
             case DataUpdateKind.AppearanceGagUnlockedLayerThree:
-                _logger.LogMessage("Current Gag Padlock: [" + curGagData.SlotOneGagPadlock+"]");
                 curGagData.GagUnlockUpdate(requestLayer);
                 break;
 
