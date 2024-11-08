@@ -19,6 +19,7 @@ public class UserProfileDataReport
     // store the day / time of the report, & the user reported.
     public DateTime ReportTime { get; set; }
     public string ReportedBase64Picture { get; set; } // snapshot the pic at time of report so they cant remove it later.
+    public string ReportedDescription { get; set; } // snapshot the description at time of report so they cant remove it later.
 
     // store the UID belonging to the reported user as a foreign key.
     [ForeignKey(nameof(ReportedUser))]

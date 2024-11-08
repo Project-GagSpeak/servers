@@ -638,11 +638,12 @@ public partial class GagspeakHub
             return;
         }
 
-        // Reporting if valid, so construct new report object.
+        // Reporting if valid, so construct new report object, at the current time as a snapshot, to avoid tempering by the reported user post-report.
         UserProfileDataReport reportToAdd = new()
         {
             ReportTime = DateTime.UtcNow,
             ReportedBase64Picture = profile.Base64ProfilePic,
+            ReportedDescription = profile.UserDescription,
             ReportingUserUID = UserUID,
             ReportReason = dto.ProfileReport,
             ReportedUserUID = dto.User.UID,
@@ -656,13 +657,21 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         // log the report
         _logger.LogWarning($"User {UserUID} reported user {dto.User.UID} for {dto.ProfileReport}");
-        
+
         // DO NOT INFORM CLIENT THEIR PROFILE HAS BEEN REPORTED. THIS IS TO MAINTAIN CONFIDENTIALITY OF REPORTS.
         // if we did, people who got reported would go on a witch hunt for the people they have added. This is not ok to have.
+        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Your Report has been made successfully, and is now pending validation from CK").ConfigureAwait(false);
+
+        // Notify other user pairs to update their profiles, so they obtain the latest information, including the profile, now being flagged.
+        var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
+        await Clients.Users(pairs.Select(p => p.Key)).Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
     }
-
-
-        /// <summary> A small helper function to get the opposite entry of a client pair (how its viewed from the other side) </summary>
+    
+    /// <summary> 
+    /// A small helper function to get the opposite entry of a client pair (how its viewed from the other side) 
+    /// </summary>
     private ClientPair OppositeEntry(string otherUID) =>
         DbContext.ClientPairs.AsNoTracking().SingleOrDefault(w => w.User.UID == otherUID && w.OtherUser.UID == UserUID);
 }
