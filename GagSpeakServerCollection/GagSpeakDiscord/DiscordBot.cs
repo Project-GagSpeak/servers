@@ -23,7 +23,7 @@ namespace GagspeakDiscord;
 
 internal partial class DiscordBot : IHostedService
 {
-    private readonly DiscordBotServices _botServices;                               // The class for the discord bot services
+    private readonly DiscordBotServices _botServices;
     private readonly IConfigurationService<DiscordConfiguration> _discordConfigService;    // The configuration service for the discord bot
     private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
     private readonly DiscordSocketClient _discordClient;                            // the discord client socket
@@ -31,10 +31,8 @@ internal partial class DiscordBot : IHostedService
     private readonly IHubContext<GagspeakHub> _gagspeakHubContext;                  // the hub context for the gagspeak hub
     private readonly IServiceProvider _services;                                    // the service provider for the discord bot
     private InteractionService _interactionModule;                                  // the interaction module for the discord bot
-    private CancellationTokenSource? _processReportQueueCts;                        // the CTS for the process report queues
-    private CancellationTokenSource? _updateStatusCts;                              // the CTS for the update status
-    private CancellationTokenSource? _vanityUpdateCts;                              // the CTS for the vanity update
-    private CancellationTokenSource? _vanityAddUsersCts;                            // the CTS for the vanity add users
+    private CancellationTokenSource? _processReportQueueCts;
+    private CancellationTokenSource? _updateStatusCts;
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<DiscordConfiguration> configuration,
         IHubContext<GagspeakHub> gagspeakHubContext, ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer)
@@ -65,41 +63,33 @@ internal partial class DiscordBot : IHostedService
         {
             // log the information that the discord bot is starting
             _logger.LogInformation("Starting DiscordBot");
-            _logger.LogInformation("Using Configuration: " + _discordConfigService.ToString());
 
-            // create a new interaction module for the discord bot
+            // Recreate the new interaction service for this client.
+            _interactionModule?.Dispose();
             _interactionModule = new InteractionService(_discordClient);
-
-            // subscribe to the log event from the interaction module
             _interactionModule.Log += Log;
 
-            // next we will want to add the modules to the interaction module.
-            // These will be responsible for generating the UID's
-            // (at least for now, that purpose will change later)
+            // Append our modules to the interaction Module
             await _interactionModule.AddModuleAsync(typeof(GagspeakCommands), _services).ConfigureAwait(false);
             await _interactionModule.AddModuleAsync(typeof(AccountWizard), _services).ConfigureAwait(false);
             await _interactionModule.AddModuleAsync(typeof(KinkDispenser), _services).ConfigureAwait(false);
 
             // log the bot into to the discord client with the token
             await _discordClient.LoginAsync(TokenType.Bot, token).ConfigureAwait(false);
-            // start the discord client
             await _discordClient.StartAsync().ConfigureAwait(false);
 
             // subscribe to the ready event from the discord client
             _discordClient.Ready += DiscordClient_Ready;
-
-            // subscribe to the interaction created event from the discord client (occurs when player interacts with its posted events.)
+            _discordClient.ButtonExecuted += ButtonExecutedHandler;
+            // subscribe to the interaction created event from the discord client
+            // (occurs when player interacts with its posted events.)
             _discordClient.InteractionCreated += async (x) =>
             {
                 var ctx = new SocketInteractionContext(_discordClient, x);
                 await _interactionModule.ExecuteCommandAsync(ctx, _services).ConfigureAwait(false);
             };
 
-            // start the bot services
             await _botServices.Start().ConfigureAwait(false);
-
-            // update the status of the bot
-            _ = UpdateStatusAsync();
         }
     }
 
@@ -113,16 +103,10 @@ internal partial class DiscordBot : IHostedService
         {
             // await for all bot services to stop
             await _botServices.Stop().ConfigureAwait(false);
-
-            // cancel the process report queue CTS, and all other CTS tokens
             _processReportQueueCts?.Cancel();
             _updateStatusCts?.Cancel();
-            _vanityUpdateCts?.Cancel();
-            _vanityAddUsersCts?.Cancel();
 
-            // await for the bot to logout
             await _discordClient.LogoutAsync().ConfigureAwait(false);
-            // await for the bot to stop
             await _discordClient.StopAsync().ConfigureAwait(false);
         }
     }
@@ -132,16 +116,25 @@ internal partial class DiscordBot : IHostedService
     /// </summary>
     private async Task DiscordClient_Ready()
     {
-        var guilds = await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false);
-        foreach (var guild in guilds)
-        {
-            await _interactionModule.RegisterCommandsToGuildAsync(guild.Id, true).ConfigureAwait(false);
-            await CreateOrUpdateModal(guild).ConfigureAwait(false);
-            _ = UpdateVanityRoles(guild);
-            _ = AddPerksToUsersWithVanityRole(guild);
-            _ = RemovePerksFromUsersNotInVanityRole();
-            _ = ProcessReportsQueue(guild);
-        }
+        // only obtain the guild for Cordy's Kinkporium.
+        var ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
+        // Register the commands for it.
+        await _interactionModule.RegisterCommandsToGuildAsync(ckGuild.Id, true).ConfigureAwait(false);
+        // cancel and dispose the previous update status.
+        _updateStatusCts?.Cancel();
+        _updateStatusCts?.Dispose();
+        _updateStatusCts = new();
+        _ = UpdateStatusAsync(_updateStatusCts.Token);
+
+        // create our updated modal for the account management system
+        await CreateOrUpdateModal(ckGuild).ConfigureAwait(false);
+        // update the stored guild to our bot service.
+        _botServices.UpdateGuild(ckGuild);
+        // assign our created schedulars for the bot.
+        _ = UpdateVanityRoles(ckGuild, _updateStatusCts.Token);
+        _ = AddPerksToUsersWithVanityRole(ckGuild, _updateStatusCts.Token);
+        _ = RemovePerksFromUsersNotInVanityRole(_updateStatusCts.Token);
+        _ = ProcessReportsQueue(ckGuild); // Canceled by its own token.
     }
 
     /// <summary> The primary function for creating / updating the account claim system </summary>
@@ -247,149 +240,25 @@ internal partial class DiscordBot : IHostedService
         _processReportQueueCts?.Cancel();
         _processReportQueueCts?.Dispose();
         _processReportQueueCts = new();
-        var token = _processReportQueueCts.Token;
+        var reportsToken = _processReportQueueCts.Token;
 
         // while the token is not cancelled,
-        while (!token.IsCancellationRequested)
+        while (!reportsToken.IsCancellationRequested)
         {
-            // wait for 30 minutes
-            await Task.Delay(TimeSpan.FromMinutes(30)).ConfigureAwait(false);
-
-            // if the discord client is not connected, continue to next cycle.
-            if (_discordClient.ConnectionState != ConnectionState.Connected) continue;
-
-            // otherwise grab our channel report ID
-            var reportChannelId = _discordConfigService.GetValue<ulong?>(nameof(DiscordConfiguration.DiscordChannelForReports));
-            if (reportChannelId == null) continue;
-
-            try
-            {
-                // within the scope of the service provider, execute actions using the GagSpeak DbContext
-                using (var scope = _services.CreateScope())
-                {
-                    _logger.LogInformation("Checking for Profile Reports");
-                    var dbContext = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
-                    if (!dbContext.UserProfileReports.Any()) {
-                        continue; // continue is no Profile Reports are found
-                    }
-
-                    // collect the list of profile reports otherwise and get the report channel
-                    var reports = await dbContext.UserProfileReports.ToListAsync().ConfigureAwait(false);
-                    var restChannel = await guild.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
-
-                    // for each report, generate an embed and send it to the report channel
-                    foreach (var report in reports)
-                    {
-                        // get the user who reported
-                        var reportedUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportedUserUID).ConfigureAwait(false);
-                        var reportedUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportedUserUID).ConfigureAwait(false);
-
-                        // get the user who was reported
-                        var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
-                        var reportingUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
-                        
-                        // get the profile data of the reported user.
-                        var reportedUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
-
-
-                        // create an embed post to display reported profiles.
-                        EmbedBuilder eb = new();
-                        eb.WithTitle("GagSpeak Profile Report");
-
-                        StringBuilder reportedUserSb = new();
-                        StringBuilder reportingUserSb = new();
-                        reportedUserSb.Append(reportedUser.UID);
-                        reportingUserSb.Append(reportingUser.UID);
-                        if (reportedUserAccountClaim != null)
-                        {
-                            reportedUserSb.AppendLine($" (<@{reportedUserAccountClaim.DiscordId}>)");
-                        }
-                        if (reportingUserAccountClaim != null)
-                        {
-                            reportingUserSb.AppendLine($" (<@{reportingUserAccountClaim.DiscordId}>)");
-                        }
-                        eb.AddField("Reported User", reportedUserSb.ToString());
-                        eb.AddField("Reporting User", reportingUserSb.ToString());
-                        var reportTimeUtc = new DateTimeOffset(report.ReportTime, TimeSpan.Zero);
-                        var formattedTimestamp = string.Create(CultureInfo.InvariantCulture, $"<t:{reportTimeUtc.ToUnixTimeSeconds()}:F>");
-                        eb.AddField("Report Time (UTC)", report.ReportTime);
-                        eb.AddField("Report Time (Local)", formattedTimestamp);
-
-                        eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
-                        eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(reportedUserProfile.UserDescription) ? "-" : reportedUserProfile.UserDescription);
-                        eb.AddField("Reported User Profile Current Image vs reported Image", "Reported Image is shown below");
-
-                        var cb = new ComponentBuilder();
-                        cb.WithButton("Dismiss Report", customId: $"gagspeak-report-button-dismissreport-{reportedUser.UID}", style: ButtonStyle.Primary);
-                        cb.WithButton("Clear Profile Image", customId: $"gagspeak-report-button-clearprofileimage-{reportedUser.UID}", style: ButtonStyle.Secondary);
-                        cb.WithButton("Ban Profile Access", customId: $"gagspeak-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
-                        cb.WithButton("Ban User", customId: $"gagspeak-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
-                        cb.WithButton("Dismiss & Flag Reporting User", customId: $"gagspeak-report-button-flagreporter-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
-                        
-                        // Create a list for FileAttachments
-                        var attachments = new List<FileAttachment>();
-
-                        // Conditionally add the current profile image
-                        if (!string.IsNullOrEmpty(reportedUserProfile.Base64ProfilePic))
-                        {
-                            var currentImageFileName = reportedUser.UID + "_profile_current_" + Guid.NewGuid().ToString("N") + ".png";
-                            using var currentImageStream = new MemoryStream(Convert.FromBase64String(reportedUserProfile.Base64ProfilePic));
-                            var currentImageAttachment = new FileAttachment(currentImageStream, currentImageFileName);
-                            attachments.Add(currentImageAttachment);
-
-                            // Update embed image URL if current image is available
-                            eb.WithImageUrl($"attachment://{currentImageFileName}");
-                        }
-
-                        // Conditionally add the reported image
-                        if (!string.IsNullOrEmpty(report.ReportedBase64Picture))
-                        {
-                            var reportedImageFileName = reportedUser.UID + "_profile_reported_" + Guid.NewGuid().ToString("N") + ".png";
-                            using var reportedImageStream = new MemoryStream(Convert.FromBase64String(report.ReportedBase64Picture));
-                            var reportedImageAttachment = new FileAttachment(reportedImageStream, reportedImageFileName);
-                            attachments.Add(reportedImageAttachment);
-
-                            // Optionally, you can add another embed image for the reported picture
-                            eb.WithImageUrl($"attachment://{reportedImageFileName}");
-                        }
-
-                        // Send files if there are any attachments
-                        if (attachments.Count > 0)
-                        {
-                            await restChannel.SendFilesAsync(
-                                attachments,
-                                text: "User Report",
-                                embed: eb.Build(),
-                                components: cb.Build()
-                            ).ConfigureAwait(false);
-                        }
-                        else
-                        {
-                            // If no attachments, send the message with only the embed and components
-                            await restChannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
-                        }
-
-                        // remove the report from the dbcontext now that it has been processed by the server.
-                        dbContext.Remove(report);
-                    }
-
-                    await dbContext.SaveChangesAsync().ConfigureAwait(false);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to process reports");
-            }
+            await _botServices.ProcessReports(_discordClient.CurrentUser, reportsToken).ConfigureAwait(false);
+            // wait 30minutes before next execution.
+            _logger.LogInformation("Waiting 60 minutes before next report processing");
+            await Task.Delay(TimeSpan.FromMinutes(60), reportsToken).ConfigureAwait(false);
         }
     }
 
     /// <summary>
     /// Updates the vanity roles in the concurrent dictionary for the bot services to reflect the list in the appsettings.json
     /// </summary>
-    private async Task UpdateVanityRoles(RestGuild guild)
+    private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
     {
         // while the update status CTS is not requested
-        while (!_updateStatusCts.IsCancellationRequested)
+        while (!token.IsCancellationRequested)
         {
             try
             {
@@ -411,8 +280,7 @@ internal partial class DiscordBot : IHostedService
                         if (restrole != null) _botServices.VanityRoles.Add(restrole, role.Value);
                     }
                 }
-
-                // schedule this task every 5 minutes. (since i dont think we will need it often or ever change it.
+                // could shorten this if you want, but i perfer to avoid spam.
                 await Task.Delay(TimeSpan.FromHours(6), _updateStatusCts.Token).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -425,13 +293,8 @@ internal partial class DiscordBot : IHostedService
     /// <summary>
     /// Helps assign vanity perks to any users with an appropriate vanity role, and assigns them the perks.
     /// </summary>
-    private async Task AddPerksToUsersWithVanityRole(RestGuild CKrestGuild)
+    private async Task AddPerksToUsersWithVanityRole(RestGuild CKrestGuild, CancellationToken token)
     {
-        _vanityAddUsersCts?.Cancel();
-        _vanityAddUsersCts?.Dispose();
-        _vanityAddUsersCts = new();
-        var token = _vanityAddUsersCts.Token;
-
         // while the cancellation token is not requested
         while (!token.IsCancellationRequested)
         {
@@ -501,7 +364,7 @@ internal partial class DiscordBot : IHostedService
                         // await for the database to save changes
                         await db.SaveChangesAsync().ConfigureAwait(false);
                         // await a second before checking the next user
-                        await Task.Delay(1000);
+                        await Task.Delay(1000, token).ConfigureAwait(false);
                     }
                 }
             }
@@ -512,7 +375,7 @@ internal partial class DiscordBot : IHostedService
 
             // log the completition, and execute it again in 12 hours.
             _logger.LogInformation("Supporter Perks for UID's Assigned");
-            await Task.Delay(TimeSpan.FromMinutes(30), _vanityAddUsersCts.Token).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromMinutes(30), token).ConfigureAwait(false);
         }
 
     }
@@ -520,16 +383,10 @@ internal partial class DiscordBot : IHostedService
     /// <summary> 
     /// Removes the VanityPerks from users who are no longer supporting CK 
     /// </summary>
-    private async Task RemovePerksFromUsersNotInVanityRole()
+    private async Task RemovePerksFromUsersNotInVanityRole(CancellationToken token)
     {
-        // refresh the CTS for our vanity updates.
-        _vanityUpdateCts?.Cancel();
-        _vanityUpdateCts?.Dispose();
-        _vanityUpdateCts = new();
-        // set the token to the token
-        var token = _vanityUpdateCts.Token;
         // set the guild to the guild ID of Cordy's Kinkporium
-        var restGuild = await _discordClient.Rest.GetGuildAsync(878511238764720129);
+        var ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
         // set the application ID to the application ID of the bot
         var appId = await _discordClient.GetApplicationInfoAsync().ConfigureAwait(false);
 
@@ -539,7 +396,7 @@ internal partial class DiscordBot : IHostedService
             // try and clean up the vanity UID's from people no longer Supporting CK
             try
             {
-                _logger.LogInformation("Cleaning up Vanity UIDs from guild {guildName}", restGuild.Name);
+                _logger.LogInformation("Cleaning up Vanity UIDs from guild {guildName}", ckGuild.Name);
 
                 // get the list of allowed roles that should have vanity UID's from the Vanity Roles in the discord configuration.
                 Dictionary<ulong, string> allowedRoleIds = _discordConfigService.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
@@ -570,7 +427,7 @@ internal partial class DiscordBot : IHostedService
                         foreach (var accountClaimAuth in aliasedUsers)
                         {
                             // fetch the discord user they belong to by grabbing the discord ID from the accountClaimAuth
-                            var discordUser = await restGuild.GetUserAsync(accountClaimAuth.DiscordId).ConfigureAwait(false);
+                            var discordUser = await ckGuild.GetUserAsync(accountClaimAuth.DiscordId).ConfigureAwait(false);
                             _logger.LogInformation($"Checking User: {accountClaimAuth.DiscordId}, {accountClaimAuth.User.UID} " +
                             $"({accountClaimAuth.User.Alias}), User in Roles: {string.Join(", ", discordUser?.RoleIds ?? new List<ulong>())}");
 
@@ -599,7 +456,7 @@ internal partial class DiscordBot : IHostedService
                             // await for the database to save changes
                             await db.SaveChangesAsync().ConfigureAwait(false);
                             // await a second before checking the next user
-                            await Task.Delay(1000);
+                            await Task.Delay(1000, token).ConfigureAwait(false);
                         }
                     }
                 }
@@ -611,15 +468,14 @@ internal partial class DiscordBot : IHostedService
 
             // log the completition, and execute it again in 12 hours.
             _logger.LogInformation("Vanity UID cleanup complete");
-            await Task.Delay(TimeSpan.FromHours(12), _vanityUpdateCts.Token).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromHours(12), token).ConfigureAwait(false);
         }
     }
 
     /// <summary> Updates the status of the bot at the interval </summary>
-    private async Task UpdateStatusAsync()
+    private async Task UpdateStatusAsync(CancellationToken token)
     {
-        _updateStatusCts = new();
-        while (!_updateStatusCts.IsCancellationRequested)
+        while (!token.IsCancellationRequested)
         {
             // grab the endpoint from the connection multiplexer
             var endPoint = _connectionMultiplexer.GetEndPoints().First();

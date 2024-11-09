@@ -470,7 +470,7 @@ public partial class GagspeakHub
         UserProfileData? data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
         if (data == null)
         {
-            var newPlate = new KinkPlateContent() { Description = "Profile is Null!" };
+            var newPlate = new KinkPlateContent();
             return new UserKinkPlateDto(user.User, newPlate, string.Empty);
         }
         // If requested User Profile is not in list of pairs, and is not self, return blank profile update.

@@ -16,11 +16,32 @@ public class UserProfileData
     public string UserUID { get; set; }
     public User User { get; set; }
 
-    /* ---------- Profile Data ---------- */
-    public bool ProfileIsPublic { get; set; } = false; // If a LightKinkPlate can be viewed via GlobalChat or PrivateRooms.
-    public bool FlaggedForReport { get; set; } = false; // if profile has been flagged for report.
-    public bool ProfileDisabled { get; set; } = false; // If profile usage has been banned.
-    public DateTime ProfileTimeoutTimeStamp { get; set; } // the time when the profile was timed out.
+    /// <summary>
+    /// Defines if a profile is displayed to any user that is not a direct pair of them.
+    /// Keeping this false will hide the profile picture and description from any unpaired users.
+    /// </summary>
+    public bool ProfileIsPublic { get; set; } = false;
+
+    /// <summary>
+    /// Determines if a user is currently flagged for report.
+    /// Flagged Kinksters will still be able to see their own profile, however, no one else will.
+    /// This is done intentionally to prevent predators from watching when a profile is reported to point the blame on someone.
+    /// </summary>
+    public bool FlaggedForReport { get; set; } = false;
+
+    /// <summary>
+    /// Determines if a profile has been disabled.
+    /// Disabled Profiles can still show decoration and titles, but the images and descriptions will no longer be modifiable.
+    /// </summary>
+    public bool ProfileDisabled { get; set; } = false;
+
+    /// <summary>
+    /// The number of warnings that this profile has recieved.
+    /// Profile warnings go up by one whenever a profile is cleared, or whenever a malicious report attempt is made.
+    /// Warning strikes are a simple way to show the CK Team how many repeat offenses a profile has had when we evalulate reports.
+    /// </summary>
+    public int WarningStrikeCount { get; set; } = 0;
+
     public string Base64ProfilePic { get; set; } = string.Empty; // string.empty == no image provided.
     public string UserDescription { get; set; } = string.Empty; // Description of the user.
     public int CompletedAchievementsTotal { get; set; } = 0; // Total number of achievements completed.

@@ -16,6 +16,7 @@ internal partial class DiscordBot
     /// <summary> Process the report button logic. </summary>
     private async Task ButtonExecutedHandler(SocketMessageComponent arg)
     {
+        _logger.LogInformation("Attempted to process a button click.");
         // ensure this was a report button.
         var id = arg.Data.CustomId;
         if (!id.StartsWith("gagspeak-report-button", StringComparison.Ordinal)) return;
@@ -35,13 +36,13 @@ internal partial class DiscordBot
             await arg.RespondAsync(embed: eb.Build()).ConfigureAwait(false);
             return;
         }
-
         // remove the common start string to get the lone leftovers, and parse through those entries.
         id = id.Remove(0, "gagspeak-report-button-".Length);
         var split = id.Split('-', StringSplitOptions.RemoveEmptyEntries);
 
         // grab the profile of the reported user.
         var profile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+        var report = await dbContext.UserProfileReports.SingleAsync(u => u.ReportedUserUID == split[1]).ConfigureAwait(false);
 
         var embed = arg.Message.Embeds.First();
 
@@ -54,30 +55,34 @@ internal partial class DiscordBot
                 builder.AddField("Resolution", $"Dismissed by <@{userId}>");
                 builder.WithColor(Color.Green);
                 profile.FlaggedForReport = false; // clear the flag.
+                // do not notify anyone of this. don't want to rise suspicion.
                 break;
 
             // if we deem the image to be a screwup, but not worth of a ban, clear the image.
             case "clearprofileimage":
-                builder.AddField("Resolution", $"Profile Image has been cleared, but not bad enough to ban user. Authorized by <@{userId}>");
+                builder.AddField("Resolution", $"Profile Image has been cleared, and a warning strike has been added. Authorized by <@{userId}>");
                 builder.WithColor(Color.Red);
                 profile.Base64ProfilePic = null;
-                profile.UserDescription = null;
-                profile.ProfileTimeoutTimeStamp = DateTime.UtcNow;
+                profile.UserDescription = string.Empty;
                 profile.FlaggedForReport = false;
+                await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Client_ReceiveServerMessage),
+                    MessageSeverity.Warning, "The CK Team has reviewed your KinkPlate and decided that your Picture / Description " +
+                    "does not adhere to our guidelines. To help prevent these actions, we have cleared them and given you a warning. " +
+                    "Warnings don't lead to a ban but tell us how many times this has happened. DM an assistant if you wish to know why.")
+                    .ConfigureAwait(false);
                 break;
 
             case "banprofile":
-                builder.AddField("Resolution", $"Profile Access for the reported user has been revoked. Action Authorized by <@{userId}>");
+                builder.AddField("Resolution", $"Profile Image & Description Access has revoked. Action Authorized by <@{userId}>");
                 builder.WithColor(Color.Red);
                 profile.Base64ProfilePic = null;
-                profile.UserDescription = null;
+                profile.UserDescription = string.Empty;
                 profile.ProfileDisabled = true;
                 profile.FlaggedForReport = false;
                 await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Client_ReceiveServerMessage),
-                    MessageSeverity.Warning, "Your GagSpeak Profile contained content that harass or has a negative connotation towards " +
-                    "another user. As a result, your ability to customize your profile has been revoked. Further exploitation of social " +
-                    "features to attack other users will result in your user getting banned.")
-                    .ConfigureAwait(false);
+                    MessageSeverity.Warning, "Your KinkPlate profile contained content that either harasses or has negative connotation towards " +
+                    "another user. As a result, your ability to customize your profile has been revoked. If we recieve further reports," +
+                    "your user will get banned.").ConfigureAwait(false);
                 break;
 
             case "banuser":
@@ -86,7 +91,8 @@ internal partial class DiscordBot
                 var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
                 offendingUser.IsBanned = true;
                 profile.Base64ProfilePic = null;
-                profile.UserDescription = null;
+                profile.UserDescription = string.Empty;
+                profile.FlaggedForReport = false;
                 profile.ProfileDisabled = true;
                 var reg = await dbContext.AccountClaimAuth.SingleAsync(u => u.User.UID == offendingUser.UserUID).ConfigureAwait(false);
                 // revoke access to bot interactions & new account registrations
@@ -95,30 +101,41 @@ internal partial class DiscordBot
                     DiscordId = reg.DiscordId.ToString()
                 });
                 await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Client_ReceiveServerMessage),
-                    MessageSeverity.Warning, "Your GagSpeak User has been reported to commit harmful actions towards other GagSpeak users through " +
-                    "miss using it's social features to attack or harm other players. Because of this, access to your GagSpeak account has been revoked." +
-                    "Your playerCharacter has also been blacklisted as a result.")
-                    .ConfigureAwait(false);
+                    MessageSeverity.Warning, "The CK Team has determined that your account must be banned from usage of GagSpeak Services. " +
+                    "as a result, you will no longer be able to use GagSpeak on the currently logged in character with this account.").ConfigureAwait(false);
                 break;
 
             case "flagreporter":
                 builder.AddField("Resolution", $"Dismissed by <@{userId}>, But abusive reports lead to the user being flagged.");
                 builder.WithColor(Color.DarkGreen);
                 profile.FlaggedForReport = false;
-                var reportingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
-                reportingUser.IsBanned = true;
-                var regReporting = await dbContext.AccountClaimAuth.SingleAsync(u => u.User.UID == reportingUser.UserUID).ConfigureAwait(false);
-                dbContext.BannedRegistrations.Add(new BannedRegistrations()
-                {
-                    DiscordId = regReporting.DiscordId.ToString()
-                });
+                var reportingUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
+                reportingUserProfile.WarningStrikeCount++;
+                await _gagspeakHubContext.Clients.User(split[2]).SendAsync(nameof(IGagspeakHub.Client_ReceiveServerMessage),
+                    MessageSeverity.Warning, "The CK Team has determined your report to be a miss-use of our system, or made with malicious " +
+                    "attempt to bait another Kinkster into getting banned. As a result, a warning has been appended to your profile.").ConfigureAwait(false);
                 break;
+        }
+
+        // we should PROBABLy remove it from the discord thingy safely now.
+
+        // remove the report from the dbcontext now that it has been processed by the server.
+        if(report is not null)
+        {
+            _logger.LogInformation("Removing Report!");
+            dbContext.Remove(report);
         }
 
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
 
         await _gagspeakHubContext.Clients.Users(otherPairs).SendAsync(nameof(IGagspeakHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
         await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Client_UserUpdateProfile), new UserDto(new(split[1]))).ConfigureAwait(false);
+
+        if(string.Equals(split[0], "flagreporter", StringComparison.OrdinalIgnoreCase))
+        {
+            await _gagspeakHubContext.Clients.Users(otherPairs).SendAsync(nameof(IGagspeakHub.Client_UserUpdateProfile), new UserDto(new(split[2]))).ConfigureAwait(false);
+            await _gagspeakHubContext.Clients.User(split[2]).SendAsync(nameof(IGagspeakHub.Client_UserUpdateProfile), new UserDto(new(split[2]))).ConfigureAwait(false);
+        }
 
         await arg.Message.ModifyAsync(msg =>
         {

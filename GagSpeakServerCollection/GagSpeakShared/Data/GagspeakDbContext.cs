@@ -1,6 +1,5 @@
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
-using System.Text.RegularExpressions;
 #pragma warning disable MA0051 // Method is too long
 namespace GagspeakShared.Data;
 
@@ -43,7 +42,7 @@ public class GagspeakDbContext : DbContext
     public DbSet<ClientPairPermissions> ClientPairPermissions { get; set; } // the unique permissions a user has for each of their client pairs.
     public DbSet<ClientPairPermissionAccess> ClientPairPermissionAccess { get; set; } // determines what permissions the client pair can change on the client.
 
-    
+
     /* Tables that structure the toybox Private Room System */
     public DbSet<PrivateRoom> PrivateRooms { get; set; } // The set of created private rooms.
     public DbSet<PrivateRoomPair> PrivateRoomPairs { get; set; } // users who exist in a particular private room.
@@ -53,7 +52,7 @@ public class GagspeakDbContext : DbContext
     public DbSet<PatternEntryTag> PatternEntryTags { get; set; } // the tags associated with the patterns.
     public DbSet<PatternTag> PatternTags { get; set; } // the tags that can be associated with the patterns.
 
-    
+
     /*  Tables that handle what defines a user, their profile, the information, and settings associated with them.    */
     public DbSet<User> Users { get; set; } // Reflects a User profile. UID, last login time, timestamp of creation, alias, and vanity tier are defined here.
     public DbSet<UserGlobalPermissions> UserGlobalPermissions { get; set; } // permissions that when changed are globally modified

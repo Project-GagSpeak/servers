@@ -303,14 +303,6 @@ public class JwtController : Controller
         // if it does exist
         if (accountClaimAuth != null)
         {
-            // then see if the discord ID is  (if we get a way to append the inital generated key to this then do it for extra validation.
-            /*            if (!_gagspeakDbContext.BannedRegistrations.Any(c => c.DiscordId == accountClaimAuth.HashedLodestoneId))
-                        {
-                            _gagspeakDbContext.BannedRegistrations.Add(new BannedRegistrations()
-                            {
-                                DiscordId = accountClaimAuth.HashedLodestoneId,
-                            });
-                        }*/
             if (!_gagspeakDbContext.BannedRegistrations.Any(c => c.DiscordId == accountClaimAuth.DiscordId.ToString()))
             {
                 // if it exists, then add the banned registration to the database.

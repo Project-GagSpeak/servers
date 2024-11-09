@@ -1,5 +1,7 @@
 using Discord;
 using Discord.Interactions;
+using Discord.Rest;
+using Discord.WebSocket;
 using GagspeakAPI.Enums;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
@@ -17,16 +19,19 @@ namespace GagspeakDiscord.Commands;
 #pragma warning disable CS8602
 public class GagspeakCommands : InteractionModuleBase
 {
+    private readonly DiscordBotServices _botServices;
     private readonly ServerTokenGenerator _serverTokenGenerator;                   // the server token generator
     private readonly ILogger<GagspeakCommands> _logger;                               // the logger for the GagspeakCommands
     private readonly IServiceProvider _services;                                    // our service provider
     private readonly IConfigurationService<DiscordConfiguration> _discordConfigService;    // the discord configuration service
     private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
 
-    public GagspeakCommands(ServerTokenGenerator tokenGenerator, ILogger<GagspeakCommands> logger, IServiceProvider services,
+    public GagspeakCommands(DiscordBotServices botServices, ServerTokenGenerator tokenGenerator, 
+        ILogger<GagspeakCommands> logger, IServiceProvider services,
         IConfigurationService<DiscordConfiguration> gagspeakDiscordConfiguration,
         IConnectionMultiplexer connectionMultiplexer)
     {
+        _botServices = botServices;
         _serverTokenGenerator = tokenGenerator;
         _logger = logger;
         _services = services;
@@ -87,8 +92,33 @@ public class GagspeakCommands : InteractionModuleBase
         }
     }
 
+
+    // admin only process reports poll queue.
+    [SlashCommand("fetchreports", "Manually process the reports queue and reset the timer.")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task ProcessReports()
+    {
+        try
+        {
+            _logger.LogInformation("Processing Reports Queue! " + Context.Guild.Name);
+            // Create a new CTS for the manual process
+            using (var manualCts = new CancellationTokenSource())
+            {
+                // Call the process reports queue with the manual token
+                await _botServices.ProcessReports(Context.User, manualCts.Token);
+            }
+            await RespondAsync("Reports queue processed and timer reset.", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to process reports queue");
+            await RespondAsync("Failed to process reports queue: " + ex.ToString(), ephemeral: true);
+        }
+    }
+
     // admin only command for sending a message to clients connected to the gagspeak service.
     [SlashCommand("message", "ADMIN ONLY: sends a message to clients")]
+    [RequireUserPermission(GuildPermission.Administrator)]
     public async Task SendMessageToClients([Summary("message", "Message to send")] string message,
         [Summary("severity", "Severity of the message")] MessageSeverity messageType = MessageSeverity.Information,
         [Summary("uid", "User ID to the person to send the message to")] string? uid = null)
