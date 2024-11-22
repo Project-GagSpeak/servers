@@ -69,16 +69,13 @@ public class GagspeakCommands : InteractionModuleBase
     }
 
     // admin only command for adding a user to the database (manually)
-    [SlashCommand("useradd", "ADMIN ONLY: add a user unconditionally to the Database")]
-    public async Task UserAdd([Summary("desired_uid", "Desired UID")] string desiredUid)
+    [SlashCommand("unban", "Unbans a user from GagSpeak services.")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task UserUnban([Summary("desired_uid", "Desired UID")] string desiredUid)
     {
-        _logger.LogInformation("SlashCommand:{userId}:{Method}:{params}",
-            Context.Interaction.User.Id, nameof(UserAdd),
-            string.Join(",", new[] { $"{nameof(desiredUid)}:{desiredUid}" }));
-
         try
         {
-            var embed = await HandleUserAdd(desiredUid, Context.User.Id);
+            var embed = await HandleUserUnban(desiredUid);
 
             await RespondAsync(embeds: new[] { embed }, ephemeral: true).ConfigureAwait(false);
         }
@@ -235,9 +232,11 @@ public class GagspeakCommands : InteractionModuleBase
 
     [SlashCommand("forcereconnect", "ADMIN ONLY: forcibly reconnects all online connected clients")]
     public async Task ForceReconnectOnlineUsers([Summary("message", "Message to send with reconnection notification")] string message,
-    [Summary("severity", "Severity of the message")] MessageSeverity messageType = MessageSeverity.Information)
+    [Summary("severity", "Severity of the message")] MessageSeverity messageType = MessageSeverity.Information,
+    [Summary("uid", "UserUID we force reconnection on.")] string uid = "")
+
     {
-        _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}", Context.Interaction.User.Id, nameof(ForceReconnectOnlineUsers), message, messageType);
+        _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}:{uid}", Context.Interaction.User.Id, nameof(ForceReconnectOnlineUsers), message, messageType, uid);
 
         var user = await Context.Guild.GetUserAsync(Context.User.Id);
         var isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
@@ -256,7 +255,7 @@ public class GagspeakCommands : InteractionModuleBase
             using HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
 
-            var payload = new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect);
+            var payload = new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect, uid);
             string jsonPayload = JsonSerializer.Serialize(payload);
             _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", 
                 new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), jsonPayload);
@@ -399,51 +398,64 @@ public class GagspeakCommands : InteractionModuleBase
     }
 
     // This method is responsible for adding a user
-    public async Task<Embed> HandleUserAdd(string desiredUid, ulong discordUserId)
+    public async Task<Embed> HandleUserUnban(string desiredUid)
     {
         // An EmbedBuilder is created to build the embed message
         var embed = new EmbedBuilder();
 
-        // A scope is created to resolve services
         using var scope = _services.CreateScope();
-        // The GagspeakDbContext is retrieved from the service provider
         using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
-        // If the user already exists in the database
-        if (db.Users.Any(u => u.UID == desiredUid || u.Alias == desiredUid))
+
+        // locate the auth first, as it is linked to registered and unregistered players.
+        var auth = await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == desiredUid).ConfigureAwait(false);
+        if (auth is null)
         {
             // The embed message is updated to indicate that the user already exists in the database
             embed.WithTitle("Failed to add user");
             embed.WithDescription("Already in Database");
+            return embed.Build();
+
         }
-        else
+
+        // grab the banned user associated with this.
+        var bannedUser = await db.BannedUsers.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
+        if(bannedUser is not null)
         {
-            // A new user is created
-            User newUser = new()
-            {
-                LastLoggedIn = DateTime.UtcNow,
-                UID = desiredUid,
-                VanityTier = CkSupporterTier.NoRole,
-            };
-
-            // A new auth is created with a hashed key
-            var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
-            var auth = new Auth()
-            {
-                HashedKey = StringUtils.Sha256String(computedHash),
-                User = newUser,
-            };
-
-            // The new user and auth are added to the database
-            await db.Users.AddAsync(newUser);
-            await db.Auth.AddAsync(auth);
-
-            // The changes are saved to the database
-            await db.SaveChangesAsync();
-
-            // The embed message is updated to indicate that the user was successfully added
-            embed.WithTitle("Successfully added " + desiredUid);
-            embed.WithDescription("Secret Key: " + computedHash);
+            // remove the banned user from the database
+            db.BannedUsers.Remove(bannedUser);
         }
+
+        // grab the account auth claim, if one exists.
+        var accountClaim = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == auth.UserUID).ConfigureAwait(false);
+        // if it exists, we should also grab the banned registration row, then delete both of these.
+        if(accountClaim is not null)
+        {
+            var bannedRegistration = await db.BannedRegistrations.SingleOrDefaultAsync(u => u.DiscordId == accountClaim.DiscordId.ToString()).ConfigureAwait(false);
+            if(bannedRegistration is not null)
+            {
+                db.BannedRegistrations.Remove(bannedRegistration);
+            }
+        }
+
+        // update the disabled to false.
+        var profile = await db.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
+        if (profile is not null)
+        {
+            profile.ProfileDisabled = false;
+            profile.UserDescription = string.Empty;
+        }
+
+
+
+        // update the auth table to set isbanned to false.
+        auth.IsBanned = false;
+
+        // update all tables and save changes.
+        await db.SaveChangesAsync();
+
+        // The embed message is updated to indicate that the user was successfully added
+        embed.WithTitle("Successfully Unbanned User");
+        embed.WithDescription(desiredUid);
 
         // The embed message is built and returned
         return embed.Build();

@@ -9,7 +9,6 @@ public class Banned
     [Key]
     [MaxLength(100)]
     public string CharacterIdentification { get; set; } // indent (identifier) of the character that was banned.
+    public string UserUID { get; set; } // the UID of the user who was banned
     public string Reason { get; set; } // why they were banned
-    [Timestamp]
-    public byte[] Timestamp { get; set; } // when they were banned
 }

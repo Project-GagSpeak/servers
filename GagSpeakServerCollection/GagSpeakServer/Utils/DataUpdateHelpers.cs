@@ -428,6 +428,7 @@ public static class DataUpdateHelpers
             UserDescription = dto.Info.Description,
             CompletedAchievementsTotal = dto.Info.CompletedAchievementsTotal,
             ChosenTitleId = dto.Info.ChosenTitleId,
+
             PlateBackground = dto.Info.PlateBackground,
             PlateBorder = dto.Info.PlateBorder,
 

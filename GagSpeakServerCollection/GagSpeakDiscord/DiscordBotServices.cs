@@ -199,15 +199,14 @@ public class DiscordBotServices
                     var reportTimeUtc = new DateTimeOffset(report.ReportTime, TimeSpan.Zero);
                     var formattedTimestamp = string.Create(CultureInfo.InvariantCulture, $"<t:{reportTimeUtc.ToUnixTimeSeconds()}:F>");
                     eb.AddField("Report Time (Local)", formattedTimestamp);
-
-                    eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
                     eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(report.ReportedDescription) ? "-" : report.ReportedDescription);
-                    eb.AddField("Reported User Profile Image", "(snapShotted at time of report)");
+                    
+                    eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
 
                     var cb = new ComponentBuilder();
                     cb.WithButton("Dismiss Report", customId: $"gagspeak-report-button-dismissreport-{reportedUser.UID}", style: ButtonStyle.Primary);
                     cb.WithButton("Clear Profile", customId: $"gagspeak-report-button-clearprofileimage-{reportedUser.UID}", style: ButtonStyle.Secondary);
-                    cb.WithButton("Ban Profile Access", customId: $"gagspeak-report-button-banprofile-{reportedUser.UID}", style: ButtonStyle.Secondary);
+                    cb.WithButton("Revoke Social Features", customId: $"gagspeak-report-button-revokesocialfeatures-{reportedUser.UID}", style: ButtonStyle.Secondary);
                     cb.WithButton("Ban User", customId: $"gagspeak-report-button-banuser-{reportedUser.UID}", style: ButtonStyle.Danger);
                     cb.WithButton("Dismiss & Flag Reporting User", customId: $"gagspeak-report-button-flagreporter-{reportedUser.UID}-{reportingUser.UID}", style: ButtonStyle.Danger);
 

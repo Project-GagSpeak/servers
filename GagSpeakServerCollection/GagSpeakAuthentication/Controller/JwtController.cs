@@ -162,10 +162,9 @@ public class JwtController : Controller
             var ip = _accessor.GetIpAddress();
 
             _logger.LogInformation("Attempting to authenticate secret key {auth}", auth);
-            // call the secret key authenticator service to authorize the user
             SecretKeyAuthReply authResult = await _secretKeyAuthenticatorService.AuthorizeAsync(ip, auth);
             // see if the authorize was valid
-            _logger.LogInformation("AuthResult: {authResult}", authResult);
+            _logger.LogDebug("AuthResult: {authResult}", authResult);
 
             // if the ident (identifier) is banned, return an unauthorized result.
             if (await IsIdentBanned(authResult.Uid, charaIdent))
@@ -285,6 +284,7 @@ public class JwtController : Controller
             _gagspeakDbContext.BannedUsers.Add(new Banned()
             {
                 CharacterIdentification = charaIdent,
+                UserUID = uid,
                 Reason = "Autobanned CharacterIdent (" + uid + ")",
             });
 

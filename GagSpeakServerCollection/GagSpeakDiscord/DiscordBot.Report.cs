@@ -22,17 +22,32 @@ internal partial class DiscordBot
         if (!id.StartsWith("gagspeak-report-button", StringComparison.Ordinal)) return;
 
         // scope the user who interacted, and the dbContext within the scope.
-        var userId = arg.User.Id;
         using var scope = _services.CreateScope();
         using var dbContext = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
-        var user = await dbContext.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == userId).ConfigureAwait(false);
 
-        // if the user is null, respond that we cannot resolve the report. (possibly rework to accept any since its in a filtered channel anyways).
-        if (user == null)
+        // Define the required role ID for access to this command
+        ulong assistantRoleId = 884542694842597416; // Replace with your specific role ID
+        ulong mistressRoleId = 878511993068355604; // Replace with your specific role ID
+
+        // Get the user's ID and guild (server)
+        var userId = arg.User.Id;
+        var guild = (arg.User as SocketGuildUser)?.Guild;
+
+        if (guild is null)
+        {
+            _logger.LogWarning("Guild information could not be retrieved.");
+            return;
+        }
+
+        // Fetch the user in the context of the guild
+        var guildUser = guild.GetUser(userId);
+
+        // Check if the user has the required role
+        if (guildUser is null || !guildUser.Roles.Any(r => r.Id == assistantRoleId || r.Id == mistressRoleId))
         {
             EmbedBuilder eb = new();
-            eb.WithTitle($"Cannot resolve report");
-            eb.WithDescription($"<@{userId}>: You have no rights to resolve this report");
+            eb.WithTitle("Cannot resolve report");
+            eb.WithDescription($"<@{userId}>: You do not have the Assistant Role required to respond to this.");
             await arg.RespondAsync(embed: eb.Build()).ConfigureAwait(false);
             return;
         }
@@ -62,7 +77,7 @@ internal partial class DiscordBot
             case "clearprofileimage":
                 builder.AddField("Resolution", $"Profile Image has been cleared, and a warning strike has been added. Authorized by <@{userId}>");
                 builder.WithColor(Color.Red);
-                profile.Base64ProfilePic = null;
+                profile.Base64ProfilePic = string.Empty;
                 profile.UserDescription = string.Empty;
                 profile.FlaggedForReport = false;
                 await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Client_ReceiveServerMessage),
@@ -72,10 +87,10 @@ internal partial class DiscordBot
                     .ConfigureAwait(false);
                 break;
 
-            case "banprofile":
+            case "revokesocialfeatures":
                 builder.AddField("Resolution", $"Profile Image & Description Access has revoked. Action Authorized by <@{userId}>");
                 builder.WithColor(Color.Red);
-                profile.Base64ProfilePic = null;
+                profile.Base64ProfilePic = string.Empty;
                 profile.UserDescription = string.Empty;
                 profile.ProfileDisabled = true;
                 profile.FlaggedForReport = false;
@@ -90,7 +105,7 @@ internal partial class DiscordBot
                 builder.WithColor(Color.DarkRed);
                 var offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
                 offendingUser.IsBanned = true;
-                profile.Base64ProfilePic = null;
+                profile.Base64ProfilePic = string.Empty;
                 profile.UserDescription = string.Empty;
                 profile.FlaggedForReport = false;
                 profile.ProfileDisabled = true;
@@ -100,9 +115,10 @@ internal partial class DiscordBot
                 {
                     DiscordId = reg.DiscordId.ToString()
                 });
-                await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Client_ReceiveServerMessage),
+                await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Client_ReceiveHardReconnectMessage),
                     MessageSeverity.Warning, "The CK Team has determined that your account must be banned from usage of GagSpeak Services. " +
-                    "as a result, you will no longer be able to use GagSpeak on the currently logged in character with this account.").ConfigureAwait(false);
+                    "as a result, you will no longer be able to use GagSpeak on the currently logged in character with this account.", 
+                    ServerState.ForcedReconnect).ConfigureAwait(false);
                 break;
 
             case "flagreporter":
@@ -116,8 +132,6 @@ internal partial class DiscordBot
                     "attempt to bait another Kinkster into getting banned. As a result, a warning has been appended to your profile.").ConfigureAwait(false);
                 break;
         }
-
-        // we should PROBABLy remove it from the discord thingy safely now.
 
         // remove the report from the dbcontext now that it has been processed by the server.
         if(report is not null)

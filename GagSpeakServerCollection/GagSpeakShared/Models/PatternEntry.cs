@@ -14,8 +14,6 @@ public class PatternEntry
 
     [Required]
     public string PublisherUID { get; set; }
-    public User Publisher { get; set; }
-
     public DateTime TimePublished { get; set; }
 
     [MaxLength(60)]

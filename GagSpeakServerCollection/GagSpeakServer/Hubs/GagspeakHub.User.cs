@@ -507,6 +507,13 @@ public partial class GagspeakHub
             return;
         }
 
+        // handle case where it was called after a user delete.
+        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false) is null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot Save Achievement Data for a Deleted User").ConfigureAwait(false);
+            return;
+        }
+
         // Grab Client Callers current profile data from the database
         var existingData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (existingData is not null)
@@ -554,12 +561,6 @@ public partial class GagspeakHub
 
         // Grab Client Callers current profile data from the database
         var existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (existingData?.ProfileDisabled ?? false) 
-        {
-            // possibly not do this, but rather just ban the user outright if they are disabled? Idk
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Your profile was disabled and cannot be edited").ConfigureAwait(false);
-            return;
-        }
 
         // Grab the new ProfilePictureData if it exists
         if (!string.IsNullOrEmpty(dto.ProfilePictureBase64))

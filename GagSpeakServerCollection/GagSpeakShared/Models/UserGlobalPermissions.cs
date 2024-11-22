@@ -7,7 +7,6 @@ namespace GagspeakShared.Models;
 public class UserGlobalPermissions
 {
     // main global permissions
-    public string Safeword { get; set; } = "NONE SET";          // DO NOT ALLOW THIS TO BE MODIFABLE
     public bool SafewordUsed { get; set; } = false;             // DO NOT ALLOW THIS TO BE MODIFABLE
     public bool HardcoreSafewordUsed { get; set; } = false;     // DO NOT ALLOW THIS TO BE MODIFABLE
     public bool LiveChatGarblerActive { get; set; } = false;    // if the live chat garbler is active

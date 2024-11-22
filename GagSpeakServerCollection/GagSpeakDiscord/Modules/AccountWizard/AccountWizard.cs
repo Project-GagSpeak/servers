@@ -88,6 +88,18 @@ public partial class AccountWizard : InteractionModuleBase
         // send the message as an ephemeral message, meaning a reply personalized so only the user can see it.
         if (init)
         {
+            bool isBanned = await gagspeakDb.BannedRegistrations.AnyAsync(u => u.DiscordId == Context.User.Id.ToString()).ConfigureAwait(false);
+            if (isBanned)
+            {
+                EmbedBuilder ebBanned = new();
+                ebBanned.WithTitle("The CK Team has Banned This Account.");
+                ebBanned.WithDescription("If you wish to be unbanned, contact one of the assistants regarding the issue.");
+                ebBanned.WithColor(Color.Red);
+
+                await RespondAsync(embed: ebBanned.Build(), ephemeral: true).ConfigureAwait(false);
+                return;
+            }
+
             await RespondAsync(embed: eb.Build(), components: cb.Build(), ephemeral: true).ConfigureAwait(false);
             var resp = await GetOriginalResponseAsync().ConfigureAwait(false);
             // store the content message of the original responce with the user's ID as the key in the concurrent dictionary of valid interactions.

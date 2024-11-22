@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20241112003802_2024-11-11AccountBans")]
+    partial class _20241111AccountBans
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -582,7 +585,7 @@ namespace GagSpeakShared.Migrations
 
                     b.Property<string>("PublisherUID")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasColumnType("character varying(10)")
                         .HasColumnName("publisher_uid");
 
                     b.Property<bool>("ShouldLoop")
@@ -607,6 +610,9 @@ namespace GagSpeakShared.Migrations
 
                     b.HasKey("Identifier")
                         .HasName("pk_pattern_entry");
+
+                    b.HasIndex("PublisherUID")
+                        .HasDatabaseName("ix_pattern_entry_publisher_uid");
 
                     b.ToTable("pattern_entry", (string)null);
                 });
@@ -990,6 +996,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("restraint_set_auto_equip");
 
+                    b.Property<string>("Safeword")
+                        .HasColumnType("text")
+                        .HasColumnName("safeword");
+
                     b.Property<bool>("SafewordUsed")
                         .HasColumnType("boolean")
                         .HasColumnName("safeword_used");
@@ -1284,6 +1294,18 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("OtherUser");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.PatternEntry", b =>
+                {
+                    b.HasOne("GagspeakShared.Models.User", "Publisher")
+                        .WithMany()
+                        .HasForeignKey("PublisherUID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_pattern_entry_users_publisher_uid");
+
+                    b.Navigation("Publisher");
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.PatternEntryTag", b =>

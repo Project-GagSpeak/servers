@@ -63,7 +63,6 @@ public static class ClientPairPermissionExtensions
 
         GagspeakAPI.Data.Permissions.UserGlobalPermissions result = new GagspeakAPI.Data.Permissions.UserGlobalPermissions();
 
-        result.Safeword = globalPermsModel.Safeword;
         result.SafewordUsed = globalPermsModel.SafewordUsed;
         result.HardcoreSafewordUsed = globalPermsModel.HardcoreSafewordUsed;
         result.LiveChatGarblerActive = globalPermsModel.LiveChatGarblerActive;
@@ -109,7 +108,6 @@ public static class ClientPairPermissionExtensions
     {
         if (apiGlobalPerms == null) return currentModelGlobalPerms;
 
-        currentModelGlobalPerms.Safeword = apiGlobalPerms.Safeword;
         currentModelGlobalPerms.SafewordUsed = apiGlobalPerms.SafewordUsed;
         currentModelGlobalPerms.HardcoreSafewordUsed = apiGlobalPerms.HardcoreSafewordUsed;
         currentModelGlobalPerms.LiveChatGarblerActive = apiGlobalPerms.LiveChatGarblerActive;

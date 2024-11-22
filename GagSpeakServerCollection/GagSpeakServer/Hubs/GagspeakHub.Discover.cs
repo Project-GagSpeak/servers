@@ -92,7 +92,6 @@ public partial class GagspeakHub
         {
             Identifier = dto.patternInfo.Identifier,
             PublisherUID = dto.User.UID,
-            Publisher = user,
             TimePublished = DateTime.UtcNow,
             Name = dto.patternInfo.Name,
             Description = dto.patternInfo.Description,
