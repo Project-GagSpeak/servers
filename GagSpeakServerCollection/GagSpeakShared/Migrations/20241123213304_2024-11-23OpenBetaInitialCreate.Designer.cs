@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    [Migration("20240726192814_2024-07-26-RestructuredPrivateRoomModels")]
-    partial class _20240726RestructuredPrivateRoomModels
+    [Migration("20241123213304_2024-11-23OpenBetaInitialCreate")]
+    partial class _20241123OpenBetaInitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -101,11 +101,9 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("text")
                         .HasColumnName("reason");
 
-                    b.Property<byte[]>("Timestamp")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea")
-                        .HasColumnName("timestamp");
+                    b.Property<string>("UserUID")
+                        .HasColumnType("text")
+                        .HasColumnName("user_uid");
 
                     b.HasKey("CharacterIdentification")
                         .HasName("pk_banned_users");
@@ -188,6 +186,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("allow_positive_status_types_allowed");
 
+                    b.Property<bool>("AllowRemovingMoodlesAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_removing_moodles_allowed");
+
                     b.Property<bool>("AllowSitRequestsAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("allow_sit_requests_allowed");
@@ -200,45 +202,45 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("apply_restraint_sets_allowed");
 
-                    b.Property<bool>("CanControlIntensityAllowed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("can_control_intensity_allowed");
-
-                    b.Property<bool>("CanCreateTriggersAllowed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("can_create_triggers_allowed");
-
                     b.Property<bool>("CanExecutePatternsAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("can_execute_patterns_allowed");
 
-                    b.Property<bool>("CanExecuteTriggersAllowed")
+                    b.Property<bool>("CanSendAlarmsAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_execute_triggers_allowed");
+                        .HasColumnName("can_send_alarms_allowed");
 
-                    b.Property<bool>("CanSendTriggersAllowed")
+                    b.Property<bool>("CanStopPatternsAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_send_triggers_allowed");
+                        .HasColumnName("can_stop_patterns_allowed");
 
-                    b.Property<bool>("CanUseRealtimeVibeRemoteAllowed")
+                    b.Property<bool>("CanToggleAlarmsAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_use_realtime_vibe_remote_allowed");
+                        .HasColumnName("can_toggle_alarms_allowed");
 
-                    b.Property<bool>("ChangeToyStateAllowed")
+                    b.Property<bool>("CanToggleToyStateAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("change_toy_state_allowed");
+                        .HasColumnName("can_toggle_toy_state_allowed");
 
-                    b.Property<bool>("CommandsFromFriendsAllowed")
+                    b.Property<bool>("CanToggleTriggersAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("commands_from_friends_allowed");
+                        .HasColumnName("can_toggle_triggers_allowed");
 
-                    b.Property<bool>("CommandsFromPartyAllowed")
+                    b.Property<bool>("CanUseVibeRemoteAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("commands_from_party_allowed");
+                        .HasColumnName("can_use_vibe_remote_allowed");
+
+                    b.Property<bool>("DevotionalLocksAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("devotional_locks_allowed");
 
                     b.Property<bool>("ExtendedLockTimesAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("extended_lock_times_allowed");
+
+                    b.Property<bool>("GagFeaturesAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("gag_features_allowed");
 
                     b.Property<bool>("ItemAutoEquipAllowed")
                         .HasColumnType("boolean")
@@ -251,10 +253,6 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("LiveChatGarblerLockedAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("live_chat_garbler_locked_allowed");
-
-                    b.Property<bool>("LockGagStorageOnGagLockAllowed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("lock_gag_storage_on_gag_lock_allowed");
 
                     b.Property<bool>("LockRestraintSetsAllowed")
                         .HasColumnType("boolean")
@@ -280,6 +278,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("moodles_enabled_allowed");
 
+                    b.Property<bool>("OwnerLocksAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("owner_locks_allowed");
+
                     b.Property<bool>("PairCanApplyOwnMoodlesToYouAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("pair_can_apply_own_moodles_to_you_allowed");
@@ -304,17 +306,13 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("spatial_vibrator_audio_allowed");
 
-                    b.Property<bool>("ToyIsActiveAllowed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("toy_is_active_allowed");
-
                     b.Property<bool>("ToyboxEnabledAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("toybox_enabled_allowed");
 
-                    b.Property<bool>("VibratorAlarmsAllowed")
+                    b.Property<bool>("UnlockRestraintSetsAllowed")
                         .HasColumnType("boolean")
-                        .HasColumnName("vibrator_alarms_allowed");
+                        .HasColumnName("unlock_restraint_sets_allowed");
 
                     b.Property<bool>("WardrobeEnabledAllowed")
                         .HasColumnType("boolean")
@@ -348,9 +346,21 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("allow_all_requests");
 
+                    b.Property<bool>("AllowBeeps")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_beeps");
+
                     b.Property<bool>("AllowBlindfold")
                         .HasColumnType("boolean")
                         .HasColumnName("allow_blindfold");
+
+                    b.Property<bool>("AllowChatInputBlocking")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_chat_input_blocking");
+
+                    b.Property<bool>("AllowForcedEmote")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_forced_emote");
 
                     b.Property<bool>("AllowForcedFollow")
                         .HasColumnType("boolean")
@@ -363,6 +373,14 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("AllowForcedToStay")
                         .HasColumnType("boolean")
                         .HasColumnName("allow_forced_to_stay");
+
+                    b.Property<bool>("AllowHidingChatBoxes")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_hiding_chat_boxes");
+
+                    b.Property<bool>("AllowHidingChatInput")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_hiding_chat_input");
 
                     b.Property<bool>("AllowMotionRequests")
                         .HasColumnType("boolean")
@@ -380,6 +398,14 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("allow_positive_status_types");
 
+                    b.Property<bool>("AllowRemovingMoodles")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_removing_moodles");
+
+                    b.Property<bool>("AllowShocks")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_shocks");
+
                     b.Property<bool>("AllowSitRequests")
                         .HasColumnType("boolean")
                         .HasColumnName("allow_sit_requests");
@@ -388,37 +414,49 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("allow_special_status_types");
 
+                    b.Property<bool>("AllowVibrations")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_vibrations");
+
                     b.Property<bool>("ApplyRestraintSets")
                         .HasColumnType("boolean")
                         .HasColumnName("apply_restraint_sets");
-
-                    b.Property<bool>("CanControlIntensity")
-                        .HasColumnType("boolean")
-                        .HasColumnName("can_control_intensity");
-
-                    b.Property<bool>("CanCreateTriggers")
-                        .HasColumnType("boolean")
-                        .HasColumnName("can_create_triggers");
 
                     b.Property<bool>("CanExecutePatterns")
                         .HasColumnType("boolean")
                         .HasColumnName("can_execute_patterns");
 
-                    b.Property<bool>("CanExecuteTriggers")
+                    b.Property<bool>("CanSendAlarms")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_execute_triggers");
+                        .HasColumnName("can_send_alarms");
 
-                    b.Property<bool>("CanSendTriggers")
+                    b.Property<bool>("CanStopPatterns")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_send_triggers");
+                        .HasColumnName("can_stop_patterns");
 
-                    b.Property<bool>("CanUseRealtimeVibeRemote")
+                    b.Property<bool>("CanToggleAlarms")
                         .HasColumnType("boolean")
-                        .HasColumnName("can_use_realtime_vibe_remote");
+                        .HasColumnName("can_toggle_alarms");
 
-                    b.Property<bool>("ChangeToyState")
+                    b.Property<bool>("CanToggleToyState")
                         .HasColumnType("boolean")
-                        .HasColumnName("change_toy_state");
+                        .HasColumnName("can_toggle_toy_state");
+
+                    b.Property<bool>("CanToggleTriggers")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_toggle_triggers");
+
+                    b.Property<bool>("CanUseVibeRemote")
+                        .HasColumnType("boolean")
+                        .HasColumnName("can_use_vibe_remote");
+
+                    b.Property<bool>("DevotionalLocks")
+                        .HasColumnType("boolean")
+                        .HasColumnName("devotional_locks");
+
+                    b.Property<bool>("DevotionalStatesForPair")
+                        .HasColumnType("boolean")
+                        .HasColumnName("devotional_states_for_pair");
 
                     b.Property<char>("EndChar")
                         .HasColumnType("character(1)")
@@ -428,29 +466,13 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("extended_lock_times");
 
-                    b.Property<bool>("ForceLockFirstPerson")
+                    b.Property<bool>("GagFeatures")
                         .HasColumnType("boolean")
-                        .HasColumnName("force_lock_first_person");
+                        .HasColumnName("gag_features");
 
                     b.Property<bool>("InHardcore")
                         .HasColumnType("boolean")
                         .HasColumnName("in_hardcore");
-
-                    b.Property<bool>("IsBlindfolded")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_blindfolded");
-
-                    b.Property<bool>("IsForcedToFollow")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_forced_to_follow");
-
-                    b.Property<bool>("IsForcedToSit")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_forced_to_sit");
-
-                    b.Property<bool>("IsForcedToStay")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_forced_to_stay");
 
                     b.Property<bool>("IsPaused")
                         .HasColumnType("boolean")
@@ -464,6 +486,14 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("interval")
                         .HasColumnName("max_allowed_restraint_time");
 
+                    b.Property<int>("MaxDuration")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_duration");
+
+                    b.Property<int>("MaxIntensity")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_intensity");
+
                     b.Property<TimeSpan>("MaxLockTime")
                         .HasColumnType("interval")
                         .HasColumnName("max_lock_time");
@@ -471,6 +501,14 @@ namespace GagSpeakShared.Migrations
                     b.Property<TimeSpan>("MaxMoodleTime")
                         .HasColumnType("interval")
                         .HasColumnName("max_moodle_time");
+
+                    b.Property<TimeSpan>("MaxVibrateDuration")
+                        .HasColumnType("interval")
+                        .HasColumnName("max_vibrate_duration");
+
+                    b.Property<bool>("OwnerLocks")
+                        .HasColumnType("boolean")
+                        .HasColumnName("owner_locks");
 
                     b.Property<bool>("PairCanApplyOwnMoodlesToYou")
                         .HasColumnType("boolean")
@@ -484,6 +522,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("remove_restraint_sets");
 
+                    b.Property<string>("ShockCollarShareCode")
+                        .HasColumnType("text")
+                        .HasColumnName("shock_collar_share_code");
+
                     b.Property<char>("StartChar")
                         .HasColumnType("character(1)")
                         .HasColumnName("start_char");
@@ -492,9 +534,9 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("text")
                         .HasColumnName("trigger_phrase");
 
-                    b.Property<bool>("VibratorAlarms")
+                    b.Property<bool>("UnlockRestraintSets")
                         .HasColumnType("boolean")
-                        .HasColumnName("vibrator_alarms");
+                        .HasColumnName("unlock_restraint_sets");
 
                     b.HasKey("UserUID", "OtherUserUID")
                         .HasName("pk_client_pair_permissions");
@@ -506,6 +548,111 @@ namespace GagSpeakShared.Migrations
                         .HasDatabaseName("ix_client_pair_permissions_user_uid");
 
                     b.ToTable("client_pair_permissions", (string)null);
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.PatternEntry", b =>
+                {
+                    b.Property<Guid>("Identifier")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("identifier");
+
+                    b.Property<string>("Author")
+                        .HasColumnType("text")
+                        .HasColumnName("author");
+
+                    b.Property<string>("Base64PatternData")
+                        .HasColumnType("text")
+                        .HasColumnName("base64pattern_data");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("DownloadCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("download_count");
+
+                    b.Property<TimeSpan>("Length")
+                        .HasColumnType("interval")
+                        .HasColumnName("length");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)")
+                        .HasColumnName("name");
+
+                    b.Property<string>("PublisherUID")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("publisher_uid");
+
+                    b.Property<bool>("ShouldLoop")
+                        .HasColumnType("boolean")
+                        .HasColumnName("should_loop");
+
+                    b.Property<DateTime>("TimePublished")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("time_published");
+
+                    b.Property<bool>("UsesOscillation")
+                        .HasColumnType("boolean")
+                        .HasColumnName("uses_oscillation");
+
+                    b.Property<bool>("UsesRotations")
+                        .HasColumnType("boolean")
+                        .HasColumnName("uses_rotations");
+
+                    b.Property<bool>("UsesVibrations")
+                        .HasColumnType("boolean")
+                        .HasColumnName("uses_vibrations");
+
+                    b.HasKey("Identifier")
+                        .HasName("pk_pattern_entry");
+
+                    b.ToTable("pattern_entry", (string)null);
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.PatternEntryTag", b =>
+                {
+                    b.Property<Guid>("PatternEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pattern_entry_id")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("TagName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tag_name")
+                        .HasColumnOrder(2);
+
+                    b.HasKey("PatternEntryId", "TagName")
+                        .HasName("pk_pattern_entry_tags");
+
+                    b.HasIndex("PatternEntryId")
+                        .HasDatabaseName("ix_pattern_entry_tags_pattern_entry_id");
+
+                    b.HasIndex("TagName")
+                        .HasDatabaseName("ix_pattern_entry_tags_tag_name");
+
+                    b.ToTable("pattern_entry_tags", (string)null);
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.PatternTag", b =>
+                {
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.HasKey("Name")
+                        .HasName("pk_pattern_tags");
+
+                    b.HasIndex("Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_pattern_tags_name");
+
+                    b.ToTable("pattern_tags", (string)null);
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.PrivateRoom", b =>
@@ -582,15 +729,25 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("character varying(15)")
                         .HasColumnName("alias");
 
+                    b.Property<DateTime>("CreatedDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_date");
+
+                    b.Property<DateTime>("FirstUploadTimestamp")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("first_upload_timestamp");
+
                     b.Property<DateTime>("LastLoggedIn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_logged_in");
 
-                    b.Property<byte[]>("Timestamp")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("bytea")
-                        .HasColumnName("timestamp");
+                    b.Property<bool>("ProfileReportingTimedOut")
+                        .HasColumnType("boolean")
+                        .HasColumnName("profile_reporting_timed_out");
+
+                    b.Property<int>("UploadLimitCounter")
+                        .HasColumnType("integer")
+                        .HasColumnName("upload_limit_counter");
 
                     b.Property<int>("VanityTier")
                         .HasColumnType("integer")
@@ -600,6 +757,58 @@ namespace GagSpeakShared.Migrations
                         .HasName("pk_users");
 
                     b.ToTable("users", (string)null);
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.UserAchievementData", b =>
+                {
+                    b.Property<string>("UserUID")
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("user_uid");
+
+                    b.Property<string>("Base64AchievementData")
+                        .HasColumnType("text")
+                        .HasColumnName("base64achievement_data");
+
+                    b.HasKey("UserUID")
+                        .HasName("pk_user_achievement_data");
+
+                    b.ToTable("user_achievement_data", (string)null);
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.UserActiveStateData", b =>
+                {
+                    b.Property<string>("UserUID")
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("user_uid");
+
+                    b.Property<string>("ActiveSetEnabler")
+                        .HasColumnType("text")
+                        .HasColumnName("active_set_enabler");
+
+                    b.Property<Guid>("ActiveSetId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("active_set_id");
+
+                    b.Property<string>("ActiveSetLockAssigner")
+                        .HasColumnType("text")
+                        .HasColumnName("active_set_lock_assigner");
+
+                    b.Property<DateTimeOffset>("ActiveSetLockTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("active_set_lock_time");
+
+                    b.Property<string>("ActiveSetPadLock")
+                        .HasColumnType("text")
+                        .HasColumnName("active_set_pad_lock");
+
+                    b.Property<string>("ActiveSetPassword")
+                        .HasColumnType("text")
+                        .HasColumnName("active_set_password");
+
+                    b.HasKey("UserUID")
+                        .HasName("pk_user_active_state_data");
+
+                    b.ToTable("user_active_state_data", (string)null);
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.UserGagAppearanceData", b =>
@@ -680,13 +889,45 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("user_uid");
 
-                    b.Property<bool>("CommandsFromFriends")
+                    b.Property<bool>("AllowBeeps")
                         .HasColumnType("boolean")
-                        .HasColumnName("commands_from_friends");
+                        .HasColumnName("allow_beeps");
 
-                    b.Property<bool>("CommandsFromParty")
+                    b.Property<bool>("AllowShocks")
                         .HasColumnType("boolean")
-                        .HasColumnName("commands_from_party");
+                        .HasColumnName("allow_shocks");
+
+                    b.Property<bool>("AllowVibrations")
+                        .HasColumnType("boolean")
+                        .HasColumnName("allow_vibrations");
+
+                    b.Property<string>("ChatBoxesHidden")
+                        .HasColumnType("text")
+                        .HasColumnName("chat_boxes_hidden");
+
+                    b.Property<string>("ChatInputBlocked")
+                        .HasColumnType("text")
+                        .HasColumnName("chat_input_blocked");
+
+                    b.Property<string>("ChatInputHidden")
+                        .HasColumnType("text")
+                        .HasColumnName("chat_input_hidden");
+
+                    b.Property<string>("ForcedBlindfold")
+                        .HasColumnType("text")
+                        .HasColumnName("forced_blindfold");
+
+                    b.Property<string>("ForcedEmoteState")
+                        .HasColumnType("text")
+                        .HasColumnName("forced_emote_state");
+
+                    b.Property<string>("ForcedFollow")
+                        .HasColumnType("text")
+                        .HasColumnName("forced_follow");
+
+                    b.Property<string>("ForcedStay")
+                        .HasColumnType("text")
+                        .HasColumnName("forced_stay");
 
                     b.Property<bool>("GlobalAllowAllRequests")
                         .HasColumnType("boolean")
@@ -700,9 +941,21 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("global_allow_sit_requests");
 
+                    b.Property<string>("GlobalShockShareCode")
+                        .HasColumnType("text")
+                        .HasColumnName("global_shock_share_code");
+
+                    b.Property<TimeSpan>("GlobalShockVibrateDuration")
+                        .HasColumnType("interval")
+                        .HasColumnName("global_shock_vibrate_duration");
+
                     b.Property<string>("GlobalTriggerPhrase")
                         .HasColumnType("text")
                         .HasColumnName("global_trigger_phrase");
+
+                    b.Property<bool>("HardcoreSafewordUsed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("hardcore_safeword_used");
 
                     b.Property<bool>("ItemAutoEquip")
                         .HasColumnType("boolean")
@@ -716,13 +969,17 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("live_chat_garbler_locked");
 
-                    b.Property<bool>("LockGagStorageOnGagLock")
-                        .HasColumnType("boolean")
-                        .HasColumnName("lock_gag_storage_on_gag_lock");
-
                     b.Property<bool>("LockToyboxUI")
                         .HasColumnType("boolean")
                         .HasColumnName("lock_toybox_ui");
+
+                    b.Property<int>("MaxDuration")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_duration");
+
+                    b.Property<int>("MaxIntensity")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_intensity");
 
                     b.Property<bool>("MoodlesEnabled")
                         .HasColumnType("boolean")
@@ -736,10 +993,6 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("restraint_set_auto_equip");
 
-                    b.Property<string>("Safeword")
-                        .HasColumnType("text")
-                        .HasColumnName("safeword");
-
                     b.Property<bool>("SafewordUsed")
                         .HasColumnType("boolean")
                         .HasColumnName("safeword_used");
@@ -747,10 +1000,6 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("SpatialVibratorAudio")
                         .HasColumnType("boolean")
                         .HasColumnName("spatial_vibrator_audio");
-
-                    b.Property<int>("ToyIntensity")
-                        .HasColumnType("integer")
-                        .HasColumnName("toy_intensity");
 
                     b.Property<bool>("ToyIsActive")
                         .HasColumnType("boolean")
@@ -770,6 +1019,25 @@ namespace GagSpeakShared.Migrations
                     b.ToTable("user_global_permissions", (string)null);
                 });
 
+            modelBuilder.Entity("GagspeakShared.Models.UserPatternLikes", b =>
+                {
+                    b.Property<string>("UserUID")
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("user_uid");
+
+                    b.Property<Guid>("PatternEntryId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("pattern_entry_id");
+
+                    b.HasKey("UserUID", "PatternEntryId")
+                        .HasName("pk_user_pattern_likes");
+
+                    b.HasIndex("PatternEntryId")
+                        .HasDatabaseName("ix_user_pattern_likes_pattern_entry_id");
+
+                    b.ToTable("user_pattern_likes", (string)null);
+                });
+
             modelBuilder.Entity("GagspeakShared.Models.UserProfileData", b =>
                 {
                     b.Property<string>("UserUID")
@@ -780,22 +1048,155 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("text")
                         .HasColumnName("base64profile_pic");
 
+                    b.Property<int>("BlockedSlotBorder")
+                        .HasColumnType("integer")
+                        .HasColumnName("blocked_slot_border");
+
+                    b.Property<int>("BlockedSlotOverlay")
+                        .HasColumnType("integer")
+                        .HasColumnName("blocked_slot_overlay");
+
+                    b.Property<int>("BlockedSlotsBackground")
+                        .HasColumnType("integer")
+                        .HasColumnName("blocked_slots_background");
+
+                    b.Property<int>("BlockedSlotsBorder")
+                        .HasColumnType("integer")
+                        .HasColumnName("blocked_slots_border");
+
+                    b.Property<int>("BlockedSlotsOverlay")
+                        .HasColumnType("integer")
+                        .HasColumnName("blocked_slots_overlay");
+
+                    b.Property<int>("ChosenTitleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("chosen_title_id");
+
+                    b.Property<int>("CompletedAchievementsTotal")
+                        .HasColumnType("integer")
+                        .HasColumnName("completed_achievements_total");
+
+                    b.Property<int>("DescriptionBackground")
+                        .HasColumnType("integer")
+                        .HasColumnName("description_background");
+
+                    b.Property<int>("DescriptionBorder")
+                        .HasColumnType("integer")
+                        .HasColumnName("description_border");
+
+                    b.Property<int>("DescriptionOverlay")
+                        .HasColumnType("integer")
+                        .HasColumnName("description_overlay");
+
                     b.Property<bool>("FlaggedForReport")
                         .HasColumnType("boolean")
                         .HasColumnName("flagged_for_report");
+
+                    b.Property<int>("GagSlotBackground")
+                        .HasColumnType("integer")
+                        .HasColumnName("gag_slot_background");
+
+                    b.Property<int>("GagSlotBorder")
+                        .HasColumnType("integer")
+                        .HasColumnName("gag_slot_border");
+
+                    b.Property<int>("GagSlotOverlay")
+                        .HasColumnType("integer")
+                        .HasColumnName("gag_slot_overlay");
+
+                    b.Property<int>("PadlockBackground")
+                        .HasColumnType("integer")
+                        .HasColumnName("padlock_background");
+
+                    b.Property<int>("PadlockBorder")
+                        .HasColumnType("integer")
+                        .HasColumnName("padlock_border");
+
+                    b.Property<int>("PadlockOverlay")
+                        .HasColumnType("integer")
+                        .HasColumnName("padlock_overlay");
+
+                    b.Property<int>("PlateBackground")
+                        .HasColumnType("integer")
+                        .HasColumnName("plate_background");
+
+                    b.Property<int>("PlateBorder")
+                        .HasColumnType("integer")
+                        .HasColumnName("plate_border");
 
                     b.Property<bool>("ProfileDisabled")
                         .HasColumnType("boolean")
                         .HasColumnName("profile_disabled");
 
+                    b.Property<bool>("ProfileIsPublic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("profile_is_public");
+
+                    b.Property<int>("ProfilePictureBorder")
+                        .HasColumnType("integer")
+                        .HasColumnName("profile_picture_border");
+
+                    b.Property<int>("ProfilePictureOverlay")
+                        .HasColumnType("integer")
+                        .HasColumnName("profile_picture_overlay");
+
                     b.Property<string>("UserDescription")
                         .HasColumnType("text")
                         .HasColumnName("user_description");
+
+                    b.Property<int>("WarningStrikeCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("warning_strike_count");
 
                     b.HasKey("UserUID")
                         .HasName("pk_user_profile_data");
 
                     b.ToTable("user_profile_data", (string)null);
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.UserProfileDataReport", b =>
+                {
+                    b.Property<int>("ReportID")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("report_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ReportID"));
+
+                    b.Property<string>("ReportReason")
+                        .HasColumnType("text")
+                        .HasColumnName("report_reason");
+
+                    b.Property<DateTime>("ReportTime")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("report_time");
+
+                    b.Property<string>("ReportedBase64Picture")
+                        .HasColumnType("text")
+                        .HasColumnName("reported_base64picture");
+
+                    b.Property<string>("ReportedDescription")
+                        .HasColumnType("text")
+                        .HasColumnName("reported_description");
+
+                    b.Property<string>("ReportedUserUID")
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("reported_user_uid");
+
+                    b.Property<string>("ReportingUserUID")
+                        .HasColumnType("character varying(10)")
+                        .HasColumnName("reporting_user_uid");
+
+                    b.HasKey("ReportID")
+                        .HasName("pk_user_profile_data_reports");
+
+                    b.HasIndex("ReportedUserUID")
+                        .HasDatabaseName("ix_user_profile_data_reports_reported_user_uid");
+
+                    b.HasIndex("ReportingUserUID")
+                        .HasDatabaseName("ix_user_profile_data_reports_reporting_user_uid");
+
+                    b.ToTable("user_profile_data_reports", (string)null);
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.AccountClaimAuth", b =>
@@ -888,6 +1289,27 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GagspeakShared.Models.PatternEntryTag", b =>
+                {
+                    b.HasOne("GagspeakShared.Models.PatternEntry", "PatternEntry")
+                        .WithMany("PatternEntryTags")
+                        .HasForeignKey("PatternEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_pattern_entry_tags_patterns_pattern_entry_id");
+
+                    b.HasOne("GagspeakShared.Models.PatternTag", "Tag")
+                        .WithMany("PatternEntryTags")
+                        .HasForeignKey("TagName")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_pattern_entry_tags_pattern_tags_tag_name");
+
+                    b.Navigation("PatternEntry");
+
+                    b.Navigation("Tag");
+                });
+
             modelBuilder.Entity("GagspeakShared.Models.PrivateRoom", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "Host")
@@ -919,6 +1341,30 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("PrivateRoomUser");
                 });
 
+            modelBuilder.Entity("GagspeakShared.Models.UserAchievementData", b =>
+                {
+                    b.HasOne("GagspeakShared.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserUID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_achievement_data_users_user_uid");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.UserActiveStateData", b =>
+                {
+                    b.HasOne("GagspeakShared.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserUID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_active_state_data_users_user_uid");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("GagspeakShared.Models.UserGagAppearanceData", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "User")
@@ -943,6 +1389,27 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("GagspeakShared.Models.UserPatternLikes", b =>
+                {
+                    b.HasOne("GagspeakShared.Models.PatternEntry", "PatternEntry")
+                        .WithMany("UserPatternLikes")
+                        .HasForeignKey("PatternEntryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_pattern_likes_patterns_pattern_entry_id");
+
+                    b.HasOne("GagspeakShared.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserUID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_user_pattern_likes_users_user_uid");
+
+                    b.Navigation("PatternEntry");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("GagspeakShared.Models.UserProfileData", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "User")
@@ -953,6 +1420,35 @@ namespace GagSpeakShared.Migrations
                         .HasConstraintName("fk_user_profile_data_users_user_uid");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.UserProfileDataReport", b =>
+                {
+                    b.HasOne("GagspeakShared.Models.User", "ReportedUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedUserUID")
+                        .HasConstraintName("fk_user_profile_data_reports_users_reported_user_uid");
+
+                    b.HasOne("GagspeakShared.Models.User", "ReportingUser")
+                        .WithMany()
+                        .HasForeignKey("ReportingUserUID")
+                        .HasConstraintName("fk_user_profile_data_reports_users_reporting_user_uid");
+
+                    b.Navigation("ReportedUser");
+
+                    b.Navigation("ReportingUser");
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.PatternEntry", b =>
+                {
+                    b.Navigation("PatternEntryTags");
+
+                    b.Navigation("UserPatternLikes");
+                });
+
+            modelBuilder.Entity("GagspeakShared.Models.PatternTag", b =>
+                {
+                    b.Navigation("PatternEntryTags");
                 });
 #pragma warning restore 612, 618
         }
