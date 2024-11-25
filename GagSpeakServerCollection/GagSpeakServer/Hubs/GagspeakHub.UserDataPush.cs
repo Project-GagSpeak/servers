@@ -38,7 +38,7 @@ public partial class GagspeakHub
         }
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataComposite(new(new UserData(UserUID), dto.CompositeData, DataUpdateKind.FullDataUpdate)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataComposite(new(new UserData(UserUID), dto.CompositeData)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataComposite);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataCompositeTo, recipientUids.Count);
@@ -60,7 +60,7 @@ public partial class GagspeakHub
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
         // fetch the new Dto to send (with Client Caller's userData as the attached User) to other paired clients.
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataIpc(new OnlineUserCharaIpcDataDto(new UserData(UserUID), dto.IPCData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataIpc(new OnlineUserCharaIpcDataDto(new UserData(UserUID), dto.IpcData, dto.Type)).ConfigureAwait(false);
 
         // update metrics.
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpc);
@@ -90,38 +90,27 @@ public partial class GagspeakHub
             return;
         }
 
-        NewState requestedState = dto.UpdateKind.ToNewState();
-        GagLayer requestLayer = dto.UpdateKind.ToSlot();
-
-        switch (dto.UpdateKind)
+        switch (dto.Type)
         {
-            case DataUpdateKind.AppearanceGagAppliedLayerOne:
-            case DataUpdateKind.AppearanceGagAppliedLayerTwo:
-            case DataUpdateKind.AppearanceGagAppliedLayerThree:
-                curGagData.UpdateGagState(requestLayer, dto.AppearanceData.GagSlots[(int)requestLayer].GagType.ToGagType());
+            case GagUpdateType.GagApplied:
+                curGagData.UpdateGagState(dto.UpdatedLayer, dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer].GagType.ToGagType());
                 break;
 
-            case DataUpdateKind.AppearanceGagLockedLayerOne:
-            case DataUpdateKind.AppearanceGagLockedLayerTwo:
-            case DataUpdateKind.AppearanceGagLockedLayerThree:
-                var slotData = dto.AppearanceData.GagSlots[(int)requestLayer];
-                curGagData.GagLockUpdate(requestLayer, slotData.Padlock.ToPadlock(), slotData.Password, slotData.Assigner, slotData.Timer);
+            case GagUpdateType.GagLocked:
+                var slotData = dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer];
+                curGagData.GagLockUpdate(dto.UpdatedLayer, slotData.Padlock.ToPadlock(), slotData.Password, slotData.Assigner, slotData.Timer);
                 break;
 
-            case DataUpdateKind.AppearanceGagUnlockedLayerOne:
-            case DataUpdateKind.AppearanceGagUnlockedLayerTwo:
-            case DataUpdateKind.AppearanceGagUnlockedLayerThree:
-                curGagData.GagUnlockUpdate(requestLayer);
+            case GagUpdateType.GagUnlocked:
+                curGagData.GagUnlockUpdate(dto.UpdatedLayer);
                 break;
 
             // for removal, throw if gag is locked, or if GagFeatures not allowed.
-            case DataUpdateKind.AppearanceGagRemovedLayerOne:
-            case DataUpdateKind.AppearanceGagRemovedLayerTwo:
-            case DataUpdateKind.AppearanceGagRemovedLayerThree:
-                curGagData.UpdateGagState(requestLayer, GagType.None);
+            case GagUpdateType.GagRemoved:
+                curGagData.UpdateGagState(dto.UpdatedLayer, GagType.None);
                 break;
 
-            case DataUpdateKind.Safeword:
+            case GagUpdateType.Safeword:
                 // clear the appearance data for all gags.
                 foreach (GagLayer layer in Enum.GetValues(typeof(GagLayer)))
                 {
@@ -131,8 +120,8 @@ public partial class GagspeakHub
                 break;
 
             default:
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Appearance Data: " + dto.UpdateKind).ConfigureAwait(false);
-                _logger.LogWarning("Invalid UpdateKind for Appearance Data: " + dto.UpdateKind);
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Appearance Data: " + dto.Type).ConfigureAwait(false);
+                _logger.LogWarning("Invalid UpdateKind for Appearance Data: " + dto.Type);
                 return;
         }
 
@@ -142,8 +131,8 @@ public partial class GagspeakHub
 
         var newAppearance = curGagData.ToApiAppearanceData();
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataAppearance(new(new(UserUID), newAppearance, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearance, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataAppearance(new(new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearanceTo, recipientUids.Count);
@@ -171,9 +160,9 @@ public partial class GagspeakHub
             return;
         }
 
-        switch (dto.UpdateKind)
+        switch (dto.Type)
         {
-            case DataUpdateKind.FullDataUpdate:
+            case WardrobeUpdateType.FullDataUpdate:
                 userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
                 userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 userActiveState.ActiveSetPadLock = dto.WardrobeData.Padlock;
@@ -182,12 +171,12 @@ public partial class GagspeakHub
                 userActiveState.ActiveSetLockAssigner = dto.WardrobeData.Assigner;
                 break;
 
-            case DataUpdateKind.WardrobeRestraintApplied:
+            case WardrobeUpdateType.RestraintApplied:
                 userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
                 userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
-            case DataUpdateKind.WardrobeRestraintLocked:
+            case WardrobeUpdateType.RestraintLocked:
                 userActiveState.RestraintLockUpdate(
                     dto.WardrobeData.Padlock.ToPadlock(), 
                     dto.WardrobeData.Password, 
@@ -195,28 +184,28 @@ public partial class GagspeakHub
                     dto.WardrobeData.Timer);
                 break;
 
-            case DataUpdateKind.WardrobeRestraintUnlocked:
+            case WardrobeUpdateType.RestraintUnlocked:
                 userActiveState.RestraintUnlockUpdate();
                 break;
 
-            case DataUpdateKind.WardrobeRestraintDisabled:
+            case WardrobeUpdateType.RestraintDisabled:
                 userActiveState.ActiveSetId = Guid.Empty;
                 userActiveState.ActiveSetEnabler = string.Empty;
                 break;
 
-            case DataUpdateKind.CursedItemApplied:
-            case DataUpdateKind.CursedItemRemoved:
+            case WardrobeUpdateType.CursedItemApplied:
+            case WardrobeUpdateType.CursedItemRemoved:
                 break;
 
-            case DataUpdateKind.Safeword:
+            case WardrobeUpdateType.Safeword:
                 userActiveState.ActiveSetId = Guid.Empty;
                 userActiveState.ActiveSetEnabler = string.Empty;
                 userActiveState.RestraintUnlockUpdate();
                 break;
 
             default:
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Wardrobe Data: " + dto.UpdateKind).ConfigureAwait(false);
-                _logger.LogWarning("Invalid UpdateKind for Wardrobe Data: " + dto.UpdateKind);
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Wardrobe Data: " + dto.Type).ConfigureAwait(false);
+                _logger.LogWarning("Invalid UpdateKind for Wardrobe Data: " + dto.Type);
                 return;
         }
 
@@ -226,8 +215,8 @@ public partial class GagspeakHub
 
         var newWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOwnDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, recipientUids.Count);
@@ -253,8 +242,8 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        await Clients.User(recipientUid).Client_UserReceiveOtherDataAlias(new(new(UserUID), dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataAlias(new(dto.RecipientUser, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false); // don't see why we need it, remove if excess overhead in the end.
+        await Clients.User(recipientUid).Client_UserReceiveOtherDataAlias(new(new(UserUID), dto.AliasData, dto.Type)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOwnDataAlias(new(dto.RecipientUser, dto.AliasData, dto.Type)).ConfigureAwait(false); // don't see why we need it, remove if excess overhead in the end.
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAlias);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAliasTo, 2);
@@ -276,7 +265,7 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataToybox(new(new(UserUID), dto.PatternInfo, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveOtherDataToybox(new(new(UserUID), dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
         // could also send back data to caller if need be, but no real reason for that at the moment ? (maybe could remove it from others too? Idk
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, recipientUids.Count);
@@ -349,59 +338,47 @@ public partial class GagspeakHub
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
-        // get the data summarized.
-        NewState requestedState = dto.UpdateKind.ToNewState();
-        GagLayer requestLayer = dto.UpdateKind.ToSlot();
-
-        switch (dto.UpdateKind)
+        switch (dto.Type)
         {
-            case DataUpdateKind.AppearanceGagAppliedLayerOne:
-            case DataUpdateKind.AppearanceGagAppliedLayerTwo:
-            case DataUpdateKind.AppearanceGagAppliedLayerThree:
-                if (!DataUpdateHelpers.CanApplyGag(currentAppearanceData, requestLayer)) {
+            case GagUpdateType.GagApplied:
+                if (!DataUpdateHelpers.CanApplyGag(currentAppearanceData, dto.UpdatedLayer)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Slot One is already Locked & cant be replaced occupied!").ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.UpdateGagState(requestLayer, dto.AppearanceData.GagSlots[(int)requestLayer].GagType.ToGagType());
+                currentAppearanceData.UpdateGagState(dto.UpdatedLayer, dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer].GagType.ToGagType());
                 break;
 
-            case DataUpdateKind.AppearanceGagLockedLayerOne:
-            case DataUpdateKind.AppearanceGagLockedLayerTwo:
-            case DataUpdateKind.AppearanceGagLockedLayerThree:
-                if (!DataUpdateHelpers.CanLockGag(currentAppearanceData, pairPermissions, requestLayer, out string ErrorMsg)) {
+            case GagUpdateType.GagLocked:
+                if (!DataUpdateHelpers.CanLockGag(currentAppearanceData, pairPermissions, dto.UpdatedLayer, out string ErrorMsg)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, ErrorMsg).ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.GagLockUpdate(requestLayer,
-                    dto.AppearanceData.GagSlots[(int)requestLayer].Padlock.ToPadlock(),
-                    dto.AppearanceData.GagSlots[(int)requestLayer].Password,
-                    dto.AppearanceData.GagSlots[(int)requestLayer].Assigner,
-                    dto.AppearanceData.GagSlots[(int)requestLayer].Timer);
+                currentAppearanceData.GagLockUpdate(dto.UpdatedLayer,
+                    dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer].Padlock.ToPadlock(),
+                    dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer].Password,
+                    dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer].Assigner,
+                    dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer].Timer);
                 break;
 
-            case DataUpdateKind.AppearanceGagUnlockedLayerOne:
-            case DataUpdateKind.AppearanceGagUnlockedLayerTwo:
-            case DataUpdateKind.AppearanceGagUnlockedLayerThree:
-                if (!DataUpdateHelpers.CanUnlockGag(currentAppearanceData, pairPermissions, dto.AppearanceData.GagSlots[(int)requestLayer], requestLayer, out string unlockError)) {
+            case GagUpdateType.GagUnlocked:
+                if (!DataUpdateHelpers.CanUnlockGag(currentAppearanceData, pairPermissions, dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer], dto.UpdatedLayer, out string unlockError)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, unlockError).ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.GagUnlockUpdate(requestLayer);
+                currentAppearanceData.GagUnlockUpdate(dto.UpdatedLayer);
                 break;
 
             // for removal, throw if gag is locked, or if GagFeatures not allowed.
-            case DataUpdateKind.AppearanceGagRemovedLayerOne:
-            case DataUpdateKind.AppearanceGagRemovedLayerTwo:
-            case DataUpdateKind.AppearanceGagRemovedLayerThree:
-                if (currentAppearanceData.CanRemoveGag(requestLayer)) {
+            case GagUpdateType.GagRemoved:
+                if (currentAppearanceData.CanRemoveGag(dto.UpdatedLayer)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "This Slot cannot be removed, it's currently locked!").ConfigureAwait(false);
                 }
-                currentAppearanceData.UpdateGagState(requestLayer, GagType.None);
+                currentAppearanceData.UpdateGagState(dto.UpdatedLayer, GagType.None);
                 break;
 
             default:
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Appearance Data: " + dto.UpdateKind).ConfigureAwait(false);
-                _logger.LogWarning("Invalid UpdateKind for Appearance Data: " + dto.UpdateKind);
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Appearance Data: " + dto.Type).ConfigureAwait(false);
+                _logger.LogWarning("Invalid UpdateKind for Appearance Data: " + dto.Type);
                 return;
         }
 
@@ -411,8 +388,8 @@ public partial class GagspeakHub
 
         var newAppearanceData = currentAppearanceData.ToApiAppearanceData();
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataAppearance(new(new(dto.User.UID), newAppearanceData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataAppearance(new(new(dto.User.UID), newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock)).ConfigureAwait(false);
 
         // Inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
@@ -452,9 +429,9 @@ public partial class GagspeakHub
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
-        switch (dto.UpdateKind)
+        switch (dto.Type)
         {
-            case DataUpdateKind.WardrobeRestraintApplied:
+            case WardrobeUpdateType.RestraintApplied:
                 if (!pairPermissions.ApplyRestraintSets) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to use WardrobeApplying on them!").ConfigureAwait(false);
                     return;
@@ -467,7 +444,7 @@ public partial class GagspeakHub
                 userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
                 break;
 
-            case DataUpdateKind.WardrobeRestraintLocked:
+            case WardrobeUpdateType.RestraintLocked:
                 if (!DataUpdateHelpers.CanLockRestraint(userActiveState, pairPermissions, dto.WardrobeData, out string lockError))
                 {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, lockError).ConfigureAwait(false);
@@ -481,7 +458,7 @@ public partial class GagspeakHub
                     dto.WardrobeData.Timer);
                 break;
 
-            case DataUpdateKind.WardrobeRestraintUnlocked:
+            case WardrobeUpdateType.RestraintUnlocked:
                 if (!DataUpdateHelpers.CanUnlockRestraint(userActiveState, pairPermissions, dto.WardrobeData, out string unlockError))
                 {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, unlockError).ConfigureAwait(false);
@@ -490,7 +467,7 @@ public partial class GagspeakHub
                 userActiveState.RestraintUnlockUpdate();
                 break;
 
-            case DataUpdateKind.WardrobeRestraintDisabled:
+            case WardrobeUpdateType.RestraintDisabled:
                 if (userActiveState.ActiveSetId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active set to remove!").ConfigureAwait(false);
                     return;
@@ -502,8 +479,8 @@ public partial class GagspeakHub
                 userActiveState.ActiveSetId = Guid.Empty;
                 break;
 
-            case DataUpdateKind.CursedItemApplied:
-            case DataUpdateKind.CursedItemRemoved:
+            case WardrobeUpdateType.CursedItemApplied:
+            case WardrobeUpdateType.CursedItemRemoved:
                 break;
 
             default:
@@ -516,8 +493,8 @@ public partial class GagspeakHub
 
         var updatedWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(new(new(UserUID), updatedWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataWardrobe(new(dto.User, updatedWardrobeData, new(UserUID), dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(new(new(UserUID), updatedWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataWardrobe(new(dto.User, updatedWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, allOnlinePairsOfAffectedPairUids.Count);
@@ -536,14 +513,14 @@ public partial class GagspeakHub
         if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // ensure that the update kind of to change the registered names. If it is not, throw exception.
-        if (dto.UpdateKind != DataUpdateKind.PuppeteerPlayerNameRegistered) throw new Exception("Invalid UpdateKind for Pair Alias Data!");
+        if (dto.Type is not PuppeteerUpdateType.PlayerNameRegistered) throw new Exception("Invalid UpdateKind for Pair Alias Data!");
 
         // in our dto, we have the PAIR WE ARE PROVIDING OUR NAME TO as the user-data, with our name info inside.
         // so when we construct the message to update the client's OWN data, we need to place the client callers name info inside.
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAlias(new(new UserData(UserUID), dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAlias(new(new UserData(UserUID), dto.AliasData, dto.Type)).ConfigureAwait(false);
 
         // when we push the update back to our client caller, we must inform them that the client callers name was updated.
-        await Clients.Caller.Client_UserReceiveOtherDataAlias(new(dto.User, dto.AliasData, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveOtherDataAlias(new(dto.User, dto.AliasData, dto.Type)).ConfigureAwait(false);
     }
 
     public async Task UserPushPairDataToyboxUpdate(OnlineUserCharaToyboxDataDto dto)
@@ -573,29 +550,29 @@ public partial class GagspeakHub
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
-        switch (dto.UpdateKind)
+        switch (dto.Type)
         {
-            case DataUpdateKind.ToyboxPatternExecuted:
+            case ToyboxUpdateType.PatternExecuted:
                 if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to execute Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
                 break;
-            case DataUpdateKind.ToyboxPatternStopped:
+            case ToyboxUpdateType.PatternStopped:
                 if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to stop Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
                 break;
 
-            case DataUpdateKind.ToyboxAlarmToggled:
+            case ToyboxUpdateType.AlarmToggled:
                 if (!pairPermissions.CanToggleAlarms || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle Alarms, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
                 }
                 break;
 
-            case DataUpdateKind.ToyboxTriggerToggled:
+            case ToyboxUpdateType.TriggerToggled:
                 if (!pairPermissions.CanToggleTriggers || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle triggers, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
                     return;
@@ -605,8 +582,8 @@ public partial class GagspeakHub
                 throw new Exception("Invalid UpdateKind for Toybox Data!");
         }
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataToybox(new(new(UserUID), dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataToybox(new(dto.User, dto.ToyboxInfo, dto.UpdateKind)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataToybox(new(new(UserUID), dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataToybox(new(dto.User, dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, allOnlinePairsOfAffectedPairUids.Count);
