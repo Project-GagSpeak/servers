@@ -62,6 +62,7 @@ public partial class AccountWizard
         // construct a new user to the DB, set to have logged in right now.
         User newUser = new()
         {
+            CreatedDate = DateTime.UtcNow,
             LastLoggedIn = DateTime.UtcNow,
             VanityTier = primaryUser.VanityTier
         };

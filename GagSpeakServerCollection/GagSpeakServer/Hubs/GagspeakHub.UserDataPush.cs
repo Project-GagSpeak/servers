@@ -38,7 +38,7 @@ public partial class GagspeakHub
         }
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveCharacterDataComposite(new(new UserData(UserUID), dto.CompositeData)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveDataComposite(new(new(UserUID), dto.CompositeData)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataComposite);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataCompositeTo, recipientUids.Count);
@@ -60,7 +60,7 @@ public partial class GagspeakHub
 
         _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
         // fetch the new Dto to send (with Client Caller's userData as the attached User) to other paired clients.
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataIpc(new OnlineUserCharaIpcDataDto(new UserData(UserUID), dto.IpcData, dto.Type)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveDataIpc(new(new(UserUID), new(UserUID), dto.IpcData, dto.Type)).ConfigureAwait(false);
 
         // update metrics.
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpc);
@@ -131,8 +131,8 @@ public partial class GagspeakHub
 
         var newAppearance = curGagData.ToApiAppearanceData();
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataAppearance(new(new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveDataAppearance(new(new(UserUID), new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataAppearance(new(new(UserUID), new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearanceTo, recipientUids.Count);
@@ -215,8 +215,8 @@ public partial class GagspeakHub
 
         var newWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataWardrobe(new(new(UserUID), newWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, recipientUids.Count);
@@ -242,8 +242,8 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        await Clients.User(recipientUid).Client_UserReceiveOtherDataAlias(new(new(UserUID), dto.AliasData, dto.Type)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveOwnDataAlias(new(dto.RecipientUser, dto.AliasData, dto.Type)).ConfigureAwait(false); // don't see why we need it, remove if excess overhead in the end.
+        await Clients.User(recipientUid).Client_UserReceiveDataAlias(new(new(UserUID), new(UserUID), dto.AliasData, dto.Type)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataAlias(new(dto.RecipientUser, new(UserUID), dto.AliasData, dto.Type)).ConfigureAwait(false); // don't see why we need it, remove if excess overhead in the end.
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAlias);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAliasTo, 2);
@@ -265,7 +265,7 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherDataToybox(new(new(UserUID), dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveDataToybox(new(new(UserUID), new(UserUID), dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
         // could also send back data to caller if need be, but no real reason for that at the moment ? (maybe could remove it from others too? Idk
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, recipientUids.Count);
@@ -274,7 +274,7 @@ public partial class GagspeakHub
     /// <summary> 
     /// Called by a connected client that desires to push the latest updates for their character's ToyboxData 
     /// </summary>
-    public async Task UserPushDataLightStorage(UserCharaStorageUpdateDto dto)
+    public async Task UserPushDataLightStorage(UserCharaLightStorageMessageDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -287,7 +287,7 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        await Clients.Users(recipientUids).Client_UserReceiveOtherLightStorage(new(new(UserUID), dto.LightStorage)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveLightStorage(new(new(UserUID), new(UserUID), dto.LightStorage)).ConfigureAwait(false);
         // could also send back data to caller if need be, but no real reason for that at the moment ? (maybe could remove it from others too? Idk
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, recipientUids.Count);
@@ -388,8 +388,8 @@ public partial class GagspeakHub
 
         var newAppearanceData = currentAppearanceData.ToApiAppearanceData();
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAppearance(new(new(UserUID), newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataAppearance(new(new(dto.User.UID), newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveDataAppearance(new(new(UserUID), dto.Enactor, newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataAppearance(new(dto.User, dto.Enactor, newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock)).ConfigureAwait(false);
 
         // Inc the metrics
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataAppearance);
@@ -493,8 +493,8 @@ public partial class GagspeakHub
 
         var updatedWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataWardrobe(new(new(UserUID), updatedWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataWardrobe(new(dto.User, updatedWardrobeData, new(UserUID), dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveDataWardrobe(new(new(UserUID), dto.Enactor, updatedWardrobeData, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataWardrobe(new(dto.User, dto.Enactor, updatedWardrobeData, dto.Type, dto.PreviousLock)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobe);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataWardrobeTo, allOnlinePairsOfAffectedPairUids.Count);
@@ -517,10 +517,10 @@ public partial class GagspeakHub
 
         // in our dto, we have the PAIR WE ARE PROVIDING OUR NAME TO as the user-data, with our name info inside.
         // so when we construct the message to update the client's OWN data, we need to place the client callers name info inside.
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataAlias(new(new UserData(UserUID), dto.AliasData, dto.Type)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveDataAlias(new(new(UserUID), dto.Enactor, dto.AliasData, dto.Type)).ConfigureAwait(false);
 
         // when we push the update back to our client caller, we must inform them that the client callers name was updated.
-        await Clients.Caller.Client_UserReceiveOtherDataAlias(new(dto.User, dto.AliasData, dto.Type)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataAlias(new(dto.User, dto.Enactor, dto.AliasData, dto.Type)).ConfigureAwait(false);
     }
 
     public async Task UserPushPairDataToyboxUpdate(OnlineUserCharaToyboxDataDto dto)
@@ -582,8 +582,8 @@ public partial class GagspeakHub
                 throw new Exception("Invalid UpdateKind for Toybox Data!");
         }
 
-        await Clients.User(dto.User.UID).Client_UserReceiveOwnDataToybox(new(new(UserUID), dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveOtherDataToybox(new(dto.User, dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveDataToybox(new(new(UserUID), dto.Enactor, dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataToybox(new(dto.User, dto.Enactor, dto.ToyboxInfo, dto.Type)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, allOnlinePairsOfAffectedPairUids.Count);

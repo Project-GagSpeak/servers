@@ -198,8 +198,7 @@ public partial class GagspeakHub
         // send push with update to other user if other user is online
 
         // send the push update to the other user informing them to update the permissions of the client caller in bulk.
-        await Clients.User(otherUser.UID).Client_UserUpdateOtherAllPairPerms(
-            new UserPairUpdateAllPermsDto(user.ToUserData(), ownGlobalPerms, ownPairPerms, ownAccessPerms, false)).ConfigureAwait(false);
+        await Clients.User(otherUser.UID).Client_UserUpdateAllPerms(new(user.ToUserData(), new(UserUID), ownGlobalPerms, ownPairPerms, ownAccessPerms)).ConfigureAwait(false);
 
         // and then also request them to update the individual pairing status.
         await Clients.User(otherUser.UID)

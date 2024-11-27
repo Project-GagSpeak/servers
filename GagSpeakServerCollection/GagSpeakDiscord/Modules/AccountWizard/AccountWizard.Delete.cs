@@ -1,5 +1,6 @@
 using Discord;
 using Discord.Interactions;
+using GagspeakShared.Utils;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -85,6 +86,7 @@ public partial class AccountWizard
 
                 using var db = GetDbContext();
                 var user = db.Users.Single(u => u.UID == uid);
+                await SharedDbFunctions.PurgeUser(_logger, user, db).ConfigureAwait(false);
 
                 EmbedBuilder eb = new();
                 eb.WithTitle($"Account {uid} successfully deleted");
