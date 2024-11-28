@@ -559,8 +559,8 @@ public partial class GagspeakHub
                 }
                 break;
             case ToyboxUpdateType.PatternStopped:
-                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to stop Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
+                if (!pairPermissions.CanExecutePatterns) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to stop Patterns!").ConfigureAwait(false);
                     return;
                 }
                 break;
