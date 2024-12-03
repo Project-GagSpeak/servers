@@ -583,7 +583,7 @@ public partial class GagspeakHub
         }
 
         await Clients.User(dto.User.UID).Client_UserReceiveDataToybox(new(new(UserUID), dto.Enactor, dto.ToyboxInfo, dto.Type, UpdateDir.Own)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataToybox(new(dto.User, dto.Enactor, dto.ToyboxInfo, dto.Type, UpdateDir.Own)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataToybox(new(dto.User, dto.Enactor, dto.ToyboxInfo, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToybox);
         _metrics.IncCounter(MetricsAPI.CounterUserPushDataToyboxTo, allOnlinePairsOfAffectedPairUids.Count);
