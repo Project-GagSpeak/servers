@@ -42,14 +42,14 @@ public class UserCleanupService : IHostedService
             using var scope = _services.CreateScope();
             using var dbContext = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
 
-            CleanUpOutdatedAccountAuths(dbContext);
-
             await PurgeUnusedAccounts(dbContext).ConfigureAwait(false);
 
             await CleanUpOldRooms(dbContext).ConfigureAwait(false);
 
             await ResetUploadCounters(dbContext).ConfigureAwait(false);
 
+            CleanUpOutdatedAccountAuths(dbContext);
+            CleanupOutdatedPairRequests(dbContext);
 
             dbContext.SaveChanges();
 
@@ -120,7 +120,6 @@ public class UserCleanupService : IHostedService
         }
     }
 
-
     private async Task PurgeUnusedAccounts(GagspeakDbContext dbContext)
     {
         try
@@ -153,6 +152,22 @@ public class UserCleanupService : IHostedService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error during user purge");
+        }
+    }
+
+    private void CleanupOutdatedPairRequests(GagspeakDbContext dbContext)
+    {
+        try
+        {
+            _logger.LogInformation("Cleaning up expired pair requests");
+
+            var expiredRequests = dbContext.KinksterPairRequests.Where(r => r.CreationTime < DateTime.UtcNow - TimeSpan.FromDays(3)).ToList();
+            _logger.LogInformation("Removing " + expiredRequests.Count + " expired pair requests");
+            dbContext.KinksterPairRequests.RemoveRange(expiredRequests);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error during pair request cleanup");
         }
     }
 

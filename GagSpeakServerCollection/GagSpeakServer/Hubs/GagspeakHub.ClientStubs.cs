@@ -28,7 +28,8 @@ namespace GagspeakServer.Hubs
 
         public Task Client_UserAddClientPair(UserPairDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserRemoveClientPair(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UpdateUserIndividualPairStatusDto(UserIndividualPairStatusDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserAddPairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserRemovePairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
 
         public Task Client_UserUpdateAllPerms(UserPairUpdateAllPermsDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateAllGlobalPerms(UserPairUpdateAllGlobalPermsDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");

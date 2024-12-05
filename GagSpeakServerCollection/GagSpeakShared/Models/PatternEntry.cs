@@ -22,14 +22,13 @@ public class PatternEntry
     [MaxLength(250)]
     public string Description { get; set; }
     public string Author { get; set; }
-    public ICollection<PatternEntryTag> PatternEntryTags { get; set; } = new List<PatternEntryTag>();
+    public ICollection<PatternKeyword> PatternKeywords { get; set; } = new List<PatternKeyword>();
     public int DownloadCount { get; set; } = 0;
-    public ICollection<UserPatternLikes> UserPatternLikes { get; set; } = new List<UserPatternLikes>();
+    public ICollection<LikesPatterns> UserPatternLikes { get; set; } = new List<LikesPatterns>();
     public bool ShouldLoop { get; set; }
     public TimeSpan Length { get; set; }
     public bool UsesVibrations { get; set; }
     public bool UsesRotations { get; set; }
-    public bool UsesOscillation { get; set; }
     public string Base64PatternData { get; set; }
 
     // Derived property to get the like count

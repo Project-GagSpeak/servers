@@ -76,14 +76,14 @@ public partial class GagspeakHub
 
         /////////////// Step 1: Check and add tags //////////////////
         // Get all existing tags from the database
-        var existingTags = await DbContext.PatternTags.Where(t => dto.patternInfo.Tags.Contains(t.Name)).ToListAsync().ConfigureAwait(false);
+        var existingTags = await DbContext.Keywords.Where(t => dto.patternInfo.Tags.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
-        var newTags = dto.patternInfo.Tags.Except(existingTags.Select(t => t.Name), StringComparer.Ordinal).ToList();
+        var newTags = dto.patternInfo.Tags.Except(existingTags.Select(t => t.Word), StringComparer.Ordinal).ToList();
         // Create and insert the new tags not yet in DB.
         foreach (var newTagName in newTags)
         {
-            var newTag = new PatternTag { Name = newTagName };
-            DbContext.PatternTags.Add(newTag);
+            var newTag = new Keyword { Word = newTagName };
+            DbContext.Keywords.Add(newTag);
             existingTags.Add(newTag);
         }
 
@@ -96,9 +96,9 @@ public partial class GagspeakHub
             Name = dto.patternInfo.Name,
             Description = dto.patternInfo.Description,
             Author = dto.patternInfo.Author,
-            PatternEntryTags = new List<PatternEntryTag>(),
+            PatternKeywords = new List<PatternKeyword>(),
             DownloadCount = 0,
-            UserPatternLikes = new List<UserPatternLikes>(),
+            UserPatternLikes = new List<LikesPatterns>(),
             ShouldLoop = dto.patternInfo.Looping,
             Length = dto.patternInfo.Length,
             Base64PatternData = dto.base64PatternData,
@@ -108,12 +108,12 @@ public partial class GagspeakHub
         ///////////// Step 3: Create and insert the new Pattern Entry Tags /////////////
         foreach (var tag in existingTags)
         {
-            var patternEntryTag = new PatternEntryTag
+            var patternEntryTag = new PatternKeyword
             {
                 PatternEntryId = newPatternEntry.Identifier,
-                TagName = tag.Name
+                KeywordWord = tag.Word
             };
-            DbContext.PatternEntryTags.Add(patternEntryTag);
+            DbContext.PatternKeywords.Add(patternEntryTag);
         }
 
         // Save the user with the new upload log
@@ -144,8 +144,8 @@ public partial class GagspeakHub
         }
 
         // Find and remove related PatternEntryTags
-        var patternEntryTags = await DbContext.PatternEntryTags.Where(pet => pet.PatternEntryId == patternId).ToListAsync().ConfigureAwait(false);
-        DbContext.PatternEntryTags.RemoveRange(patternEntryTags);
+        var patternEntryTags = await DbContext.PatternKeywords.Where(pet => pet.PatternEntryId == patternId).ToListAsync().ConfigureAwait(false);
+        DbContext.PatternKeywords.RemoveRange(patternEntryTags);
 
         // Remove the pattern
         DbContext.Patterns.Remove(pattern);
@@ -153,6 +153,30 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Pattern removed successfully.").ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> RemoveMoodle(Guid moodleId)
+    {
+        _logger.LogCallInfo();
+
+        // Ensure they are a valid user.
+        var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user is null) return false;
+
+        // Find the pattern by GUID and ensure it belongs to the user
+        var moodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == moodleId && p.PublisherUID == user.UID).ConfigureAwait(false);
+        if (moodle is null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern not found or it's not yours.").ConfigureAwait(false);
+            return false;
+        }
+
+        // Find and remove related keywords mapping from the Keywords table and the MoodleStautsId
+        var moodleKeywords = await DbContext.MoodleKeywords.Where(pet => pet.MoodleStatusId == moodleId).ToListAsync().ConfigureAwait(false);
+        DbContext.MoodleKeywords.RemoveRange(moodleKeywords);
+        DbContext.Moodles.Remove(moodle);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
         return true;
     }
 
@@ -179,50 +203,64 @@ public partial class GagspeakHub
         _logger.LogCallInfo();
         // Get the current user
         var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user == null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
-            return false;
-        }
-
+        if (user is null) return false;
         // Locate the pattern in the database by its GUID.
-        var pattern = await DbContext.Patterns
-            .SingleOrDefaultAsync(p => p.Identifier == patternId)
-            .ConfigureAwait(false);
-
-        if (pattern == null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern not found.").ConfigureAwait(false);
-            return false;
-        }
+        var pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId).ConfigureAwait(false);
+        if (pattern is null) return false;
 
         // Check if the user has already liked this pattern
-        var existingLike = await DbContext.UserPatternLikes
-            .AnyAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID)
-            .ConfigureAwait(false);
-
-        if (existingLike)
+        var existingLike = await DbContext.LikesPatterns.SingleAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID).ConfigureAwait(false);
+        if (existingLike is not null)
         {
             // User has already liked this pattern, so remove the like
-            var likeToRemove = await DbContext.UserPatternLikes
-                .SingleAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID)
-                .ConfigureAwait(false);
-            DbContext.UserPatternLikes.Remove(likeToRemove);
-            _logger.LogMessage("Pattern Unliked");
+            DbContext.LikesPatterns.Remove(existingLike);
         }
         else
         {
             // User has not liked this pattern, so add a new like
-            var userPatternLike = new UserPatternLikes
+            var userPatternLike = new LikesPatterns
             {
                 UserUID = user.UID,
                 User = user,
                 PatternEntryId = patternId,
                 PatternEntry = pattern
             };
-            DbContext.UserPatternLikes.Add(userPatternLike);
+            DbContext.LikesPatterns.Add(userPatternLike);
         }
+        // Save changes to the database
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        return true;
+    }
 
+    public async Task<bool> LikeMoodle(Guid moodleId)
+    {
+        _logger.LogCallInfo();
+        // Get the current user
+        var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user is null) return false;
+        // Locate the pattern in the database by its GUID.
+        var moodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == moodleId).ConfigureAwait(false);
+        if (moodle is null) return false;
+
+        // Check if the user has already liked this pattern
+        var existingLike = await DbContext.LikesMoodles.SingleAsync(upl => upl.MoodleStatusId == moodleId && upl.UserUID == user.UID).ConfigureAwait(false);
+        if (existingLike is not null)
+        {
+            // User has already liked this pattern, so remove the like
+            DbContext.LikesMoodles.Remove(existingLike);
+        }
+        else
+        {
+            // User has not liked this pattern, so add a new like
+            var userPatternLike = new LikesMoodles
+            {
+                UserUID = user.UID,
+                User = user,
+                MoodleStatusId = moodleId,
+                MoodleStatus = moodle
+            };
+            DbContext.LikesMoodles.Add(userPatternLike);
+        }
         // Save changes to the database
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
         return true;
@@ -241,7 +279,7 @@ public partial class GagspeakHub
 
         // Start with a base query, insure we include the sub-dependencies such as the tags and likes.
         IQueryable<PatternEntry> patternsQuery = DbContext.Patterns
-            .Include(p => p.PatternEntryTags).Include(p => p.UserPatternLikes).AsSplitQuery();
+            .Include(p => p.PatternKeywords).Include(p => p.UserPatternLikes).AsSplitQuery();
 
         // Apply search string filter if provided (be it pattern name or author name.)
         if (!string.IsNullOrEmpty(dto.SearchString))
@@ -254,7 +292,7 @@ public partial class GagspeakHub
 
         // Apply tag filters if provided
         if (dto.Tags != null && dto.Tags.Any())
-            patternsQuery = patternsQuery.Where(p => p.PatternEntryTags.Any(t => dto.Tags.Contains(t.TagName)));
+            patternsQuery = patternsQuery.Where(p => p.PatternKeywords.Any(t => dto.Tags.Contains(t.KeywordWord)));
 
         // finalize the filtered results against our filter and order for sorting.
         switch (dto.Filter)
@@ -328,7 +366,7 @@ public partial class GagspeakHub
             Name = p.Name,
             Description = p.Description,
             Author = p.Author,
-            Tags = p.PatternEntryTags.Select(t => t.TagName).ToList(),
+            Tags = p.PatternKeywords.Select(t => t.KeywordWord).ToList(),
             Downloads = p.DownloadCount,
             Likes = p.LikeCount,
             Looping = p.ShouldLoop,
@@ -336,7 +374,6 @@ public partial class GagspeakHub
             UploadedDate = p.TimePublished,
             UsesVibrations = p.UsesVibrations,
             UsesRotations = p.UsesRotations,
-            UsesOscillation = p.UsesOscillation,
             HasLiked = p.UserPatternLikes.Any(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal))
         }).ToList();
 

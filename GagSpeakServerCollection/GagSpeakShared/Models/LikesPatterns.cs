@@ -2,8 +2,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace GagspeakShared.Models;
 
-/// <summary> Keeps track of the patterns a User has liked. </summary>
-public class UserPatternLikes
+/// <summary> 
+/// Keeps track of the patterns a User has liked. 
+/// </summary>
+public class LikesPatterns
 {
     [Required]
     public string UserUID { get; set; }
