@@ -94,11 +94,13 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<Keyword>().ToTable("keywords");
         modelBuilder.Entity<Keyword>().HasIndex(c => c.Word).IsUnique();
         modelBuilder.Entity<PatternKeyword>().ToTable("pattern_keywords");
+        modelBuilder.Entity<PatternKeyword>().HasKey(pk => new { pk.PatternEntryId, pk.KeywordWord });
         modelBuilder.Entity<PatternKeyword>().HasOne(pk => pk.PatternEntry).WithMany(pe => pe.PatternKeywords).HasForeignKey(pk => pk.PatternEntryId);
         modelBuilder.Entity<PatternKeyword>().HasOne(pk => pk.Keyword).WithMany(k => k.PatternKeywords).HasForeignKey(pk => pk.KeywordWord);
         modelBuilder.Entity<PatternKeyword>().HasIndex(c => c.PatternEntryId);
         modelBuilder.Entity<PatternKeyword>().HasIndex(c => c.KeywordWord);
         modelBuilder.Entity<MoodleKeyword>().ToTable("moodle_keywords");
+        modelBuilder.Entity<MoodleKeyword>().HasKey(mk => new { mk.MoodleStatusId, mk.KeywordWord });
         modelBuilder.Entity<MoodleKeyword>().HasOne(mk => mk.MoodleStatus).WithMany(ms => ms.MoodleKeywords).HasForeignKey(mk => mk.MoodleStatusId);
         modelBuilder.Entity<MoodleKeyword>().HasOne(mk => mk.Keyword).WithMany(k => k.MoodleKeywords).HasForeignKey(mk => mk.KeywordWord);
         modelBuilder.Entity<MoodleKeyword>().HasIndex(c => c.MoodleStatusId);
