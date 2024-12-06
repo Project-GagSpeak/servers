@@ -284,7 +284,7 @@ public static class ClientPairPermissionExtensions
     #endregion PairPermissionMigrations
 
     #region PairPermissionAccessMigrations
-    public static GagspeakAPI.Data.Permissions.UserEditAccessPermissions ToApiUserPairEditAccessPerms(this ClientPairPermissionAccess pairAccessPermsModel)
+    public static GagspeakAPI.Data.Permissions.UserEditAccessPermissions ToApiUserPairEditAccessPerms(this ClientPairPermissionAccess? pairAccessPermsModel)
     {
         if (pairAccessPermsModel == null) return new GagspeakAPI.Data.Permissions.UserEditAccessPermissions();
 
