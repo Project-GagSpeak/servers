@@ -76,8 +76,10 @@ public partial class GagspeakHub
         DbContext.Users.Update(user);
 
         /////////////// Step 1: Check and add tags //////////////////
+        // ENSURE THE TAGS ARE LOWERCASE.
+        var uploadTagsLower = dto.patternInfo.Tags.Select(t => t.ToLowerInvariant()).ToList();
         // Get all existing tags from the database
-        var existingTags = await DbContext.Keywords.Where(t => dto.patternInfo.Tags.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
+        var existingTags = await DbContext.Keywords.Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
         var newTags = dto.patternInfo.Tags.Except(existingTags.Select(t => t.Word), StringComparer.Ordinal).ToList();
         // Create and insert the new tags not yet in DB.
