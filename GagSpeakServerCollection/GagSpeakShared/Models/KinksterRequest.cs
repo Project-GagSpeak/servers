@@ -22,5 +22,6 @@ public class KinksterRequest
     public User OtherUser { get; set; }         // The User object of the other user
 
     [Required]
-    public DateTime CreationTime { get; set; }   // timestamp when the pair was created
+    public DateTime CreationTime { get; set; } = DateTime.MinValue; // The time the request was created.
+    public string AttachedMessage { get; set; } = string.Empty; // A message attached to the request.
 }

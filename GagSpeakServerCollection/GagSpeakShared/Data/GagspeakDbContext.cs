@@ -107,8 +107,12 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<MoodleKeyword>().HasIndex(c => c.KeywordWord);
         modelBuilder.Entity<MoodleStatus>().ToTable("moodle_status");
         modelBuilder.Entity<MoodleStatus>().HasKey(ms => ms.Identifier);
+        modelBuilder.Entity<MoodleStatus>().HasIndex(ms => ms.Title);
+        modelBuilder.Entity<MoodleStatus>().HasIndex(ms => ms.Author);
         modelBuilder.Entity<PatternEntry>().ToTable("pattern_entry");
         modelBuilder.Entity<PatternEntry>().HasKey(pe => pe.Identifier);
+        modelBuilder.Entity<PatternEntry>().HasIndex(pe => pe.Name);
+        modelBuilder.Entity<PatternEntry>().HasIndex(pe => pe.Author);
         modelBuilder.Entity<LikesPatterns>().ToTable("likes_patterns");
         modelBuilder.Entity<LikesPatterns>().HasKey(upl => new { upl.UserUID, upl.PatternEntryId });
         modelBuilder.Entity<LikesMoodles>().ToTable("likes_moodles");

@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Data;
+﻿using GagspeakAPI;
+using GagspeakAPI.Data;
 using GagspeakAPI.Dto.Patterns;
 using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Enums;
@@ -111,6 +112,90 @@ public partial class GagspeakHub
             var patternEntryTag = new PatternKeyword
             {
                 PatternEntryId = newPatternEntry.Identifier,
+                KeywordWord = tag.Word
+            };
+            DbContext.PatternKeywords.Add(patternEntryTag);
+        }
+
+        // Save the user with the new upload log
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        return true;
+    }
+
+    public async Task<bool> UploadMoodle(MoodleUploadDto dto)
+    {
+        _logger.LogCallInfo();
+
+        // if the guid is empty, it's not a valid pattern.
+        if (dto.MoodleInfo.MoodleStatus.GUID == Guid.Empty)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Invalid Moodle Identifier.").ConfigureAwait(false);
+            return false;
+        }
+
+        // ensure the uploaing User is the userUID
+        if(!string.Equals(dto.Publisher.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You are not authorized to upload this moodle.").ConfigureAwait(false);
+            return false;
+        }
+
+        // Attempt to prevent reuploads and duplicate uploads.
+        var existingPattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == dto.MoodleInfo.MoodleStatus.GUID).ConfigureAwait(false);
+        if (existingPattern is not null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern already exists.").ConfigureAwait(false);
+            return false;
+        }
+
+        /////////////// Step 1: Check and add tags //////////////////
+        // Get all existing tags from the database
+        var existingTags = await DbContext.Keywords.Where(t => dto.MoodleInfo.Tags.Contains(t.Word.ToLowerInvariant())).ToListAsync().ConfigureAwait(false);
+        // Get the new tags that are not in the database
+        var newTags = dto.MoodleInfo.Tags.Except(existingTags.Select(t => t.Word.ToLowerInvariant()), StringComparer.Ordinal).ToList();
+        // Create and insert the new tags not yet in DB.
+        foreach (var newTagName in newTags)
+        {
+            var newTag = new Keyword { Word = newTagName };
+            DbContext.Keywords.Add(newTag);
+            existingTags.Add(newTag);
+        }
+
+        ///////////// Step 2: Create and insert the new Pattern Entry /////////////
+        MoodleStatus newMoodleEntry = new()
+        {
+            
+            Identifier = dto.MoodleInfo.MoodleStatus.GUID,
+            PublisherUID = UserUID,
+            TimePublished = DateTime.UtcNow,
+            Author = dto.MoodleInfo.Author,
+            MoodleKeywords = new List<MoodleKeyword>(),
+            // moodle information.
+            IconID = dto.MoodleInfo.MoodleStatus.IconID,
+            Title = dto.MoodleInfo.MoodleStatus.Title,
+            Description = dto.MoodleInfo.MoodleStatus.Description,
+            Type = dto.MoodleInfo.MoodleStatus.Type,
+            Dispelable = dto.MoodleInfo.MoodleStatus.Dispelable,
+            Stacks = dto.MoodleInfo.MoodleStatus.Stacks,
+            Persistent = dto.MoodleInfo.MoodleStatus.Persistent,
+            Days = dto.MoodleInfo.MoodleStatus.Days,
+            Hours = dto.MoodleInfo.MoodleStatus.Hours,
+            Minutes = dto.MoodleInfo.MoodleStatus.Minutes,
+            Seconds = dto.MoodleInfo.MoodleStatus.Seconds,
+            NoExpire = dto.MoodleInfo.MoodleStatus.NoExpire,
+            AsPermanent = dto.MoodleInfo.MoodleStatus.AsPermanent,
+            StatusOnDispell = dto.MoodleInfo.MoodleStatus.StatusOnDispell,
+            CustomVFXPath = dto.MoodleInfo.MoodleStatus.CustomVFXPath,
+            StackOnReapply = dto.MoodleInfo.MoodleStatus.StackOnReapply
+        };
+        DbContext.Moodles.Add(newMoodleEntry);
+
+        ///////////// Step 3: Create and insert the new Pattern Entry Tags /////////////
+        foreach (var tag in existingTags)
+        {
+            var patternEntryTag = new PatternKeyword
+            {
+                PatternEntryId = newMoodleEntry.Identifier,
                 KeywordWord = tag.Word
             };
             DbContext.PatternKeywords.Add(patternEntryTag);
@@ -278,82 +363,51 @@ public partial class GagspeakHub
         }
 
         // Start with a base query, insure we include the sub-dependencies such as the tags and likes.
-        IQueryable<PatternEntry> patternsQuery = DbContext.Patterns
-            .Include(p => p.PatternKeywords).Include(p => p.UserPatternLikes).AsSplitQuery();
+        IQueryable<PatternEntry> patternsQuery = DbContext.Patterns.AsQueryable();
 
-        // Apply search string filter if provided (be it pattern name or author name.)
+        // 1. Apply title or author / title filters
         if (!string.IsNullOrEmpty(dto.SearchString))
         {
-            if (dto.Filter == SearchFilter.Author)
-                patternsQuery = patternsQuery.Where(p => p.Author.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
-            else
-                patternsQuery = patternsQuery.Where(p => p.Name.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
+            patternsQuery = patternsQuery.Where(p =>
+                // only match author if equal.
+                p.Author.Equals(dto.SearchString, StringComparison.OrdinalIgnoreCase) ||
+                // or if it is contained within the title.
+                p.Name.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
+         
         }
 
-        // Apply tag filters if provided
-        if (dto.Tags != null && dto.Tags.Any())
-            patternsQuery = patternsQuery.Where(p => p.PatternKeywords.Any(t => dto.Tags.Contains(t.KeywordWord)));
+        // 2. Apply tag filters (only if tags are provided)
+        if (dto.Tags is not null && dto.Tags.Any())
+        {
+            // Include the MoodleKeywords for tag filtering (Only include here if we know we are using them)
+            patternsQuery = patternsQuery.Include(p => p.PatternKeywords).AsSplitQuery()
+                .Where(p => p.PatternKeywords.Any(t => dto.Tags.Contains(t.KeywordWord)));
+        }
 
         // finalize the filtered results against our filter and order for sorting.
         switch (dto.Filter)
         {
-            case SearchFilter.MostRecent:
+            case ResultFilter.MostRecent:
                 patternsQuery = dto.Sort == SearchSort.Ascending
                     ? patternsQuery.OrderBy(p => p.TimePublished)
                     : patternsQuery.OrderByDescending(p => p.TimePublished);
                 break;
-            case SearchFilter.Downloads:
+            case ResultFilter.Downloads:
                 patternsQuery = dto.Sort == SearchSort.Ascending
                     ? patternsQuery.OrderBy(p => p.DownloadCount)
                     : patternsQuery.OrderByDescending(p => p.DownloadCount);
                 break;
-            case SearchFilter.Likes:
+            case ResultFilter.Likes:
                 patternsQuery = dto.Sort == SearchSort.Ascending
-                    ? patternsQuery.OrderBy(p => p.LikeCount)
-                    : patternsQuery.OrderByDescending(p => p.LikeCount);
-                break;
-            case SearchFilter.UsesVibration:
-                patternsQuery = patternsQuery.Where(p => p.UsesVibrations);
-                break;
-            case SearchFilter.UsesRotation:
-                patternsQuery = patternsQuery.Where(p => p.UsesRotations);
-                break;
-            case SearchFilter.DurationTiny:
-                patternsQuery = patternsQuery.Where(p => p.Length < TimeSpan.FromMinutes(1));
-                patternsQuery = dto.Sort == SearchSort.Ascending
-                    ? patternsQuery.OrderBy(p => p.Length)
-                    : patternsQuery.OrderByDescending(p => p.Length);
-                break;
-            case SearchFilter.DurationShort:
-                patternsQuery = patternsQuery.Where(p => p.Length <= TimeSpan.FromMinutes(5));
-                patternsQuery = dto.Sort == SearchSort.Ascending
-                    ? patternsQuery.OrderBy(p => p.Length)
-                    : patternsQuery.OrderByDescending(p => p.Length);
-                break;
-            case SearchFilter.DurationMedium:
-                patternsQuery = patternsQuery.Where(p => p.Length > TimeSpan.FromMinutes(5) && p.Length <= TimeSpan.FromMinutes(20));
-                patternsQuery = dto.Sort == SearchSort.Ascending
-                    ? patternsQuery.OrderBy(p => p.Length)
-                    : patternsQuery.OrderByDescending(p => p.Length);
-                break;
-            case SearchFilter.DurationLong:
-                patternsQuery = patternsQuery.Where(p => p.Length > TimeSpan.FromMinutes(20) && p.Length <= TimeSpan.FromMinutes(60));
-                patternsQuery = dto.Sort == SearchSort.Ascending
-                    ? patternsQuery.OrderBy(p => p.Length)
-                    : patternsQuery.OrderByDescending(p => p.Length);
-                break;
-            case SearchFilter.DurationExtraLong:
-                patternsQuery = patternsQuery.Where(p => p.Length > TimeSpan.FromMinutes(60));
-                patternsQuery = dto.Sort == SearchSort.Ascending
-                    ? patternsQuery.OrderBy(p => p.Length)
-                    : patternsQuery.OrderByDescending(p => p.Length);
+                    ? patternsQuery.Include(p => p.UserPatternLikes).AsSplitQuery().OrderBy(p => p.LikeCount)
+                    : patternsQuery.Include(p => p.UserPatternLikes).AsSplitQuery().OrderByDescending(p => p.LikeCount);
                 break;
         }
         // limit the results to 30 patterns.
-        var patterns = await patternsQuery.Take(30).ToListAsync().ConfigureAwait(false);
+        var patterns = await patternsQuery.Take(30).Include(p => p.PatternKeywords).Include(p => p.UserPatternLikes).ToListAsync().ConfigureAwait(false);
 
         // Check if patterns is null or contains null entries
-        if (patterns == null || patterns.Any(p => p == null))
+        if (patterns is null || patterns.Any(p => p is null))
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No patterns found or some patterns are invalid.").ConfigureAwait(false);
             return new List<ServerPatternInfo>();
@@ -378,6 +432,101 @@ public partial class GagspeakHub
         }).ToList();
 
         return result;
+    }
+
+    public async Task<List<ServerMoodleInfo>> SearchMoodles(MoodleSearchDto dto)
+    {
+        _logger.LogCallInfo();
+        // ensure they are a valid user.
+        var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user is null)
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
+            return new List<ServerMoodleInfo>();
+        }
+
+        // Start with a base query without including sub-dependencies initially
+        IQueryable<MoodleStatus> moodlesQuery = DbContext.Moodles.AsQueryable();
+
+        // 1. Apply title or author / title filters
+        if (!string.IsNullOrEmpty(dto.SearchString))
+        {
+            {
+                moodlesQuery = moodlesQuery.Where(p =>
+                    // only match author if equal.
+                    p.Author.Equals(dto.SearchString, StringComparison.OrdinalIgnoreCase) ||
+                    // or if it is contained within the title.
+                    p.Title.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
+            }
+        }
+
+        // 2. Apply tag filters (only if tags are provided)
+        if (dto.Tags != null && dto.Tags.Any())
+        {
+            // Include the MoodleKeywords for tag filtering (Only include here if we know we are using them)
+            moodlesQuery = moodlesQuery.Include(p => p.MoodleKeywords).AsSplitQuery()
+                .Where(p => p.MoodleKeywords.Any(t => dto.Tags.Contains(t.KeywordWord)));
+        }
+
+        // 3. Apply sorting
+        moodlesQuery = dto.Filter is ResultFilter.Likes
+            ? (dto.Sort is SearchSort.Ascending
+                ? moodlesQuery.Include(p => p.LikesMoodles).OrderBy(p => p.LikeCount)
+                : moodlesQuery.Include(p => p.LikesMoodles).OrderByDescending(p => p.LikeCount))
+            : (dto.Sort is SearchSort.Ascending
+                ? moodlesQuery.OrderBy(p => p.TimePublished)
+                : moodlesQuery.OrderByDescending(p => p.TimePublished));
+
+
+        // 4. Limit results (only run the this moodle keyword include to the first 50.
+        var moodles = await moodlesQuery.Take(50).Include(p => p.MoodleKeywords).Include(p => p.LikesMoodles).ToListAsync().ConfigureAwait(false);
+
+        // Check if final result is null or contains null entries
+        if (moodles is null || moodles.Any(p => p is null))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No moodles found or some moodles are invalid.").ConfigureAwait(false);
+            return new List<ServerMoodleInfo>();
+        }
+
+
+        // Convert to ServerMoodleInfo
+        var result = moodles.Select(p => new ServerMoodleInfo
+        {
+            Likes = p.LikeCount,
+            HasLikedMoodle = p.LikesMoodles.Any(likes => string.Equals(likes.UserUID, user.UID, StringComparison.Ordinal)),
+            Author = p.Author,
+            Tags = p.MoodleKeywords.Select(t => t.KeywordWord).ToList(),
+            MoodleStatus = (
+                p.Identifier,
+                p.IconID,
+                p.Title,
+                p.Description,
+                p.Type,
+                string.Empty,
+                p.Dispelable,
+                p.Stacks,
+                p.Persistent,
+                p.Days,
+                p.Hours,
+                p.Minutes,
+                p.Seconds,
+                p.NoExpire,
+                p.AsPermanent,
+                p.StatusOnDispell,
+                p.CustomVFXPath,
+                p.StackOnReapply
+                ),
+        }).ToList();
+
+        return result;
+    }
+
+    // FetchSearchTags
+    public async Task<List<string>> FetchSearchTags()
+    {
+        _logger.LogCallInfo();
+        var tags = await DbContext.Keywords.Select(k => k.Word).ToListAsync().ConfigureAwait(false);
+        return tags;
     }
 }
 

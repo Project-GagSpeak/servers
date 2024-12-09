@@ -22,7 +22,7 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub
 {
     [Authorize(Policy = "Identified")]
-    public async Task UserSendPairRequest(UserDto dto)
+    public async Task UserSendPairRequest(UserPairSendRequestDto dto)
     {
         // log the call info.
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -53,8 +53,8 @@ public partial class GagspeakHub
 
 
         // verify an existing entry does not already exist.
-        var existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == UserUID && k.OtherUserUID == otherUser.UID).ConfigureAwait(false);
-        if (existingRequest != null)
+        var existingRequest = await DbContext.KinksterPairRequests.AnyAsync(k => (k.UserUID == UserUID && k.OtherUserUID == otherUser.UID) || (k.UserUID == otherUser.UID && k.OtherUserUID == UserUID)).ConfigureAwait(false);
+        if (existingRequest)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"A Request for this Kinkster is already present").ConfigureAwait(false);
             return;
@@ -67,6 +67,7 @@ public partial class GagspeakHub
             User = user,
             OtherUser = otherUser,
             CreationTime = DateTime.UtcNow,
+            AttachedMessage = dto.AttachedMessage
         };
         // append the request to the DB.
         await DbContext.KinksterPairRequests.AddAsync(request).ConfigureAwait(false);
@@ -74,7 +75,7 @@ public partial class GagspeakHub
 
 
         // send back to both pairs that they have a new kinkster request.
-        var newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), request.CreationTime);
+        var newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), dto.AttachedMessage, request.CreationTime);
         await Clients.User(UserUID).Client_UserAddPairRequest(newDto).ConfigureAwait(false);
         // send the request to them if the other user is online as well.
         var otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
@@ -115,7 +116,7 @@ public partial class GagspeakHub
         var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // notify the client caller and the recipient that the request was cancelled.
-        var newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), existingRequest.CreationTime);
+        var newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), string.Empty, existingRequest.CreationTime);
         await Clients.User(UserUID).Client_UserRemovePairRequest(newDto).ConfigureAwait(false);
 
         // send off to the other user.
@@ -287,7 +288,7 @@ public partial class GagspeakHub
             ownPairPermsApi, ownPairPermsAccessApi, otherGlobalsApi, otherPairPermsApi, otherPairPermsAccessApi);
 
         // inform the client caller's user that the pair was added successfully, to add the pair to their pair manager.
-        var removeRequestDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), existingRequest.CreationTime);
+        var removeRequestDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
         await Clients.User(UserUID).Client_UserRemovePairRequest(removeRequestDto).ConfigureAwait(false);
         await Clients.User(pairRequestAcceptingUser.UID).Client_UserAddClientPair(pairRequestAcceptingUserResponse).ConfigureAwait(false);
 
@@ -306,6 +307,42 @@ public partial class GagspeakHub
 
         await Clients.User(UserUID).Client_UserSendOnline(new(pairRequesterUser.ToUserData(), otherIdent)).ConfigureAwait(false);
         await Clients.User(pairRequesterUser.UID).Client_UserSendOnline(new(pairRequestAcceptingUser.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
+
+        // Initialize a group for the two pairs that will be automatically disposed of 5 minutes after its creation.
+        var sortedUIDs = new[] { pairRequesterUser.UID, pairRequestAcceptingUser.UID }.OrderBy(uid => uid, StringComparer.Ordinal).ToArray();
+        var groupName = $"PairChat-{sortedUIDs[0]}-{sortedUIDs[1]}";
+
+        if (_userConnections.TryGetValue(pairRequesterUser.UID, out var connectionIdA) && _userConnections.TryGetValue(pairRequestAcceptingUser.UID, out var connectionIdB))
+        {
+            await Groups.AddToGroupAsync(connectionIdA, groupName).ConfigureAwait(false);
+            await Groups.AddToGroupAsync(connectionIdB, groupName).ConfigureAwait(false);
+
+            // use the message requester to send the initial message.
+            await Clients.Group(groupName).Client_PairChatMessage(new(new("SYSTEM-MSG"), groupName, "This Chat will exist for 10 minutes and then close " +
+                "automatically! Take advantage of it to establish another way to contact eachother or meetup, locations ext. Have fun!")).ConfigureAwait(false);
+
+            // Store the group information in the internal storage with an expiration time to 5 minutes from the current time.
+            var expiresAt = DateTime.UtcNow.AddMinutes(10);
+            _activeGroups[groupName] = (connectionIdA, connectionIdB, expiresAt);
+        }
+    }
+
+    private async Task RemoveGroup(string groupName, string connectionIdA, string connectionIdB)
+    {
+        // Remove both users from the group
+        if (!string.IsNullOrEmpty(connectionIdA))
+        {
+            await Groups.RemoveFromGroupAsync(connectionIdA, groupName).ConfigureAwait(false);
+        }
+
+        if (!string.IsNullOrEmpty(connectionIdB))
+        {
+            await Groups.RemoveFromGroupAsync(connectionIdB, groupName).ConfigureAwait(false);
+        }
+    }
+    public async Task SendPairChat(PairChatMessageDto message)
+    {
+        await Clients.Group(message.GroupName).Client_PairChatMessage(message).ConfigureAwait(false);
     }
 
     [Authorize(Policy = "Identified")]
@@ -322,7 +359,7 @@ public partial class GagspeakHub
         }
 
         // send to both users to remove the kinkster request.
-        var rejectionDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), existingRequest.CreationTime);
+        var rejectionDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
         await Clients.User(UserUID).Client_UserRemovePairRequest(rejectionDto).ConfigureAwait(false);
 
         // send it to the other person if they are online at the time as well.
@@ -541,7 +578,7 @@ public partial class GagspeakHub
         var requests = await DbContext.KinksterPairRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
 
         // return the list of UserPairRequest DTO's containing the pair requests of the client caller
-        return requests.Select(r => new UserPairRequestDto(new(r.UserUID), new(r.OtherUserUID), r.CreationTime)).ToList();
+        return requests.Select(r => new UserPairRequestDto(new(r.UserUID), new(r.OtherUserUID), r.AttachedMessage, r.CreationTime)).ToList();
     }
 
 

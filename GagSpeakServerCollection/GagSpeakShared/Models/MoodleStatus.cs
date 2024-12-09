@@ -1,3 +1,4 @@
+using GagspeakAPI.Data.IPC;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -17,7 +18,27 @@ public class MoodleStatus
     public DateTime TimePublished { get; set; } // Time of Publication.
 
     public string Author { get; set; } // Alias Uploader Name
-    public ICollection<LikesPatterns> UserPatternLikes { get; set; } = new List<LikesPatterns>();
+    public ICollection<LikesMoodles> LikesMoodles { get; set; } = new List<LikesMoodles>();
     // Navigation property for keywords
     public ICollection<MoodleKeyword> MoodleKeywords { get; set; } = new List<MoodleKeyword>();
+
+    public int IconID { get; set; } = 0;
+    public string Title { get; set; } = "UNK NAME";
+    public string Description { get; set; } = string.Empty;
+    public StatusType Type { get; set; } = StatusType.Positive;
+    public bool Dispelable { get; set; } = true;
+    public int Stacks { get; set; } = 1;
+    public bool Persistent { get; set; } = false;
+    public int Days { get; set; } = 0;
+    public int Hours { get; set; } = 0;
+    public int Minutes { get; set; } = 0;
+    public int Seconds { get; set; } = 0;
+    public bool NoExpire { get; set; } = false;
+    public bool AsPermanent { get; set; } = false;
+    public Guid StatusOnDispell { get; set; } = Guid.Empty;
+    public string CustomVFXPath { get; set; } = string.Empty;
+    public bool StackOnReapply { get; set; } = false;
+
+    [NotMapped]
+    public int LikeCount => LikesMoodles.Count;
 }

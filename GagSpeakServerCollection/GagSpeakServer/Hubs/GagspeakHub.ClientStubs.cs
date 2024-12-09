@@ -48,6 +48,7 @@ namespace GagspeakServer.Hubs
 
         public Task Client_UserReceiveShockInstruction(ShockCollarActionDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_GlobalChatMessage(GlobalChatMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_PairChatMessage(PairChatMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserSendOffline(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserSendOnline(OnlineUserIdentDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserUpdateProfile(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
