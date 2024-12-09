@@ -141,18 +141,20 @@ public partial class GagspeakHub
         }
 
         // Attempt to prevent reuploads and duplicate uploads.
-        var existingPattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == dto.MoodleInfo.MoodleStatus.GUID).ConfigureAwait(false);
-        if (existingPattern is not null)
+        var existingMoodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == dto.MoodleInfo.MoodleStatus.GUID).ConfigureAwait(false);
+        if (existingMoodle is not null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern already exists.").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Moodle already exists.").ConfigureAwait(false);
             return false;
         }
 
         /////////////// Step 1: Check and add tags //////////////////
+        // ENSURE THE TAGS ARE LOWERCASE.
+        var uploadTagsLower = dto.MoodleInfo.Tags.Select(t => t.ToLowerInvariant()).ToList();
         // Get all existing tags from the database
-        var existingTags = await DbContext.Keywords.Where(t => dto.MoodleInfo.Tags.Contains(t.Word.ToLowerInvariant())).ToListAsync().ConfigureAwait(false);
+        var existingTags = await DbContext.Keywords.Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
-        var newTags = dto.MoodleInfo.Tags.Except(existingTags.Select(t => t.Word.ToLowerInvariant()), StringComparer.Ordinal).ToList();
+        var newTags = dto.MoodleInfo.Tags.Except(existingTags.Select(t => t.Word), StringComparer.OrdinalIgnoreCase).ToList();
         // Create and insert the new tags not yet in DB.
         foreach (var newTagName in newTags)
         {
@@ -193,12 +195,12 @@ public partial class GagspeakHub
         ///////////// Step 3: Create and insert the new Pattern Entry Tags /////////////
         foreach (var tag in existingTags)
         {
-            var patternEntryTag = new PatternKeyword
+            var moodleEntryTag = new MoodleKeyword
             {
-                PatternEntryId = newMoodleEntry.Identifier,
+                MoodleStatusId = newMoodleEntry.Identifier,
                 KeywordWord = tag.Word
             };
-            DbContext.PatternKeywords.Add(patternEntryTag);
+            DbContext.MoodleKeywords.Add(moodleEntryTag);
         }
 
         // Save the user with the new upload log
