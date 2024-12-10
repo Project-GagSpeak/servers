@@ -4,7 +4,7 @@ namespace GagspeakServer.Utils;
 /// <summary>
 /// Extention helper method for converting ClientPairPermissions to UserPermissionsComposite. for DTO's
 /// </summary>
-#pragma warning disable MA0051; // Method is too long
+#pragma warning disable MA0051 // Method is too long
 public static class ClientPairPermissionExtensions
 {
     #region AppearanceDataMigrations
@@ -385,4 +385,4 @@ public static class ClientPairPermissionExtensions
     }
     #endregion PairPermissionAccessMigrations
 }
-#pragma warning restore MA0051; // Method is too long
+#pragma warning restore MA0051 // Method is too long

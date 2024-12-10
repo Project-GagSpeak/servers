@@ -3,12 +3,9 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using GagspeakDiscord.Services;
-using GagspeakShared.Services;
-using System.IO;
 
 namespace GagspeakDiscord.Modules.KinkDispenser;
 
-#pragma warning disable MA0004
 public partial class KinkDispenser : InteractionModuleBase
 {
     [SlashCommand("kinkypics", "Displays a gallery of pics based on your search terms")]
@@ -39,11 +36,12 @@ public partial class KinkDispenser : InteractionModuleBase
         var newService = new SelectionDataService(sort);
 
         _logger.LogInformation("{method}:{userId}:{searchTerms}", nameof(KinkPicCommand), Context.User.Id, searchTerms);
-        
-        try {
+
+        try
+        {
             // get our URL defined
             var searchUrl = "https://www.sex.com/search/pics?query=" + Uri.EscapeDataString(searchTerms);
-            if(sort != "") searchUrl += "&sort=" + sort;
+            if (sort != "") searchUrl += "&sort=" + sort;
 
             // Immediately respond with a deferred message
             await Context.Interaction.DeferAsync();
@@ -70,11 +68,11 @@ public partial class KinkDispenser : InteractionModuleBase
             await Context.Interaction.FollowupAsync(embed: eb.Build(), components: cb.Build(), ephemeral: true).ConfigureAwait(false);
             var resp = await GetOriginalResponseAsync().ConfigureAwait(false);
             _botServices.ValidInteractions[Context.User.Id] = resp.Id;
-            _logger.LogInformation("Init Msg: {id}", resp.Id);           
+            _logger.LogInformation("Init Msg: {id}", resp.Id);
             // associate the service with the message ID
             _botServices.PicData[resp.Id] = newService;
             _logger.LogDebug("Dictionary now has {picDataService.Count} entries", _botServices.PicData.Count);
-            
+
             // Parse the HTML response to get the GIF URLs, store results into the data newService
             await ParsePicUrls(htmlResponse, newService);
 
@@ -89,20 +87,20 @@ public partial class KinkDispenser : InteractionModuleBase
             _logger.LogInformation("pic path at {picPath}", picPath);
             var url = newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl;
 
-               // get the link
-               var picUrlTask = ConvertSexSiteImgURLtoDiscordURL(url, picPath, resp.Id);
+            // get the link
+            var picUrlTask = ConvertSexSiteImgURLtoDiscordURL(url, picPath, resp.Id);
 
-               // fetch the fullresURL and the info on it
-               var fetchFullResURLTask = newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx]
-                    .FetchFullResURL(_logger, newService);
+            // fetch the fullresURL and the info on it
+            var fetchFullResURLTask = newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx]
+                 .FetchFullResURL(_logger, newService);
 
-               // Wait for both tasks to complete
-               await Task.WhenAll(picUrlTask, fetchFullResURLTask);
-               _logger.LogInformation("pic url is now {picUrl}", picUrlTask.Result);
+            // Wait for both tasks to complete
+            await Task.WhenAll(picUrlTask, fetchFullResURLTask);
+            _logger.LogInformation("pic url is now {picUrl}", picUrlTask.Result);
 
-               // After both tasks have completed, you can get the results
-               var picUrl = picUrlTask.Result;
-               newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl = picUrl;
+            // After both tasks have completed, you can get the results
+            var picUrl = picUrlTask.Result;
+            newService.ResultImgs.ImageList[newService.ResultImgs.CurIdx].ThumbUrl = picUrl;
 
             eb = new();
             cb = new();
@@ -132,10 +130,10 @@ public partial class KinkDispenser : InteractionModuleBase
     {
         // get the message ID
         ulong msgId;
-        if(Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
+        if (Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
         else { _logger.LogError("Error: Could not get the message ID from the interaction."); return; }
         // get the service associated
-        if(_botServices.PicData.TryGetValue(msgId, out var service)) 
+        if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             // shift the current index back 5
             service.ResultImgs.ShiftCurIdxBackwards(5);
@@ -149,10 +147,10 @@ public partial class KinkDispenser : InteractionModuleBase
     {
         // get the message ID
         ulong msgId;
-        if(Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
+        if (Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
         else { _logger.LogError("Error: Could not get the message ID from the interaction."); return; }
         // get the service associated
-        if(_botServices.PicData.TryGetValue(msgId, out var service)) 
+        if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             // shift the current index back 1
             service.ResultImgs.ShiftCurIdxBackwards(1);
@@ -165,10 +163,10 @@ public partial class KinkDispenser : InteractionModuleBase
     {
         // get the message ID
         ulong msgId;
-        if(Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
+        if (Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
         else { _logger.LogError("Error: Could not get the message ID from the interaction."); return; }
         // get the service associated
-        if(_botServices.PicData.TryGetValue(msgId, out var service)) 
+        if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             // shift the current index forward 1
             service.ResultImgs.ShiftCurIdxForwards(1);
@@ -181,10 +179,10 @@ public partial class KinkDispenser : InteractionModuleBase
     {
         // get the message ID
         ulong msgId;
-        if(Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
+        if (Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
         else { _logger.LogError("Error: Could not get the message ID from the interaction."); return; }
         // get the service associated
-        if(_botServices.PicData.TryGetValue(msgId, out var service)) 
+        if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             // shift the current index forward 5
             service.ResultImgs.ShiftCurIdxForwards(5);
@@ -196,7 +194,7 @@ public partial class KinkDispenser : InteractionModuleBase
     {
         _logger.LogTrace("Shifting image display (start)");
         // get the service
-        if(_botServices.PicData.TryGetValue(msgId, out var service))
+        if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             _logger.LogTrace("Service found and is valid");
 
@@ -228,7 +226,7 @@ public partial class KinkDispenser : InteractionModuleBase
         }
         // the service was not found, so inform the user
         else
-        { 
+        {
             await HandleSessionExpired().ConfigureAwait(false);
         }
     }
@@ -238,10 +236,10 @@ public partial class KinkDispenser : InteractionModuleBase
     {
         // get the message ID
         ulong msgId;
-        if(Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
+        if (Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
         else { _logger.LogError("Error: Could not get the message ID from the interaction."); return; }
         // get the service associated
-        if(_botServices.PicData.TryGetValue(msgId, out var service)) 
+        if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             // Defer the reply first
             await Context.Interaction.DeferAsync();
@@ -260,7 +258,7 @@ public partial class KinkDispenser : InteractionModuleBase
             eb.Color = Color.Magenta;
             ComponentBuilder cb = new();
             await Context.Interaction.FollowupAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
-            await ConvertSexSiteImgURLtoDiscordFileUpload(url, picPath, msgId);
+            await ConvertSexSiteImgURLtoDiscordFileUpload(url, picPath, msgId).ConfigureAwait(false);
         }
         else
         {
@@ -273,17 +271,17 @@ public partial class KinkDispenser : InteractionModuleBase
     {
         // get the message ID
         ulong msgId;
-        if(Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
+        if (Context.Interaction is IComponentInteraction componentInteraction) { msgId = componentInteraction.Message.Id; }
         else { _logger.LogError("Error: Could not get the message ID from the interaction."); return; }
         // get the service associated
-        if(_botServices.PicData.TryGetValue(msgId, out var service)) 
+        if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             EmbedBuilder eb = new();
             eb.WithTitle("Pic Search Querty Killed");
             ComponentBuilder cb = new();
             await ModifyInteraction(eb, cb).ConfigureAwait(false);
-            await Task.Delay(3000);
-            await Context.Interaction.DeleteOriginalResponseAsync();
+            await Task.Delay(3000).ConfigureAwait(false);
+            await Context.Interaction.DeleteOriginalResponseAsync().ConfigureAwait(false);
 
             // dispose of the service as we are done with it
             _botServices.PicData.TryRemove(msgId, out _);
@@ -292,8 +290,8 @@ public partial class KinkDispenser : InteractionModuleBase
         else
         {
             await HandleSessionExpired().ConfigureAwait(false);
-            await Task.Delay(3000);
-            await Context.Interaction.DeleteOriginalResponseAsync();
+            await Task.Delay(3000).ConfigureAwait(false);
+            await Context.Interaction.DeleteOriginalResponseAsync().ConfigureAwait(false);
 
             // dispose of the service as we are done with it
             _botServices.PicData.TryRemove(msgId, out _);

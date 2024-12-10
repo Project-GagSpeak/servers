@@ -1,3 +1,4 @@
+using GagspeakAPI.Data;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Enums;
 using GagspeakAPI.SignalR;
@@ -21,7 +22,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 {
     // A thread-safe dictionary to store user connections (Shared across ALL instances of created gagspeak hub connections)
     public static readonly ConcurrentDictionary<string, (string ConnectionIdA, string ConnectionIdB, DateTime ExpiresAt)> _activeGroups = new(StringComparer.Ordinal);
-    private static readonly ConcurrentDictionary<string, string> _userConnections = new(StringComparer.Ordinal);
+    public static readonly ConcurrentDictionary<string, string> _userConnections = new(StringComparer.Ordinal);
 
     // The Metrics for the GagSpeak web server
     private readonly GagspeakMetrics _metrics;
@@ -102,7 +103,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error,
                 $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
-            return null;
+            return null!;
         }
 
         // Send a client callback to the client caller with the systeminfo Dto.
@@ -150,6 +151,14 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             DbContext.UserAchievementData.Add(clientCallerAchievementData);
         }
 
+        // we will need to grab all of our published patterns and append them as PublishedPattern object to the connectionDto
+        var callerPatternPublications = await DbContext.Patterns.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
+        var publishedPatterns = callerPatternPublications.Select(p => p.ToPublishedPattern()).ToList();
+
+        // grab all the published moodles and append them as the published pattern object to the connectionDto
+        var callerMoodlePublications = await DbContext.Moodles.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
+        var publishedMoodles = callerMoodlePublications.Select(m => m.ToPublishedMoodle()).ToList();
+
         // Save the DbContext (never know if it was added or not so always good to be safe.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
@@ -161,7 +170,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
             CharaAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
             CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData(),
-            UserAchievements = clientCallerAchievementData.Base64AchievementData
+            PublishedPatterns = publishedPatterns,
+            PublishedMoodles = publishedMoodles,
+            UserAchievements = clientCallerAchievementData.Base64AchievementData,
         };
     }
 
@@ -190,7 +201,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         user.LastLoggedIn = DateTime.UtcNow;
 
         // generate a hashed secret key based on a randomly generated string + the current time to make sure it is always unique.
+#pragma warning disable MA0011 // IFormatProvider is missing
         var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+#pragma warning restore MA0011 // IFormatProvider is missing
 
         // now we create a new authentication object with that hashed secret key in it and the user object.
         var auth = new Auth()
@@ -309,7 +322,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// Note that we dont require the authenticated policy for disconnect because the temp access could be using it as well.
     /// </para>
     /// </summary>
-    public override async Task OnDisconnectedAsync(Exception exception)
+    public override async Task OnDisconnectedAsync(Exception? exception)
     {
         /* -------------------- Temporary Connection -------------------- */
         // if its a temp connection disconnecting, simply call the base and exit
@@ -327,8 +340,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             // if they were already in the dictionary, log that we have a user disconnecting from the current connection total
             _logger.LogMessage("Removing Connection of 1 user.");
-            /* _metrics.DecGaugeWithLabels(MetricsAPI.GaugeConnections, labels: Continent);
-             * ^^^^^ The above requires a continent AKA polled via ip grabbing and storing, which im not ok with. */
 
             try
             {
@@ -341,7 +352,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 // check to see if they disconnected with an exception. If it did, log it as a warning message
                 if (exception != null)
                 {
-                    _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, exception.Message, exception.StackTrace));
+                    _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, exception.Message, exception.StackTrace ?? string.Empty));
                 }
 
                 // remove the users from the redis database (if it is critical to the discord bot)

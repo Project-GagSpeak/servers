@@ -1,6 +1,9 @@
 ﻿namespace GagspeakShared.Metrics;
 
-/// <summary> Fun Metrics about Gagspeak, maybe add more later, who knows! </summary>
+/// <summary> 
+/// Fun Metrics about Gagspeak, maybe add more later, who knows!
+/// For my own sanity, i have never fully implemented this, as im not invested too much into it.
+/// </summary>
 public class MetricsAPI
 {
     public const string CounterInitializedConnections = "gagspeak_initialized_connections";

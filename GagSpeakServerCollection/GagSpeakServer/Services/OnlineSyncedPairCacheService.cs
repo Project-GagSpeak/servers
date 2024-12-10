@@ -62,6 +62,8 @@ public class OnlineSyncedPairCacheService
         if (!_lastSeenCache.ContainsKey(sender)) await InitPlayer(sender).ConfigureAwait(false);
 
         _lastSeenCache.TryGetValue(sender, out var pairCache);
+        if (pairCache is null) return false;
+
         return await pairCache.AreAllPlayersCached(uids, ct).ConfigureAwait(false);
     }
 
@@ -71,6 +73,8 @@ public class OnlineSyncedPairCacheService
         if (!_lastSeenCache.ContainsKey(sender)) await InitPlayer(sender).ConfigureAwait(false);
 
         _lastSeenCache.TryGetValue(sender, out var pairCache);
+        if (pairCache is null) return;
+
         await pairCache.CachePlayers(uids, ct).ConfigureAwait(false);
     }
 

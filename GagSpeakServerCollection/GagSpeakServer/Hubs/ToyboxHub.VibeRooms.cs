@@ -408,7 +408,7 @@ public partial class ToyboxHub
     {
         _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
         // make sure we are the host of the room we are sending the update to.
-        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || roomHost != UserUID)
+        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || !string.Equals(roomHost, UserUID, StringComparison.Ordinal))
         {
             throw new Exception("Not host of room, cannot send");
         }
@@ -432,7 +432,7 @@ public partial class ToyboxHub
     {
         _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
         // make sure we are the host of the room we are sending the update to.
-        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || roomHost != UserUID)
+        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || !string.Equals(roomHost, UserUID, StringComparison.Ordinal))
         {
             throw new Exception("Not host of room, cannot send");
         }
@@ -500,7 +500,7 @@ public partial class ToyboxHub
         if (roomUser == null) return;
 
         // check if the user is the host of the room they are calling this on
-        var isHost = RoomHosts.TryGetValue(roomToRemove, out var hostUID) && hostUID == UserUID;
+        var isHost = RoomHosts.TryGetValue(roomToRemove, out var hostUID) && string.Equals(hostUID, UserUID, StringComparison.Ordinal);
 
         // grab all participants in the room
         var roomParticipants = await DbContext.PrivateRoomPairs

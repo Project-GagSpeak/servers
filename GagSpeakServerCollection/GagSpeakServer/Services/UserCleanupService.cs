@@ -14,17 +14,17 @@ namespace GagspeakServer.Services;
 /// <summary> Service for cleaning up users and groups that are no longer active </summary>
 public class UserCleanupService : IHostedService
 {
-    private readonly GagspeakMetrics metrics;
+    private readonly GagspeakMetrics _metrics;
     private readonly ILogger<UserCleanupService> _logger;
     private readonly IServiceProvider _services;
     private readonly IConfigurationService<ServerConfiguration> _configuration;
-    private CancellationTokenSource _cleanupCts;
-    private CancellationTokenSource _groupCleanupCts;
+    private CancellationTokenSource _cleanupCts = new();
+    private CancellationTokenSource _groupCleanupCts = new();
 
     public UserCleanupService(GagspeakMetrics metrics, ILogger<UserCleanupService> logger,
         IServiceProvider services, IConfigurationService<ServerConfiguration> configuration)
     {
-        this.metrics = metrics;
+        _metrics = metrics;
         _logger = logger;
         _services = services;
         _configuration = configuration;
@@ -34,6 +34,7 @@ public class UserCleanupService : IHostedService
     {
         _logger.LogInformation("Cleanup Service started");
         _cleanupCts = new();
+        _groupCleanupCts = new();
 
         _ = CleanUp(_cleanupCts.Token);
         _ = GroupsCleanup(_groupCleanupCts.Token);
@@ -47,7 +48,7 @@ public class UserCleanupService : IHostedService
             using var scope = _services.CreateScope();
             var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<GagspeakHub, IGagspeakHub>>();
             var now = DateTime.UtcNow;
-            
+
             foreach (var group in GagspeakHub._activeGroups)
             {
                 if (group.Value.ExpiresAt <= now)
@@ -213,7 +214,8 @@ public class UserCleanupService : IHostedService
                 }
             }
 
-            dbContext.Users.RemoveRange(expiredAuths.Where(u => u.User != null).Select(a => a.User));
+            // collect the list of users that have expired authentications that are not null.
+            dbContext.Users.RemoveRange(expiredAuths.Where(u => u.User != null).Select(a => a.User!));
             dbContext.RemoveRange(expiredAuths);
         }
         catch (Exception ex)
@@ -226,7 +228,7 @@ public class UserCleanupService : IHostedService
     {
         _logger.LogInformation("Purging user: {uid}", user.UID);
 
-        var claimAuth = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User.UID == user.UID);
+        var claimAuth = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User != null && a.User.UID == user.UID);
 
         if (claimAuth != null)
         {

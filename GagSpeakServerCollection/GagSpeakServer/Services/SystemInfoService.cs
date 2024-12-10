@@ -11,7 +11,7 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace GagspeakServer.Services;
 
-public class SystemInfoService : IHostedService, IDisposable
+public sealed class SystemInfoService : IHostedService, IDisposable
 {
     private readonly GagspeakMetrics _metrics;
     private readonly IConfigurationService<ServerConfiguration> _config;
@@ -19,7 +19,7 @@ public class SystemInfoService : IHostedService, IDisposable
     private readonly ILogger<SystemInfoService> _logger;
     private readonly IHubContext<GagspeakHub, IGagspeakHub> _hubContext;
     private readonly IRedisDatabase _redis;
-    private Timer _timer;
+    private Timer _timer = null!;
     public SystemInfoDto SystemInfoDto { get; private set; } = new();
 
     public SystemInfoService(GagspeakMetrics metrics, IConfigurationService<ServerConfiguration> configurationService, IServiceProvider services,
@@ -39,7 +39,9 @@ public class SystemInfoService : IHostedService, IDisposable
 
         var timeOut = _config.IsMain ? 15 : 60;
 
+#pragma warning disable CS8622 // Nullability of reference types in type of parameter doesn't match the target delegate (possibly because of nullability attributes).
         _timer = new Timer(PushSystemInfo, null, TimeSpan.Zero, TimeSpan.FromSeconds(timeOut));
+#pragma warning restore CS8622 // Nullability of reference types in type of parameter doesn't match the target delegate (possibly because of nullability attributes).
 
         return Task.CompletedTask;
     }

@@ -24,14 +24,14 @@ public class ToyboxHubLogger
         return args;
     }
 
-    public void LogCallInfo(object[] args = null, [CallerMemberName] string methodName = "")
+    public void LogCallInfo(object[] args = null!, [CallerMemberName] string methodName = "")
     {
         string formattedArgs = args != null && args.Length != 0 ? "|" + string.Join(":", args) : string.Empty;
         //_logger.LogInformation("{uid}:{method}{args}", _hub.UserUID, methodName, formattedArgs);
         _logger.LogInformation("DEV UID:{method}{args}", methodName, formattedArgs);
     }
 
-    public void LogCallWarning(object[] args = null, [CallerMemberName] string methodName = "")
+    public void LogCallWarning(object[] args = null!, [CallerMemberName] string methodName = "")
     {
         string formattedArgs = args != null && args.Length != 0 ? "|" + string.Join(":", args) : string.Empty;
         //_logger.LogWarning("{uid}:{method}{args}", _hub.UserUID, methodName, formattedArgs);

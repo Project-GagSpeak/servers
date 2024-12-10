@@ -129,21 +129,22 @@ public partial class GagspeakHub
         _logger.LogCallInfo();
 
         // if the guid is empty, it's not a valid pattern.
-        if (dto.MoodleInfo.MoodleStatus.GUID == Guid.Empty)
+        if (dto.MoodleInfo.GUID == Guid.Empty)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Invalid Moodle Identifier.").ConfigureAwait(false);
             return false;
         }
 
-        // ensure the uploaing User is the userUID
-        if(!string.Equals(dto.Publisher.UID, UserUID, StringComparison.Ordinal))
+        // ensure the uploader is a valid user in the database.
+        var user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You are not authorized to upload this moodle.").ConfigureAwait(false);
             return false;
         }
 
         // Attempt to prevent reuploads and duplicate uploads.
-        var existingMoodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == dto.MoodleInfo.MoodleStatus.GUID).ConfigureAwait(false);
+        var existingMoodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == dto.MoodleInfo.GUID).ConfigureAwait(false);
         if (existingMoodle is not null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Moodle already exists.").ConfigureAwait(false);
@@ -152,11 +153,11 @@ public partial class GagspeakHub
 
         /////////////// Step 1: Check and add tags //////////////////
         // ENSURE THE TAGS ARE LOWERCASE.
-        var uploadTagsLower = dto.MoodleInfo.Tags.Select(t => t.ToLowerInvariant()).ToList();
+        var uploadTagsLower = dto.Tags.Select(t => t.ToLowerInvariant()).ToList();
         // Get all existing tags from the database
         var existingTags = await DbContext.Keywords.Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
-        var newTags = dto.MoodleInfo.Tags.Except(existingTags.Select(t => t.Word), StringComparer.OrdinalIgnoreCase).ToList();
+        var newTags = dto.Tags.Except(existingTags.Select(t => t.Word), StringComparer.OrdinalIgnoreCase).ToList();
         // Create and insert the new tags not yet in DB.
         foreach (var newTagName in newTags)
         {
@@ -169,28 +170,28 @@ public partial class GagspeakHub
         MoodleStatus newMoodleEntry = new()
         {
             
-            Identifier = dto.MoodleInfo.MoodleStatus.GUID,
+            Identifier = dto.MoodleInfo.GUID,
             PublisherUID = UserUID,
             TimePublished = DateTime.UtcNow,
-            Author = dto.MoodleInfo.Author,
+            Author = dto.AuthorName,
             MoodleKeywords = new List<MoodleKeyword>(),
             // moodle information.
-            IconID = dto.MoodleInfo.MoodleStatus.IconID,
-            Title = dto.MoodleInfo.MoodleStatus.Title,
-            Description = dto.MoodleInfo.MoodleStatus.Description,
-            Type = dto.MoodleInfo.MoodleStatus.Type,
-            Dispelable = dto.MoodleInfo.MoodleStatus.Dispelable,
-            Stacks = dto.MoodleInfo.MoodleStatus.Stacks,
-            Persistent = dto.MoodleInfo.MoodleStatus.Persistent,
-            Days = dto.MoodleInfo.MoodleStatus.Days,
-            Hours = dto.MoodleInfo.MoodleStatus.Hours,
-            Minutes = dto.MoodleInfo.MoodleStatus.Minutes,
-            Seconds = dto.MoodleInfo.MoodleStatus.Seconds,
-            NoExpire = dto.MoodleInfo.MoodleStatus.NoExpire,
-            AsPermanent = dto.MoodleInfo.MoodleStatus.AsPermanent,
-            StatusOnDispell = dto.MoodleInfo.MoodleStatus.StatusOnDispell,
-            CustomVFXPath = dto.MoodleInfo.MoodleStatus.CustomVFXPath,
-            StackOnReapply = dto.MoodleInfo.MoodleStatus.StackOnReapply
+            IconID = dto.MoodleInfo.IconID,
+            Title = dto.MoodleInfo.Title,
+            Description = dto.MoodleInfo.Description,
+            Type = dto.MoodleInfo.Type,
+            Dispelable = dto.MoodleInfo.Dispelable,
+            Stacks = dto.MoodleInfo.Stacks,
+            Persistent = dto.MoodleInfo.Persistent,
+            Days = dto.MoodleInfo.Days,
+            Hours = dto.MoodleInfo.Hours,
+            Minutes = dto.MoodleInfo.Minutes,
+            Seconds = dto.MoodleInfo.Seconds,
+            NoExpire = dto.MoodleInfo.NoExpire,
+            AsPermanent = dto.MoodleInfo.AsPermanent,
+            StatusOnDispell = dto.MoodleInfo.StatusOnDispell,
+            CustomVFXPath = dto.MoodleInfo.CustomVFXPath,
+            StackOnReapply = dto.MoodleInfo.StackOnReapply
         };
         DbContext.Moodles.Add(newMoodleEntry);
 
@@ -298,7 +299,7 @@ public partial class GagspeakHub
         if (pattern is null) return false;
 
         // Check if the user has already liked this pattern
-        var existingLike = await DbContext.LikesPatterns.SingleAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID).ConfigureAwait(false);
+        var existingLike = await DbContext.LikesPatterns.SingleOrDefaultAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID).ConfigureAwait(false);
         if (existingLike is not null)
         {
             // User has already liked this pattern, so remove the like
@@ -329,10 +330,14 @@ public partial class GagspeakHub
         if (user is null) return false;
         // Locate the pattern in the database by its GUID.
         var moodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == moodleId).ConfigureAwait(false);
-        if (moodle is null) return false;
+        if (moodle is null)
+        {
+            _logger.LogWarning("Moodle not found.");
+            return false;
+        }
 
         // Check if the user has already liked this pattern
-        var existingLike = await DbContext.LikesMoodles.SingleAsync(upl => upl.MoodleStatusId == moodleId && upl.UserUID == user.UID).ConfigureAwait(false);
+        var existingLike = await DbContext.LikesMoodles.SingleOrDefaultAsync(upl => upl.MoodleStatusId == moodleId && upl.UserUID == user.UID).ConfigureAwait(false);
         if (existingLike is not null)
         {
             // User has already liked this pattern, so remove the like
@@ -368,7 +373,6 @@ public partial class GagspeakHub
 
         // Start with a base query, insure we include the sub-dependencies such as the tags and likes.
         IQueryable<PatternEntry> patternsQuery = DbContext.Patterns.AsQueryable();
-
         // 1. Apply title or author / title filters
         if (!string.IsNullOrEmpty(dto.SearchString))
         {
@@ -377,7 +381,6 @@ public partial class GagspeakHub
                 p.Author.Equals(dto.SearchString, StringComparison.OrdinalIgnoreCase) ||
                 // or if it is contained within the title.
                 p.Name.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
-         
         }
 
         // 2. Apply tag filters (only if tags are provided)
@@ -391,7 +394,7 @@ public partial class GagspeakHub
         // finalize the filtered results against our filter and order for sorting.
         switch (dto.Filter)
         {
-            case ResultFilter.MostRecent:
+            case ResultFilter.DatePosted:
                 patternsQuery = dto.Sort == SearchSort.Ascending
                     ? patternsQuery.OrderBy(p => p.TimePublished)
                     : patternsQuery.OrderByDescending(p => p.TimePublished);
@@ -407,8 +410,9 @@ public partial class GagspeakHub
                     : patternsQuery.Include(p => p.UserPatternLikes).AsSplitQuery().OrderByDescending(p => p.LikeCount);
                 break;
         }
+
         // limit the results to 30 patterns.
-        var patterns = await patternsQuery.Take(30).Include(p => p.PatternKeywords).Include(p => p.UserPatternLikes).ToListAsync().ConfigureAwait(false);
+        var patterns = await patternsQuery.Take(30).Include(p => p.PatternKeywords).Include(p => p.UserPatternLikes).AsSplitQuery().ToListAsync().ConfigureAwait(false);
 
         // Check if patterns is null or contains null entries
         if (patterns is null || patterns.Any(p => p is null))
@@ -424,7 +428,7 @@ public partial class GagspeakHub
             Name = p.Name,
             Description = p.Description,
             Author = p.Author,
-            Tags = p.PatternKeywords.Select(t => t.KeywordWord).ToList(),
+            Tags = p.PatternKeywords.Select(t => t.KeywordWord).ToHashSet(StringComparer.OrdinalIgnoreCase),
             Downloads = p.DownloadCount,
             Likes = p.LikeCount,
             Looping = p.ShouldLoop,
@@ -434,7 +438,6 @@ public partial class GagspeakHub
             UsesRotations = p.UsesRotations,
             HasLiked = p.UserPatternLikes.Any(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal))
         }).ToList();
-
         return result;
     }
 
@@ -455,13 +458,11 @@ public partial class GagspeakHub
         // 1. Apply title or author / title filters
         if (!string.IsNullOrEmpty(dto.SearchString))
         {
-            {
-                moodlesQuery = moodlesQuery.Where(p =>
-                    // only match author if equal.
-                    p.Author.Equals(dto.SearchString, StringComparison.OrdinalIgnoreCase) ||
-                    // or if it is contained within the title.
-                    p.Title.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
-            }
+            moodlesQuery = moodlesQuery.Where(p =>
+                // only match author if equal.
+                p.Author.Equals(dto.SearchString, StringComparison.OrdinalIgnoreCase) ||
+                // or if it is contained within the title.
+                p.Title.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
         }
 
         // 2. Apply tag filters (only if tags are provided)
@@ -483,7 +484,7 @@ public partial class GagspeakHub
 
 
         // 4. Limit results (only run the this moodle keyword include to the first 50.
-        var moodles = await moodlesQuery.Take(50).Include(p => p.MoodleKeywords).Include(p => p.LikesMoodles).ToListAsync().ConfigureAwait(false);
+        var moodles = await moodlesQuery.Take(50).Include(p => p.MoodleKeywords).Include(p => p.LikesMoodles).AsSplitQuery().ToListAsync().ConfigureAwait(false);
 
         // Check if final result is null or contains null entries
         if (moodles is null || moodles.Any(p => p is null))
@@ -499,38 +500,20 @@ public partial class GagspeakHub
             Likes = p.LikeCount,
             HasLikedMoodle = p.LikesMoodles.Any(likes => string.Equals(likes.UserUID, user.UID, StringComparison.Ordinal)),
             Author = p.Author,
-            Tags = p.MoodleKeywords.Select(t => t.KeywordWord).ToList(),
-            MoodleStatus = (
-                p.Identifier,
-                p.IconID,
-                p.Title,
-                p.Description,
-                p.Type,
-                string.Empty,
-                p.Dispelable,
-                p.Stacks,
-                p.Persistent,
-                p.Days,
-                p.Hours,
-                p.Minutes,
-                p.Seconds,
-                p.NoExpire,
-                p.AsPermanent,
-                p.StatusOnDispell,
-                p.CustomVFXPath,
-                p.StackOnReapply
-                ),
+            Tags = p.MoodleKeywords.Select(t => t.KeywordWord).ToHashSet(StringComparer.OrdinalIgnoreCase),
+            MoodleStatus = p.ToStatusInfo(),
         }).ToList();
 
         return result;
     }
 
     // FetchSearchTags
-    public async Task<List<string>> FetchSearchTags()
+    public async Task<HashSet<string>> FetchSearchTags()
     {
         _logger.LogCallInfo();
         var tags = await DbContext.Keywords.Select(k => k.Word).ToListAsync().ConfigureAwait(false);
-        return tags;
+        var hashSetTags = tags.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        return hashSetTags;
     }
 }
 

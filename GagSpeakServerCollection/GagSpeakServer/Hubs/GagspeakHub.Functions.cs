@@ -24,7 +24,7 @@ public partial class GagspeakHub
     {
         // fetch all data related to the user about to be deleted from the database.
         Auth auth = await DbContext.Auth.SingleAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        AccountClaimAuth? accountClaimAuth = await DbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == user.UID).ConfigureAwait(false);
+        AccountClaimAuth? accountClaimAuth = await DbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User != null && u.User.UID == user.UID).ConfigureAwait(false);
         List<ClientPair> ownPairData = await DbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
         List<ClientPairPermissions> ownPairPermData = await DbContext.ClientPairPermissions.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         List<ClientPairPermissionAccess> ownPairAccessData = await DbContext.ClientPairPermissionAccess.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
@@ -106,14 +106,18 @@ public partial class GagspeakHub
     private async Task<Dictionary<string, string>> GetOnlineUsers(List<string> uids)
     {
         var result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
-        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["GagspeakHub:UID:" + u], StringComparer.Ordinal);
+#pragma warning disable CS8619 // Nullability of reference types in value doesn't match target type.
+        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out string? ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["GagspeakHub:UID:" + u], StringComparer.Ordinal);
+#pragma warning restore CS8619 // Nullability of reference types in value doesn't match target type.
     }
 
     /// <summary> Helper function to get the user's identity from the redis by their UID </summary>
     private async Task<string> GetUserIdent(string uid)
     {
         if (uid.IsNullOrEmpty()) return string.Empty;
+#pragma warning disable CS8603 // Possible null reference return.
         return await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
+#pragma warning restore CS8603 // Possible null reference return.
     }
 
     /// <summary> Helper function to remove a user from the redis by their UID</summary>

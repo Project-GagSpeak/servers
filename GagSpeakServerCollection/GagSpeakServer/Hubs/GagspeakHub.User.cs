@@ -448,7 +448,7 @@ public partial class GagspeakHub
         // remove all the client callers secondary profiles, then finally, remove their primary profile. (dont through helper functions)
         foreach (var user in secondaryUsers)
         {
-            await DeleteUser(user).ConfigureAwait(false);
+            if (user is not null) await DeleteUser(user).ConfigureAwait(false);
         }
         await DeleteUser(userEntry).ConfigureAwait(false);
     }
@@ -837,10 +837,4 @@ public partial class GagspeakHub
         await Clients.Users(pairs.Select(p => p.Key)).Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
         await Clients.Caller.Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
     }
-
-    /// <summary> 
-    /// A small helper function to get the opposite entry of a client pair (how its viewed from the other side) 
-    /// </summary>
-    private ClientPair OppositeEntry(string otherUID) =>
-        DbContext.ClientPairs.AsNoTracking().SingleOrDefault(w => w.User.UID == otherUID && w.OtherUser.UID == UserUID);
 }

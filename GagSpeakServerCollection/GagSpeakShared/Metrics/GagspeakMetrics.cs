@@ -6,7 +6,9 @@ namespace GagspeakShared.Metrics;
 /// <summary> The metrics class for Gagspeak, used to track a number of interactions made across all users over the lifetime of GagSpeak. </summary>
 public class GagspeakMetrics
 {
+#pragma warning disable MA0016 // Prefer using collection abstraction instead of implementation
     public GagspeakMetrics(ILogger<GagspeakMetrics> logger, List<string> countersToServe, List<string> gaugesToServe)
+#pragma warning restore MA0016 // Prefer using collection abstraction instead of implementation
     {
         logger.LogInformation("Initializing GagspeakMetrics");
         foreach (var counter in countersToServe)
@@ -23,12 +25,15 @@ public class GagspeakMetrics
             else
                 _gauges.Add(gauge, Prometheus.Metrics.CreateGauge(gauge, gauge, new[] { "continent" }));
         }
+
+        this.countersToServe = countersToServe;
     }
 
     // the counters and gauges that are being tracked
     private readonly Dictionary<string, Counter> _counters = new(StringComparer.Ordinal);
 
     private readonly Dictionary<string, Gauge> _gauges = new(StringComparer.Ordinal);
+    private readonly List<string> countersToServe;
 
     /// <summary> Increments a gauge with labels. </summary>
     /// <param name="gaugeName">The Gauge to incremenet</param>

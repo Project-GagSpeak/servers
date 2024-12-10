@@ -91,15 +91,14 @@ public class Startup
         services.Configure<ServerConfiguration>(Configuration.GetRequiredSection("GagSpeak"));
         services.Configure<GagspeakConfigurationBase>(Configuration.GetRequiredSection("GagSpeak"));
         _logger.LogInformation("Server Configurations configured");
-        
         // next, add the server token generator, systeminfo service, and online synced pair cache service to the services
         services.AddSingleton<ServerTokenGenerator>();
         services.AddSingleton<SystemInfoService>();
         services.AddSingleton<OnlineSyncedPairCacheService>();
         _logger.LogInformation("Server Token Generator, System Info Service, and Online Synced Pair Cache Service added");
-        
+
         // next, add the hosted service for the system info service
-        services.AddHostedService(provider => provider.GetService<SystemInfoService>());
+        services.AddHostedService(provider => provider.GetService<SystemInfoService>() ?? throw new InvalidOperationException("SystemInfoService not found"));
         _logger.LogInformation("System Info Service Hosted Service added");
 
         // configure services for the main server status
@@ -109,12 +108,12 @@ public class Startup
 
         // add the services for the user cleanup so database isnt overloaded as fuck
         services.AddSingleton<UserCleanupService>();
-        services.AddHostedService(provider => provider.GetService<UserCleanupService>());
+        services.AddHostedService(provider => provider.GetService<UserCleanupService>() ?? throw new InvalidOperationException("UserCleanupService not found"));
         _logger.LogInformation("Cleanup services appended, and hosted service appended");
 
         // add the hosted service for the DBListener
         services.AddSingleton<DbNotificationListener>();
-        services.AddHostedService(provider => provider.GetService<DbNotificationListener>());
+        services.AddHostedService(provider => provider.GetService<DbNotificationListener>() ?? throw new InvalidOperationException("DbNotificationListener not found"));
         _logger.LogInformation("NotificationListener added.");
 
     }
@@ -159,6 +158,11 @@ public class Startup
 
         // lets now configure our redi's connection for the signalR connection
         var redisConnection = gagspeakConfig.GetValue(nameof(ServerConfiguration.RedisConnectionString), string.Empty);
+        if (string.IsNullOrWhiteSpace(redisConnection))
+        {
+            logger.LogError("Redis connection string is missing or empty in the configuration.");
+            throw new InvalidOperationException("Redis connection string must be provided.");
+        }
         // append the redi's connection to the signalR service builder
         signalRServiceBuilder.AddStackExchangeRedis(redisConnection, options => { });
 
@@ -398,9 +402,12 @@ public class Startup
         app.UseHttpMetrics();
 
         // for the metrics server, initialize it with the metrics port from the configuration
+#pragma warning disable IDISP001 // Dispose created
         var metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 4980));
-        // start the metric server
+#pragma warning restore IDISP001 // Dispose created
+#pragma warning disable IDISP004 // Don't ignore created IDisposable
         metricServer.Start();
+#pragma warning restore IDISP004 // Don't ignore created IDisposable
 
         // have authentication and authorization for the server
         app.UseAuthentication();
