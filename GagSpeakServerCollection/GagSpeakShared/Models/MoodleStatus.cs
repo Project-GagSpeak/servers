@@ -38,6 +38,7 @@ public class MoodleStatus
     public Guid StatusOnDispell { get; set; } = Guid.Empty;
     public string CustomVFXPath { get; set; } = string.Empty;
     public bool StackOnReapply { get; set; } = false;
+    public int StacksIncOnReapply { get; set; } = 1;
 
     [NotMapped]
     public int LikeCount => LikesMoodles.Count;

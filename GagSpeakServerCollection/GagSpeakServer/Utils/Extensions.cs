@@ -30,7 +30,8 @@ public static class Extensions
             AsPermanent = status.AsPermanent,
             StatusOnDispell = status.StatusOnDispell,
             CustomVFXPath = status.CustomVFXPath,
-            StackOnReapply = status.StackOnReapply
+            StackOnReapply = status.StackOnReapply,
+            StacksIncOnReapply = status.StacksIncOnReapply
         };
     }
 

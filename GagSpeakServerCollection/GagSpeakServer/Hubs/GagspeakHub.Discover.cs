@@ -5,8 +5,10 @@ using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Enums;
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace GagspeakServer.Hubs;
+#pragma warning disable MA0011 // IFormatProvider is missing
 
 /// <summary>
 /// Hosts the structure for the global chat hub and the pattern accessor list.
@@ -77,7 +79,7 @@ public partial class GagspeakHub
 
         /////////////// Step 1: Check and add tags //////////////////
         // ENSURE THE TAGS ARE LOWERCASE.
-        var uploadTagsLower = dto.patternInfo.Tags.Select(t => t.ToLowerInvariant()).ToList();
+        var uploadTagsLower = dto.patternInfo.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.ToLowerInvariant()).ToList();
         // Get all existing tags from the database
         var existingTags = await DbContext.Keywords.Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
@@ -153,7 +155,7 @@ public partial class GagspeakHub
 
         /////////////// Step 1: Check and add tags //////////////////
         // ENSURE THE TAGS ARE LOWERCASE.
-        var uploadTagsLower = dto.Tags.Select(t => t.ToLowerInvariant()).ToList();
+        var uploadTagsLower = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.ToLowerInvariant()).ToList();
         // Get all existing tags from the database
         var existingTags = await DbContext.Keywords.Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
@@ -376,11 +378,10 @@ public partial class GagspeakHub
         // 1. Apply title or author / title filters
         if (!string.IsNullOrEmpty(dto.SearchString))
         {
+            string searchStringLower = dto.SearchString.ToLower(CultureInfo.InvariantCulture);
             patternsQuery = patternsQuery.Where(p =>
-                // only match author if equal.
-                p.Author.Equals(dto.SearchString, StringComparison.OrdinalIgnoreCase) ||
-                // or if it is contained within the title.
-                p.Name.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
+                p.Author.ToLower().Equals(searchStringLower) ||
+                p.Name.ToLower().Contains(searchStringLower));
         }
 
         // 2. Apply tag filters (only if tags are provided)
@@ -406,8 +407,8 @@ public partial class GagspeakHub
                 break;
             case ResultFilter.Likes:
                 patternsQuery = dto.Sort == SearchSort.Ascending
-                    ? patternsQuery.Include(p => p.UserPatternLikes).AsSplitQuery().OrderBy(p => p.LikeCount)
-                    : patternsQuery.Include(p => p.UserPatternLikes).AsSplitQuery().OrderByDescending(p => p.LikeCount);
+                    ? patternsQuery.OrderBy(p => p.UserPatternLikes.Count)
+                    : patternsQuery.OrderByDescending(p => p.UserPatternLikes.Count);
                 break;
         }
 
@@ -458,11 +459,10 @@ public partial class GagspeakHub
         // 1. Apply title or author / title filters
         if (!string.IsNullOrEmpty(dto.SearchString))
         {
+            string searchStringLower = dto.SearchString.ToLower(CultureInfo.InvariantCulture);
             moodlesQuery = moodlesQuery.Where(p =>
-                // only match author if equal.
-                p.Author.Equals(dto.SearchString, StringComparison.OrdinalIgnoreCase) ||
-                // or if it is contained within the title.
-                p.Title.Contains(dto.SearchString, StringComparison.OrdinalIgnoreCase));
+                p.Author.ToLower().Contains(searchStringLower) ||
+                p.Title.ToLower().Contains(searchStringLower));
         }
 
         // 2. Apply tag filters (only if tags are provided)
@@ -476,15 +476,15 @@ public partial class GagspeakHub
         // 3. Apply sorting
         moodlesQuery = dto.Filter is ResultFilter.Likes
             ? (dto.Sort is SearchSort.Ascending
-                ? moodlesQuery.Include(p => p.LikesMoodles).OrderBy(p => p.LikeCount)
-                : moodlesQuery.Include(p => p.LikesMoodles).OrderByDescending(p => p.LikeCount))
+                ? moodlesQuery.OrderBy(p => p.LikesMoodles.Count)
+                : moodlesQuery.OrderByDescending(p => p.LikesMoodles.Count))
             : (dto.Sort is SearchSort.Ascending
                 ? moodlesQuery.OrderBy(p => p.TimePublished)
                 : moodlesQuery.OrderByDescending(p => p.TimePublished));
 
 
         // 4. Limit results (only run the this moodle keyword include to the first 50.
-        var moodles = await moodlesQuery.Take(50).Include(p => p.MoodleKeywords).Include(p => p.LikesMoodles).AsSplitQuery().ToListAsync().ConfigureAwait(false);
+        var moodles = await moodlesQuery.Take(75).Include(p => p.MoodleKeywords).Include(p => p.LikesMoodles).AsSplitQuery().ToListAsync().ConfigureAwait(false);
 
         // Check if final result is null or contains null entries
         if (moodles is null || moodles.Any(p => p is null))
@@ -515,5 +515,8 @@ public partial class GagspeakHub
         var hashSetTags = tags.ToHashSet(StringComparer.OrdinalIgnoreCase);
         return hashSetTags;
     }
+
+#pragma warning restore MA0011 // IFormatProvider is missing
+
 }
 
