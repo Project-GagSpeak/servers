@@ -29,17 +29,19 @@ public partial class GagspeakHub
 
         // ensure that the user we want to send a request to is not ourselves.
         var uid = dto.User.UID.Trim();
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(dto.User.UID))
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot send a Kinkster Request to self").ConfigureAwait(false);
-            return;
-        }
 
         // return invalid if the user we wanna add is not in the database.
         var otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
         if (otherUser == null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot send Kinkster Request to {dto.User.UID}, the UID does not exist").ConfigureAwait(false);
+            return;
+        }
+
+        // if this "otherUser" is ourselves, return invalid.
+        if (string.Equals(otherUser.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot send Kinkster Request to self").ConfigureAwait(false);
             return;
         }
 
@@ -307,42 +309,6 @@ public partial class GagspeakHub
 
         await Clients.User(UserUID).Client_UserSendOnline(new(pairRequesterUser.ToUserData(), otherIdent)).ConfigureAwait(false);
         await Clients.User(pairRequesterUser.UID).Client_UserSendOnline(new(pairRequestAcceptingUser.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
-
-        // Initialize a group for the two pairs that will be automatically disposed of 5 minutes after its creation.
-        var sortedUIDs = new[] { pairRequesterUser.UID, pairRequestAcceptingUser.UID }.OrderBy(uid => uid, StringComparer.Ordinal).ToArray();
-        var groupName = $"PairChat-{sortedUIDs[0]}-{sortedUIDs[1]}";
-
-        if (_userConnections.TryGetValue(pairRequesterUser.UID, out var connectionIdA) && _userConnections.TryGetValue(pairRequestAcceptingUser.UID, out var connectionIdB))
-        {
-            await Groups.AddToGroupAsync(connectionIdA, groupName).ConfigureAwait(false);
-            await Groups.AddToGroupAsync(connectionIdB, groupName).ConfigureAwait(false);
-
-            // use the message requester to send the initial message.
-            await Clients.Group(groupName).Client_PairChatMessage(new(new("SYSTEM-MSG"), groupName, "This Chat will exist for 10 minutes and then close " +
-                "automatically! Take advantage of it to establish another way to contact eachother or meetup, locations ext. Have fun!")).ConfigureAwait(false);
-
-            // Store the group information in the internal storage with an expiration time to 5 minutes from the current time.
-            var expiresAt = DateTime.UtcNow.AddMinutes(10);
-            _activeGroups[groupName] = (connectionIdA, connectionIdB, expiresAt);
-        }
-    }
-
-    private async Task RemoveGroup(string groupName, string connectionIdA, string connectionIdB)
-    {
-        // Remove both users from the group
-        if (!string.IsNullOrEmpty(connectionIdA))
-        {
-            await Groups.RemoveFromGroupAsync(connectionIdA, groupName).ConfigureAwait(false);
-        }
-
-        if (!string.IsNullOrEmpty(connectionIdB))
-        {
-            await Groups.RemoveFromGroupAsync(connectionIdB, groupName).ConfigureAwait(false);
-        }
-    }
-    public async Task SendPairChat(PairChatMessageDto message)
-    {
-        await Clients.Group(message.GroupName).Client_PairChatMessage(message).ConfigureAwait(false);
     }
 
     [Authorize(Policy = "Identified")]

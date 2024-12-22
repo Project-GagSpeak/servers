@@ -19,7 +19,6 @@ public class UserCleanupService : IHostedService
     private readonly IServiceProvider _services;
     private readonly IConfigurationService<ServerConfiguration> _configuration;
     private CancellationTokenSource _cleanupCts = new();
-    private CancellationTokenSource _groupCleanupCts = new();
 
     public UserCleanupService(GagspeakMetrics metrics, ILogger<UserCleanupService> logger,
         IServiceProvider services, IConfigurationService<ServerConfiguration> configuration)
@@ -34,33 +33,9 @@ public class UserCleanupService : IHostedService
     {
         _logger.LogInformation("Cleanup Service started");
         _cleanupCts = new();
-        _groupCleanupCts = new();
 
         _ = CleanUp(_cleanupCts.Token);
-        _ = GroupsCleanup(_groupCleanupCts.Token);
         return Task.CompletedTask;
-    }
-
-    private async Task GroupsCleanup(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            using var scope = _services.CreateScope();
-            var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<GagspeakHub, IGagspeakHub>>();
-            var now = DateTime.UtcNow;
-
-            foreach (var group in GagspeakHub._activeGroups)
-            {
-                if (group.Value.ExpiresAt <= now)
-                {
-                    await hubContext.Groups.RemoveFromGroupAsync(group.Value.ConnectionIdA, group.Key).ConfigureAwait(false);
-                    await hubContext.Groups.RemoveFromGroupAsync(group.Value.ConnectionIdB, group.Key).ConfigureAwait(false);
-                    GagspeakHub._activeGroups.TryRemove(group.Key, out _);
-                }
-            }
-            // Wait for 10 minutes before checking again
-            await Task.Delay(TimeSpan.FromMinutes(10), ct).ConfigureAwait(false);
-        }
     }
 
     private async Task CleanUp(CancellationToken ct)
@@ -254,7 +229,6 @@ public class UserCleanupService : IHostedService
     public Task StopAsync(CancellationToken cancellationToken)
     {
         _cleanupCts.Cancel();
-        _groupCleanupCts.Cancel();
         return Task.CompletedTask;
     }
 }

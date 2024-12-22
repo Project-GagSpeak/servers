@@ -21,7 +21,6 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 {
     // A thread-safe dictionary to store user connections (Shared across ALL instances of created gagspeak hub connections)
-    public static readonly ConcurrentDictionary<string, (string ConnectionIdA, string ConnectionIdB, DateTime ExpiresAt)> _activeGroups = new(StringComparer.Ordinal);
     public static readonly ConcurrentDictionary<string, string> _userConnections = new(StringComparer.Ordinal);
 
     // The Metrics for the GagSpeak web server
@@ -273,11 +272,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             _userConnections[UserUID] = Context.ConnectionId;
             // add the user to the global chat group
             await Groups.AddToGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
-
-            // rejoin any pair groups we were in that are currently active still.
-            var groups = _activeGroups.Where(g => string.Equals(g.Value.ConnectionIdA, UserUID, StringComparison.Ordinal) || string.Equals(g.Value.ConnectionIdB, UserUID, StringComparison.Ordinal));
-            foreach (var group in groups)
-                await Groups.AddToGroupAsync(Context.ConnectionId, group.Key).ConfigureAwait(false);
         }
         // otherwise, this is a new connection, so lets establish it.
         else
@@ -293,10 +287,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 _userConnections[UserUID] = Context.ConnectionId;
                 // add the user to the global chat group
                 await Groups.AddToGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
-                // rejoin any pair groups we were in that are currently active still.
-                var groups = _activeGroups.Where(g => string.Equals(g.Value.ConnectionIdA, UserUID, StringComparison.Ordinal) || string.Equals(g.Value.ConnectionIdB, UserUID, StringComparison.Ordinal));
-                foreach (var group in groups)
-                    await Groups.AddToGroupAsync(Context.ConnectionId, group.Key).ConfigureAwait(false);
             }
             catch
             {
@@ -305,10 +295,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 _userConnections.Remove(UserUID, out _);
                 // remove user from the global chat group
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
-                // remove user from all active groups
-                var groups = _activeGroups.Where(g => string.Equals(g.Value.ConnectionIdA, UserUID, StringComparison.Ordinal) || string.Equals(g.Value.ConnectionIdB, UserUID, StringComparison.Ordinal));
-                foreach (var group in groups)
-                    _activeGroups.TryRemove(group.Key, out _);
             }
         }
         await base.OnConnectedAsync().ConfigureAwait(false);
@@ -368,10 +354,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 _userConnections.Remove(UserUID, out _);
                 // remove user from the global chat group
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
-                // remove user from all active groups
-                var groups = _activeGroups.Where(g => string.Equals(g.Value.ConnectionIdA, UserUID, StringComparison.Ordinal) || string.Equals(g.Value.ConnectionIdB, UserUID, StringComparison.Ordinal));
-                foreach (var group in groups)
-                    _activeGroups.TryRemove(group.Key, out _);
             }
         }
         // if we reach here, we should log a warning that the user disconnecting was not in the dictionary of connected users.
