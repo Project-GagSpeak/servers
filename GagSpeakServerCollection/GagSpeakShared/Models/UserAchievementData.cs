@@ -11,5 +11,5 @@ public class UserAchievementData
     public string UserUID { get; set; }
     public User User { get; set; }
 
-    public string Base64AchievementData { get; set; } // Condensed format 
+    public string Base64AchievementData { get; set; } = string.Empty;
 }

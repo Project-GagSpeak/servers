@@ -13,6 +13,7 @@ using GagspeakShared.Utils.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
 
@@ -112,6 +113,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
         dbUser.LastLoggedIn = DateTime.UtcNow;
 
+        // determine if this is a primary account or not
+        Auth dbUserAuth = await DbContext.Auth.SingleAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+
         // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
             "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
@@ -166,6 +170,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
+            IsPrimaryAccount = dbUserAuth.PrimaryUserUID.IsNullOrEmpty(),
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
             CharaAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
             CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData(),
