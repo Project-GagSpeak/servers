@@ -52,11 +52,11 @@ public class JwtController : Controller
     /// <returns></returns>
     [AllowAnonymous]
     [HttpPost(GagspeakAuth.Auth_TempToken)]
-    public async Task<IActionResult> CreateTemporaryToken(string localContentID, string charaIdent)
+    public async Task<IActionResult> CreateTemporaryToken(string charaIdent, string localContentID)
     {
         _logger.LogInformation("CreateTemporaryToken:SUCCESS:{ident}", charaIdent);
         // Call internal authentication method
-        return await AuthenticateInternal(null, charaIdent, localContentID).ConfigureAwait(false);
+        return await AuthenticateInternal(charaIdent, contentID: localContentID).ConfigureAwait(false);
     }
 
 
@@ -68,15 +68,17 @@ public class JwtController : Controller
     /// path defined in GagspeakAuth from the API
     /// </para>
     /// </summary>
-    /// <param name="auth">the authentication string</param>
     /// <param name="charaIdent">the indentity of the character to make a token for</param>
+    /// <param name="authKey">the authentication string</param>
+    /// <param name="ensurePrimary">if we expect the connection to be the primary account.</param>
     /// <returns> A task that represents the asynchronous operation. The task result contains an IActionResult. </returns>
     [AllowAnonymous]
     [HttpPost(GagspeakAuth.Auth_CreateIdent)]
-    public async Task<IActionResult> CreateToken(string auth, string charaIdent)
+    public async Task<IActionResult> CreateToken(string charaIdent, string authKey, string ensurePrimary)
     {
+        var forceMain = string.Equals(ensurePrimary, "True", StringComparison.OrdinalIgnoreCase);
         // Call internal authentication method
-        return await AuthenticateInternal(auth, charaIdent).ConfigureAwait(false);
+        return await AuthenticateInternal(charaIdent, forceMain, authKey).ConfigureAwait(false);
     }
 
     /// <summary> The method to renew a token for a user. (Requires Authenticated access)
@@ -129,10 +131,12 @@ public class JwtController : Controller
     /// <summary> Method to internally authenticate a user.
     /// <para> Must known the authentication string and the user's identity</para>
     /// </summary>
-    /// <param name="auth"> secret key authentication </param>
     /// <param name="charaIdent"> character identifier </param>
+    /// <param name="forceMain"> if we expect the connection to be the primary account.</param>"
+    /// <param name="auth"> secret key authentication </param>
+    /// <param name="contentID"> the local content id. </param>
     /// <returns> A task that represents the asynchronous operation. The task result contains an IActionResult. </returns>
-    private async Task<IActionResult> AuthenticateInternal(string auth, string charaIdent, string? localContentID = null)
+    private async Task<IActionResult> AuthenticateInternal(string charaIdent, bool forceMain = false, string? auth = null, string? contentID = null)
     {
         try
         {
@@ -141,18 +145,18 @@ public class JwtController : Controller
             if (string.IsNullOrEmpty(charaIdent)) return BadRequest("No CharaIdent");
 
             // handle localcontentID based authentication
-            if (!string.IsNullOrEmpty(localContentID))
+            if (!string.IsNullOrEmpty(contentID))
             {
                 // validate the localcontentID here (e.g., check if it exists in your database)
                 // if validation fails, return appropriate responce
-                if (localContentID == null) // replace with better security
+                if (contentID == null) // replace with better security
                 {
-                    _logger.LogInformation("Authenticate:LOCALCONTENTID:{id}:{ident}", localContentID, charaIdent);
+                    _logger.LogInformation("Authenticate:LOCALCONTENTID:{id}:{ident}", contentID, charaIdent);
                     return BadRequest("Invalid LocalContentID");
                 }
 
                 // assuming the local coneent ID is valid, create a token with the TemporaryAccess claim
-                return await CreateTempAccessJwtFromId(localContentID, charaIdent);                                       // WE CREATE THE JWT HERE
+                return await CreateTempAccessJwtFromId(contentID, charaIdent);                                       // WE CREATE THE JWT HERE
             }
 
             // check to see if the secret key is empty or null, and return a bad request if it is.
@@ -185,6 +189,14 @@ public class JwtController : Controller
             {
                 _logger.LogWarning("Authenticate:TEMPBAN:{id}:{ident}", authResult.Uid ?? "NOUID", charaIdent);
                 return Unauthorized("Due to an excessive amount of failed authentication attempts you are temporarily banned. Check your Secret Key configuration and try connecting again in 5 minutes.");
+            }
+
+            // if the user is expecting to connect with the primary account, but the results primary uid is not null or empty.
+            // Return that we are unauthorized to connect with this account as it is not the primary account.
+            if (forceMain && string.IsNullOrEmpty(authResult.PrimaryUid))
+            {
+                _logger.LogWarning("Authenticate:NOTPRIMARY:{id}:{ident}", authResult.Uid, charaIdent);
+                return Unauthorized("You are connecting to an alt account while you should be connecting with your primary one.");
             }
 
             // if the user is permanently banned, ensure the ban and return an unauthorized result.
