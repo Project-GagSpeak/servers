@@ -244,7 +244,7 @@ public class Startup
         // set up the redi's configuration for the server
         var redisConfiguration = new RedisConfiguration()
         {
-            AbortOnConnectFail = true,  // abort redi's connection on failure.
+            AbortOnConnectFail = false,  // abort redi's connection on failure.
             KeyPrefix = "", // clear the key prefix to be blank.
             Hosts = new RedisHost[] // set the new Redi's host to the address and port.
             {
@@ -264,6 +264,7 @@ public class Startup
             MaxValueLength = 1024, // max val length (huh?)
             PoolSize = gagspeakConfig.GetValue(nameof(ServerConfiguration.RedisPool), 50), // set the number of connections in the pool to the value in the config, or 50.
             SyncTimeout = options.SyncTimeout, // determine the sync timeout for redi's.
+            LoggerFactory = services.BuildServiceProvider().GetRequiredService<ILoggerFactory>(), // get the logger factory from the services.
         };
 
         // add the redi's extensions to the services with the system text json serializer.

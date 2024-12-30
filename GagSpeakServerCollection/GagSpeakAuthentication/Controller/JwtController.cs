@@ -158,9 +158,16 @@ public class JwtController : Controller
                 // assuming the local coneent ID is valid, create a token with the TemporaryAccess claim
                 return await CreateTempAccessJwtFromId(contentID, charaIdent);                                       // WE CREATE THE JWT HERE
             }
-
-            // check to see if the secret key is empty or null, and return a bad request if it is.
-            if (string.IsNullOrEmpty(auth)) return BadRequest("No Authkey");
+            else
+            {
+                // assuming that the contentID is empty or null, we know it MUST be a secret key authentication.
+                if (string.IsNullOrEmpty(auth))
+                {
+                    // This means if the auth key is null or empty at this point, we should return unauthorized instead of simply bad request.
+                    _logger.LogWarning("Authenticate:NO AUTHKEY PROVIDED:{ident}", charaIdent);
+                    return Unauthorized("No Secret Key provided. If you are not on V1.1.1.0 or above, you need to update!");
+                }
+            }
 
             // the passed in variables had content, so fetch the IPGetIpAddress
             var ip = _accessor.GetIpAddress();

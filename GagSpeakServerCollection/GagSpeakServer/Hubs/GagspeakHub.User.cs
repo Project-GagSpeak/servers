@@ -600,7 +600,7 @@ public partial class GagspeakHub
 
         // Grab the requested user's profile data from the database
         UserProfileData? data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
-        if (data == null)
+        if (data is null)
         {
             var newPlate = new KinkPlateContent();
             return new UserKinkPlateDto(user.User, newPlate, string.Empty);
@@ -653,12 +653,11 @@ public partial class GagspeakHub
             if (!dto.AchievementDataBase64.IsNullOrEmpty())
             {
                 existingData.Base64AchievementData = dto.AchievementDataBase64;
-                // should also sync this with profile data down the line but for now dont worry about it.
             }
             else
             {
                 // they tried to update with null data, which shouldnt ever happen.
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot update achievement data with null data").ConfigureAwait(false);
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot update achievement data with null or empty data").ConfigureAwait(false);
                 return;
             }
         }
@@ -671,6 +670,7 @@ public partial class GagspeakHub
                 Base64AchievementData = dto.AchievementDataBase64,
             };
             await DbContext.UserAchievementData.AddAsync(userProfileData).ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Fresh Achievement Data Created").ConfigureAwait(false);
         }
 
         // Save DB Changes
@@ -678,16 +678,58 @@ public partial class GagspeakHub
     }
 
     /// <summary> 
-    /// Called by a connected client who wishes to set or update their profile data.
+    /// Called by a connected client who wishes to set or update their profile Info.
     /// </summary>
     [Authorize(Policy = "Identified")]
-    public async Task UserSetKinkPlate(UserKinkPlateDto dto)
+    public async Task UserSetKinkPlateContent(UserKinkPlateContentDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
 
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot modify profile data for anyone but yourself").ConfigureAwait(false);
+            return;
+        }
+
+        // Grab Client Callers current profile data from the database
+        var existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        // Validate the rest of the profile data.
+        if (existingData is not null)
+        {
+            // update all other values from the Info in the dto.
+            existingData.UpdateInfoFromDto(dto.Info);
+        }
+        else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
+        {
+            var userProfileData = new UserProfileData();
+            userProfileData.UpdateInfoFromDto(dto.Info);
+            await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
+        }
+
+        // Save DB Changes
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // Fetch all paired user's of the client caller
+        var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        // Get Online users.
+        var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
+
+        // Inform the client caller and all their pairs that their profile has been updated.
+        await Clients.Users(pairs.Select(p => p.Key)).Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
+    }
+
+    /// <summary> 
+    /// Called by a connected client who wishes to set or update their profile Picture.
+    /// </summary>
+    [Authorize(Policy = "Identified")]
+    public async Task UserSetKinkPlatePicture(UserKinkPlatePictureDto dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
+
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        {
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot modify profile image for anyone but yourself").ConfigureAwait(false);
             return;
         }
 
@@ -727,14 +769,13 @@ public partial class GagspeakHub
         // Validate the rest of the profile data.
         if (existingData is not null)
         {
-            // If this causes any errors then return to the possible null value it had.
+            // update the profile image to the data from the dto.
             existingData.Base64ProfilePic = dto.ProfilePictureBase64;
-            // update all other values from the Info in the dto.
-            existingData.UpdateInfoFromDto(dto.Info);
         }
         else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
         {
-            UserProfileData userProfileData = DataUpdateHelpers.NewPlateFromDto(dto);
+            var userProfileData = new UserProfileData();
+            userProfileData.Base64ProfilePic = dto.ProfilePictureBase64;
             await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
 
