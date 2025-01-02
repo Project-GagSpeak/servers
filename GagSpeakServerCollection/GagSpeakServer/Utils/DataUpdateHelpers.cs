@@ -343,6 +343,7 @@ public static class DataUpdateHelpers
             Password = userActiveState.ActiveSetPassword,
             Timer = userActiveState.ActiveSetLockTime,
             Assigner = userActiveState.ActiveSetLockAssigner,
+            ActiveCursedItems = prevData.ActiveCursedItems,
         };
     }
 

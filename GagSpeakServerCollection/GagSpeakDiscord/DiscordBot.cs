@@ -436,7 +436,7 @@ internal partial class DiscordBot : IHostedService
                             {
                                 // we should clear the user's alias "and their other vanity benifits, but add those later)
                                 _logger.LogInformation($"User {accountClaimAuth.User.UID} not in allowed roles, deleting alias");
-                                accountClaimAuth.User.Alias = null;
+                                accountClaimAuth.User.Alias = string.Empty;
                                 accountClaimAuth.User.VanityTier = CkSupporterTier.NoRole;
 
                                 // locate any secondary user's of the primary user this account belongs to, and clear the perks from these as well.
@@ -444,7 +444,7 @@ internal partial class DiscordBot : IHostedService
                                 foreach (var secondaryUser in secondaryUsers)
                                 {
                                     _logger.LogDebug($"Secondary User {secondaryUser.User.UID} not in allowed roles, deleting alias & resetting supporter tier");
-                                    secondaryUser.User.Alias = null;
+                                    secondaryUser.User.Alias = string.Empty;
                                     secondaryUser.User.VanityTier = CkSupporterTier.NoRole;
                                     // update the secondary user in the database
                                     db.Update(secondaryUser.User);

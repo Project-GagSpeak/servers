@@ -24,9 +24,6 @@ public class DiscordBotServices
     // a concurrent dictionary of the discord users who have verified their GagSpeak account.
     public ConcurrentDictionary<ulong, bool> DiscordVerifiedUsers { get; } = new();
 
-    // the concurrent dictionary representing when each discord user haad its las vanity change
-    public ConcurrentDictionary<ulong, DateTime> LastVanityChange = new();
-
     // the concurrent dictionary representing the last time a user has interacted with the bot.
     public ConcurrentDictionary<ulong, ulong> ValidInteractions { get; } = new();
 
@@ -194,14 +191,15 @@ public class DiscordBotServices
                     {
                         reportingUserSb.AppendLine($" (<@{reportingUserAccountClaim.DiscordId}>)");
                     }
-                    eb.AddField("Reported User", reportedUserSb.ToString());
-                    eb.AddField("Reporting User", reportingUserSb.ToString());
+                    eb.AddField("Report Initiator", reportingUserSb.ToString());
                     var reportTimeUtc = new DateTimeOffset(report.ReportTime, TimeSpan.Zero);
                     var formattedTimestamp = string.Create(CultureInfo.InvariantCulture, $"<t:{reportTimeUtc.ToUnixTimeSeconds()}:F>");
                     eb.AddField("Report Time (Local)", formattedTimestamp);
-                    eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(report.ReportedDescription) ? "-" : report.ReportedDescription);
-                    
                     eb.AddField("Report Reason", string.IsNullOrWhiteSpace(report.ReportReason) ? "-" : report.ReportReason);
+
+                    // main report:
+                    eb.AddField("Reported User", reportedUserSb.ToString());
+                    eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(report.ReportedDescription) ? "-" : report.ReportedDescription);
 
                     var cb = new ComponentBuilder();
                     cb.WithButton("Dismiss Report", customId: $"gagspeak-report-button-dismissreport-{reportedUser.UID}", style: ButtonStyle.Primary);

@@ -701,7 +701,7 @@ public partial class GagspeakHub
         }
         else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
         {
-            var userProfileData = new UserProfileData();
+            var userProfileData = new UserProfileData() { UserUID = dto.User.UID };
             userProfileData.UpdateInfoFromDto(dto.Info);
             await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
@@ -774,7 +774,7 @@ public partial class GagspeakHub
         }
         else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
         {
-            var userProfileData = new UserProfileData();
+            var userProfileData = new UserProfileData() { UserUID = dto.User.UID };
             userProfileData.Base64ProfilePic = dto.ProfilePictureBase64;
             await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
