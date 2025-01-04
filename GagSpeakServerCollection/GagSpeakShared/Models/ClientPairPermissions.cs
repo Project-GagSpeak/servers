@@ -43,10 +43,10 @@ public class ClientPairPermissions
     public string TriggerPhrase { get; set; } = "";    // the end char that is the right enclosing bracket character for commands.
     public char StartChar { get; set; } = '(';          // the start char that is the left enclosing bracket character for commands.
     public char EndChar { get; set; } = ')';            // the end char that is the right enclosing bracket character for commands.
-    public bool AllowSitRequests { get; set; } = false;   // if the client pair can request to sit on you.
-    public bool AllowMotionRequests { get; set; } = false; // if the client pair can request to move you.
-    public bool AllowAllRequests { get; set; } = false;   // if the client pair can request to do anything.
-    public bool AllowAliasRequests { get; set; } = false; // if the client pair can request alias triggers.
+    public bool SitRequests { get; set; } = false;   // if the client pair can request to sit on you.
+    public bool MotionRequests { get; set; } = false; // if the client pair can request to move you.
+    public bool AliasRequests { get; set; } = false; // if the client pair can request alias triggers.
+    public bool AllRequests { get; set; } = false;   // if the client pair can request to do anything.
 
     // unique Moodles permissions
     public bool AllowPositiveStatusTypes { get; set; } = false; // if the client pair can give you positive moodles

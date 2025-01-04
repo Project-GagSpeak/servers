@@ -2,7 +2,7 @@
 
 namespace GagspeakServer.Utils;
 /// <summary>
-/// Extention helper method for converting ClientPairPermissions to UserPermissionsComposite. for DTO's
+/// Extension helper method for converting ClientPairPermissions to UserPermissionsComposite. for DTO's
 /// </summary>
 #pragma warning disable MA0051 // Method is too long
 public static class ClientPairPermissionExtensions
@@ -39,10 +39,10 @@ public static class ClientPairPermissionExtensions
 
     #region ActiveStateDataMigrations
     public static GagspeakAPI.Data.Character.CharaActiveStateData ToApiActiveStateData(this UserActiveStateData? activeStateDataModel)
-	{
-		if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharaActiveStateData();
+    {
+        if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharaActiveStateData();
 
-		GagspeakAPI.Data.Character.CharaActiveStateData result = new GagspeakAPI.Data.Character.CharaActiveStateData();
+        GagspeakAPI.Data.Character.CharaActiveStateData result = new GagspeakAPI.Data.Character.CharaActiveStateData();
 
         result.ActiveSetId = activeStateDataModel.ActiveSetId;
         result.ActiveSetEnabler = activeStateDataModel.ActiveSetEnabler;
@@ -50,14 +50,14 @@ public static class ClientPairPermissionExtensions
         result.Password = activeStateDataModel.ActiveSetPassword;
         result.Timer = activeStateDataModel.ActiveSetLockTime;
         result.Assigner = activeStateDataModel.ActiveSetLockAssigner;
-        
-		return result;
-	}
-	#endregion ActiveStateDataMigrations
+
+        return result;
+    }
+    #endregion ActiveStateDataMigrations
 
 
-	#region GlobalPermissionMigrations
-	public static GagspeakAPI.Data.Permissions.UserGlobalPermissions ToApiGlobalPerms(this UserGlobalPermissions? globalPermsModel)
+    #region GlobalPermissionMigrations
+    public static GagspeakAPI.Data.Permissions.UserGlobalPermissions ToApiGlobalPerms(this UserGlobalPermissions? globalPermsModel)
     {
         if (globalPermsModel == null) return new GagspeakAPI.Data.Permissions.UserGlobalPermissions();
 
@@ -83,7 +83,7 @@ public static class ClientPairPermissionExtensions
         result.LockToyboxUI = globalPermsModel.LockToyboxUI;
         result.ToyIsActive = globalPermsModel.ToyIsActive;
         result.SpatialVibratorAudio = globalPermsModel.SpatialVibratorAudio;
-        
+
         result.ForcedFollow = globalPermsModel.ForcedFollow;
         result.ForcedEmoteState = globalPermsModel.ForcedEmoteState;
         result.ForcedStay = globalPermsModel.ForcedStay;
@@ -109,20 +109,20 @@ public static class ClientPairPermissionExtensions
 
         current.LiveChatGarblerActive = apiPerms.LiveChatGarblerActive;
         current.LiveChatGarblerLocked = apiPerms.LiveChatGarblerLocked;
-        
+
         current.WardrobeEnabled = apiPerms.WardrobeEnabled;
         current.ItemAutoEquip = apiPerms.ItemAutoEquip;
         current.RestraintSetAutoEquip = apiPerms.RestraintSetAutoEquip;
-        
+
         current.PuppeteerEnabled = apiPerms.PuppeteerEnabled;
         current.GlobalTriggerPhrase = apiPerms.GlobalTriggerPhrase;
         current.GlobalAllowSitRequests = apiPerms.GlobalAllowSitRequests;
         current.GlobalAllowMotionRequests = apiPerms.GlobalAllowMotionRequests;
         current.GlobalAllowAllRequests = apiPerms.GlobalAllowAllRequests;
         current.GlobalAllowAliasRequests = apiPerms.GlobalAllowAliasRequests;
-        
+
         current.MoodlesEnabled = apiPerms.MoodlesEnabled;
-        
+
         current.ToyboxEnabled = apiPerms.ToyboxEnabled;
         current.LockToyboxUI = apiPerms.LockToyboxUI;
         current.ToyIsActive = apiPerms.ToyIsActive;
@@ -178,9 +178,10 @@ public static class ClientPairPermissionExtensions
         result.TriggerPhrase = clientPairPermsModel.TriggerPhrase;
         result.StartChar = clientPairPermsModel.StartChar;
         result.EndChar = clientPairPermsModel.EndChar;
-        result.AllowSitRequests = clientPairPermsModel.AllowSitRequests;
-        result.AllowMotionRequests = clientPairPermsModel.AllowMotionRequests;
-        result.AllowAllRequests = clientPairPermsModel.AllowAllRequests;
+        result.SitRequests = clientPairPermsModel.SitRequests;
+        result.MotionRequests = clientPairPermsModel.MotionRequests;
+        result.AliasRequests = clientPairPermsModel.AliasRequests;
+        result.AllRequests = clientPairPermsModel.AllRequests;
 
         result.AllowPositiveStatusTypes = clientPairPermsModel.AllowPositiveStatusTypes;
         result.AllowNegativeStatusTypes = clientPairPermsModel.AllowNegativeStatusTypes;
@@ -225,7 +226,7 @@ public static class ClientPairPermissionExtensions
     {
         if (apiPairPerms == null) return currentModelPerms;
 
-		currentModelPerms.IsPaused = apiPairPerms.IsPaused;
+        currentModelPerms.IsPaused = apiPairPerms.IsPaused;
 
         currentModelPerms.PermanentLocks = apiPairPerms.PermanentLocks;
         currentModelPerms.OwnerLocks = apiPairPerms.OwnerLocks;
@@ -246,9 +247,10 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.TriggerPhrase = apiPairPerms.TriggerPhrase;
         currentModelPerms.StartChar = apiPairPerms.StartChar;
         currentModelPerms.EndChar = apiPairPerms.EndChar;
-        currentModelPerms.AllowSitRequests = apiPairPerms.AllowSitRequests;
-        currentModelPerms.AllowMotionRequests = apiPairPerms.AllowMotionRequests;
-        currentModelPerms.AllowAllRequests = apiPairPerms.AllowAllRequests;
+        currentModelPerms.SitRequests = apiPairPerms.SitRequests;
+        currentModelPerms.MotionRequests = apiPairPerms.MotionRequests;
+        currentModelPerms.AliasRequests = apiPairPerms.AliasRequests;
+        currentModelPerms.AllRequests = apiPairPerms.AllRequests;
 
         currentModelPerms.AllowPositiveStatusTypes = apiPairPerms.AllowPositiveStatusTypes;
         currentModelPerms.AllowNegativeStatusTypes = apiPairPerms.AllowNegativeStatusTypes;
@@ -301,11 +303,16 @@ public static class ClientPairPermissionExtensions
         // set all access perms to defaults
         result.LiveChatGarblerActiveAllowed = pairAccessPermsModel.LiveChatGarblerActiveAllowed;
         result.LiveChatGarblerLockedAllowed = pairAccessPermsModel.LiveChatGarblerLockedAllowed;
-        result.GagFeaturesAllowed = pairAccessPermsModel.GagFeaturesAllowed;
+
+        result.PermanentLocksAllowed = pairAccessPermsModel.PermanentLocksAllowed;
         result.OwnerLocksAllowed = pairAccessPermsModel.OwnerLocksAllowed;
         result.DevotionalLocksAllowed = pairAccessPermsModel.DevotionalLocksAllowed;
-        result.ExtendedLockTimesAllowed = pairAccessPermsModel.ExtendedLockTimesAllowed;
-        result.MaxLockTimeAllowed = pairAccessPermsModel.MaxLockTimeAllowed;
+
+        result.ApplyGagsAllowed = pairAccessPermsModel.ApplyGagsAllowed;
+        result.LockGagsAllowed = pairAccessPermsModel.LockGagsAllowed;
+        result.MaxGagTimeAllowed = pairAccessPermsModel.MaxGagTimeAllowed;
+        result.UnlockGagsAllowed = pairAccessPermsModel.UnlockGagsAllowed;
+        result.RemoveGagsAllowed = pairAccessPermsModel.RemoveGagsAllowed;
 
         result.WardrobeEnabledAllowed = pairAccessPermsModel.WardrobeEnabledAllowed;
         result.ItemAutoEquipAllowed = pairAccessPermsModel.ItemAutoEquipAllowed;
@@ -317,9 +324,10 @@ public static class ClientPairPermissionExtensions
         result.RemoveRestraintSetsAllowed = pairAccessPermsModel.RemoveRestraintSetsAllowed;
 
         result.PuppeteerEnabledAllowed = pairAccessPermsModel.PuppeteerEnabledAllowed;
-        result.AllowSitRequestsAllowed = pairAccessPermsModel.AllowSitRequestsAllowed;
-        result.AllowMotionRequestsAllowed = pairAccessPermsModel.AllowMotionRequestsAllowed;
-        result.AllowAllRequestsAllowed = pairAccessPermsModel.AllowAllRequestsAllowed;
+        result.SitRequestsAllowed = pairAccessPermsModel.SitRequestsAllowed;
+        result.MotionRequestsAllowed = pairAccessPermsModel.MotionRequestsAllowed;
+        result.AliasRequestsAllowed = pairAccessPermsModel.AliasRequestsAllowed;
+        result.AllRequestsAllowed = pairAccessPermsModel.AllRequestsAllowed;
 
         result.MoodlesEnabledAllowed = pairAccessPermsModel.MoodlesEnabledAllowed;
         result.AllowPositiveStatusTypesAllowed = pairAccessPermsModel.AllowPositiveStatusTypesAllowed;
@@ -351,11 +359,17 @@ public static class ClientPairPermissionExtensions
 
         currentPermAccess.LiveChatGarblerActiveAllowed = apiPairAccessPerms.LiveChatGarblerActiveAllowed;
         currentPermAccess.LiveChatGarblerLockedAllowed = apiPairAccessPerms.LiveChatGarblerLockedAllowed;
-        currentPermAccess.GagFeaturesAllowed = apiPairAccessPerms.GagFeaturesAllowed;
+
+        currentPermAccess.PermanentLocksAllowed = apiPairAccessPerms.PermanentLocksAllowed;
         currentPermAccess.OwnerLocksAllowed = apiPairAccessPerms.OwnerLocksAllowed;
         currentPermAccess.DevotionalLocksAllowed = apiPairAccessPerms.DevotionalLocksAllowed;
-        currentPermAccess.ExtendedLockTimesAllowed = apiPairAccessPerms.ExtendedLockTimesAllowed;
-        currentPermAccess.MaxLockTimeAllowed = apiPairAccessPerms.MaxLockTimeAllowed;
+
+        currentPermAccess.ApplyGagsAllowed = apiPairAccessPerms.ApplyGagsAllowed;
+        currentPermAccess.LockGagsAllowed = apiPairAccessPerms.LockGagsAllowed;
+        currentPermAccess.MaxGagTimeAllowed = apiPairAccessPerms.MaxGagTimeAllowed;
+        currentPermAccess.UnlockGagsAllowed = apiPairAccessPerms.UnlockGagsAllowed;
+        currentPermAccess.RemoveGagsAllowed = apiPairAccessPerms.RemoveGagsAllowed;
+
         currentPermAccess.WardrobeEnabledAllowed = apiPairAccessPerms.WardrobeEnabledAllowed;
         currentPermAccess.ItemAutoEquipAllowed = apiPairAccessPerms.ItemAutoEquipAllowed;
         currentPermAccess.RestraintSetAutoEquipAllowed = apiPairAccessPerms.RestraintSetAutoEquipAllowed;
@@ -364,10 +378,13 @@ public static class ClientPairPermissionExtensions
         currentPermAccess.MaxAllowedRestraintTimeAllowed = apiPairAccessPerms.MaxAllowedRestraintTimeAllowed;
         currentPermAccess.UnlockRestraintSetsAllowed = apiPairAccessPerms.UnlockRestraintSetsAllowed;
         currentPermAccess.RemoveRestraintSetsAllowed = apiPairAccessPerms.RemoveRestraintSetsAllowed;
+
         currentPermAccess.PuppeteerEnabledAllowed = apiPairAccessPerms.PuppeteerEnabledAllowed;
-        currentPermAccess.AllowSitRequestsAllowed = apiPairAccessPerms.AllowSitRequestsAllowed;
-        currentPermAccess.AllowMotionRequestsAllowed = apiPairAccessPerms.AllowMotionRequestsAllowed;
-        currentPermAccess.AllowAllRequestsAllowed = apiPairAccessPerms.AllowAllRequestsAllowed;
+        currentPermAccess.SitRequestsAllowed = apiPairAccessPerms.SitRequestsAllowed;
+        currentPermAccess.MotionRequestsAllowed = apiPairAccessPerms.MotionRequestsAllowed;
+        currentPermAccess.AliasRequestsAllowed = apiPairAccessPerms.AliasRequestsAllowed;
+        currentPermAccess.AllRequestsAllowed = apiPairAccessPerms.AllRequestsAllowed;
+
         currentPermAccess.MoodlesEnabledAllowed = apiPairAccessPerms.MoodlesEnabledAllowed;
         currentPermAccess.AllowPositiveStatusTypesAllowed = apiPairAccessPerms.AllowPositiveStatusTypesAllowed;
         currentPermAccess.AllowNegativeStatusTypesAllowed = apiPairAccessPerms.AllowNegativeStatusTypesAllowed;
@@ -377,6 +394,7 @@ public static class ClientPairPermissionExtensions
         currentPermAccess.MaxMoodleTimeAllowed = apiPairAccessPerms.MaxMoodleTimeAllowed;
         currentPermAccess.AllowPermanentMoodlesAllowed = apiPairAccessPerms.AllowPermanentMoodlesAllowed;
         currentPermAccess.AllowRemovingMoodlesAllowed = apiPairAccessPerms.AllowRemovingMoodlesAllowed;
+
         currentPermAccess.ToyboxEnabledAllowed = apiPairAccessPerms.ToyboxEnabledAllowed;
         currentPermAccess.LockToyboxUIAllowed = apiPairAccessPerms.LockToyboxUIAllowed;
         currentPermAccess.SpatialVibratorAudioAllowed = apiPairAccessPerms.SpatialVibratorAudioAllowed;
