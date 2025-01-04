@@ -63,8 +63,6 @@ public static class ClientPairPermissionExtensions
 
         GagspeakAPI.Data.Permissions.UserGlobalPermissions result = new GagspeakAPI.Data.Permissions.UserGlobalPermissions();
 
-        result.SafewordUsed = globalPermsModel.SafewordUsed;
-        result.HardcoreSafewordUsed = globalPermsModel.HardcoreSafewordUsed;
         result.LiveChatGarblerActive = globalPermsModel.LiveChatGarblerActive;
         result.LiveChatGarblerLocked = globalPermsModel.LiveChatGarblerLocked;
 
@@ -77,6 +75,7 @@ public static class ClientPairPermissionExtensions
         result.GlobalAllowSitRequests = globalPermsModel.GlobalAllowSitRequests;
         result.GlobalAllowMotionRequests = globalPermsModel.GlobalAllowMotionRequests;
         result.GlobalAllowAllRequests = globalPermsModel.GlobalAllowAllRequests;
+        result.GlobalAllowAliasRequests = globalPermsModel.GlobalAllowAliasRequests;
 
         result.MoodlesEnabled = globalPermsModel.MoodlesEnabled;
 
@@ -104,49 +103,48 @@ public static class ClientPairPermissionExtensions
         return result;
     }
 
-    public static UserGlobalPermissions ToModelGlobalPerms(this GagspeakAPI.Data.Permissions.UserGlobalPermissions apiGlobalPerms, UserGlobalPermissions currentModelGlobalPerms)
+    public static UserGlobalPermissions ToModelGlobalPerms(this GagspeakAPI.Data.Permissions.UserGlobalPermissions apiPerms, UserGlobalPermissions current)
     {
-        if (apiGlobalPerms == null) return currentModelGlobalPerms;
+        if (apiPerms == null) return current;
 
-        currentModelGlobalPerms.SafewordUsed = apiGlobalPerms.SafewordUsed;
-        currentModelGlobalPerms.HardcoreSafewordUsed = apiGlobalPerms.HardcoreSafewordUsed;
-        currentModelGlobalPerms.LiveChatGarblerActive = apiGlobalPerms.LiveChatGarblerActive;
-        currentModelGlobalPerms.LiveChatGarblerLocked = apiGlobalPerms.LiveChatGarblerLocked;
+        current.LiveChatGarblerActive = apiPerms.LiveChatGarblerActive;
+        current.LiveChatGarblerLocked = apiPerms.LiveChatGarblerLocked;
         
-        currentModelGlobalPerms.WardrobeEnabled = apiGlobalPerms.WardrobeEnabled;
-        currentModelGlobalPerms.ItemAutoEquip = apiGlobalPerms.ItemAutoEquip;
-        currentModelGlobalPerms.RestraintSetAutoEquip = apiGlobalPerms.RestraintSetAutoEquip;
+        current.WardrobeEnabled = apiPerms.WardrobeEnabled;
+        current.ItemAutoEquip = apiPerms.ItemAutoEquip;
+        current.RestraintSetAutoEquip = apiPerms.RestraintSetAutoEquip;
         
-        currentModelGlobalPerms.PuppeteerEnabled = apiGlobalPerms.PuppeteerEnabled;
-        currentModelGlobalPerms.GlobalTriggerPhrase = apiGlobalPerms.GlobalTriggerPhrase;
-        currentModelGlobalPerms.GlobalAllowSitRequests = apiGlobalPerms.GlobalAllowSitRequests;
-        currentModelGlobalPerms.GlobalAllowMotionRequests = apiGlobalPerms.GlobalAllowMotionRequests;
-        currentModelGlobalPerms.GlobalAllowAllRequests = apiGlobalPerms.GlobalAllowAllRequests;
+        current.PuppeteerEnabled = apiPerms.PuppeteerEnabled;
+        current.GlobalTriggerPhrase = apiPerms.GlobalTriggerPhrase;
+        current.GlobalAllowSitRequests = apiPerms.GlobalAllowSitRequests;
+        current.GlobalAllowMotionRequests = apiPerms.GlobalAllowMotionRequests;
+        current.GlobalAllowAllRequests = apiPerms.GlobalAllowAllRequests;
+        current.GlobalAllowAliasRequests = apiPerms.GlobalAllowAliasRequests;
         
-        currentModelGlobalPerms.MoodlesEnabled = apiGlobalPerms.MoodlesEnabled;
+        current.MoodlesEnabled = apiPerms.MoodlesEnabled;
         
-        currentModelGlobalPerms.ToyboxEnabled = apiGlobalPerms.ToyboxEnabled;
-        currentModelGlobalPerms.LockToyboxUI = apiGlobalPerms.LockToyboxUI;
-        currentModelGlobalPerms.ToyIsActive = apiGlobalPerms.ToyIsActive;
-        currentModelGlobalPerms.SpatialVibratorAudio = apiGlobalPerms.SpatialVibratorAudio;
+        current.ToyboxEnabled = apiPerms.ToyboxEnabled;
+        current.LockToyboxUI = apiPerms.LockToyboxUI;
+        current.ToyIsActive = apiPerms.ToyIsActive;
+        current.SpatialVibratorAudio = apiPerms.SpatialVibratorAudio;
 
-        currentModelGlobalPerms.ForcedFollow = apiGlobalPerms.ForcedFollow;
-        currentModelGlobalPerms.ForcedEmoteState = apiGlobalPerms.ForcedEmoteState;
-        currentModelGlobalPerms.ForcedStay = apiGlobalPerms.ForcedStay;
-        currentModelGlobalPerms.ForcedBlindfold = apiGlobalPerms.ForcedBlindfold;
-        currentModelGlobalPerms.ChatBoxesHidden = apiGlobalPerms.ChatBoxesHidden;
-        currentModelGlobalPerms.ChatInputHidden = apiGlobalPerms.ChatInputHidden;
-        currentModelGlobalPerms.ChatInputBlocked = apiGlobalPerms.ChatInputBlocked;
+        current.ForcedFollow = apiPerms.ForcedFollow;
+        current.ForcedEmoteState = apiPerms.ForcedEmoteState;
+        current.ForcedStay = apiPerms.ForcedStay;
+        current.ForcedBlindfold = apiPerms.ForcedBlindfold;
+        current.ChatBoxesHidden = apiPerms.ChatBoxesHidden;
+        current.ChatInputHidden = apiPerms.ChatInputHidden;
+        current.ChatInputBlocked = apiPerms.ChatInputBlocked;
 
-        currentModelGlobalPerms.GlobalShockShareCode = apiGlobalPerms.GlobalShockShareCode;
-        currentModelGlobalPerms.AllowShocks = apiGlobalPerms.AllowShocks;
-        currentModelGlobalPerms.AllowVibrations = apiGlobalPerms.AllowVibrations;
-        currentModelGlobalPerms.AllowBeeps = apiGlobalPerms.AllowBeeps;
-        currentModelGlobalPerms.MaxIntensity = apiGlobalPerms.MaxIntensity;
-        currentModelGlobalPerms.MaxDuration = apiGlobalPerms.MaxDuration;
-        currentModelGlobalPerms.GlobalShockVibrateDuration = apiGlobalPerms.GlobalShockVibrateDuration;
+        current.GlobalShockShareCode = apiPerms.GlobalShockShareCode;
+        current.AllowShocks = apiPerms.AllowShocks;
+        current.AllowVibrations = apiPerms.AllowVibrations;
+        current.AllowBeeps = apiPerms.AllowBeeps;
+        current.MaxIntensity = apiPerms.MaxIntensity;
+        current.MaxDuration = apiPerms.MaxDuration;
+        current.GlobalShockVibrateDuration = apiPerms.GlobalShockVibrateDuration;
 
-        return currentModelGlobalPerms;
+        return current;
     }
     #endregion GlobalPermissionMigrations
 
@@ -159,14 +157,17 @@ public static class ClientPairPermissionExtensions
         // create a new UserPermissionsComposite object
         GagspeakAPI.Data.Permissions.UserPairPermissions result = new GagspeakAPI.Data.Permissions.UserPairPermissions();
 
-        // set the variables
         result.IsPaused = clientPairPermsModel.IsPaused;
-        result.GagFeatures = clientPairPermsModel.GagFeatures;
+
+        result.PermanentLocks = clientPairPermsModel.PermanentLocks;
         result.OwnerLocks = clientPairPermsModel.OwnerLocks;
         result.DevotionalLocks = clientPairPermsModel.DevotionalLocks;
-        result.ExtendedLockTimes = clientPairPermsModel.ExtendedLockTimes;
-        result.MaxLockTime = clientPairPermsModel.MaxLockTime;
-        result.InHardcore = clientPairPermsModel.InHardcore;
+
+        result.ApplyGags = clientPairPermsModel.ApplyGags;
+        result.LockGags = clientPairPermsModel.LockGags;
+        result.MaxGagTime = clientPairPermsModel.MaxGagTime;
+        result.UnlockGags = clientPairPermsModel.UnlockGags;
+        result.RemoveGags = clientPairPermsModel.RemoveGags;
 
         result.ApplyRestraintSets = clientPairPermsModel.ApplyRestraintSets;
         result.LockRestraintSets = clientPairPermsModel.LockRestraintSets;
@@ -198,6 +199,7 @@ public static class ClientPairPermissionExtensions
         result.CanStopPatterns = clientPairPermsModel.CanStopPatterns;
         result.CanToggleTriggers = clientPairPermsModel.CanToggleTriggers;
 
+        result.InHardcore = clientPairPermsModel.InHardcore;
         result.DevotionalStatesForPair = clientPairPermsModel.DevotionalStatesForPair;
         result.AllowForcedFollow = clientPairPermsModel.AllowForcedFollow;
         result.AllowForcedSit = clientPairPermsModel.AllowForcedSit;
@@ -224,12 +226,16 @@ public static class ClientPairPermissionExtensions
         if (apiPairPerms == null) return currentModelPerms;
 
 		currentModelPerms.IsPaused = apiPairPerms.IsPaused;
-        currentModelPerms.GagFeatures = apiPairPerms.GagFeatures;
+
+        currentModelPerms.PermanentLocks = apiPairPerms.PermanentLocks;
         currentModelPerms.OwnerLocks = apiPairPerms.OwnerLocks;
         currentModelPerms.DevotionalLocks = apiPairPerms.DevotionalLocks;
-        currentModelPerms.ExtendedLockTimes = apiPairPerms.ExtendedLockTimes;
-        currentModelPerms.MaxLockTime = apiPairPerms.MaxLockTime;
-        currentModelPerms.InHardcore = apiPairPerms.InHardcore;
+
+        currentModelPerms.ApplyGags = apiPairPerms.ApplyGags;
+        currentModelPerms.LockGags = apiPairPerms.LockGags;
+        currentModelPerms.MaxGagTime = apiPairPerms.MaxGagTime;
+        currentModelPerms.UnlockGags = apiPairPerms.UnlockGags;
+        currentModelPerms.RemoveGags = apiPairPerms.RemoveGags;
 
         currentModelPerms.ApplyRestraintSets = apiPairPerms.ApplyRestraintSets;
         currentModelPerms.LockRestraintSets = apiPairPerms.LockRestraintSets;
@@ -261,6 +267,7 @@ public static class ClientPairPermissionExtensions
         currentModelPerms.CanStopPatterns = apiPairPerms.CanStopPatterns;
         currentModelPerms.CanToggleTriggers = apiPairPerms.CanToggleTriggers;
 
+        currentModelPerms.InHardcore = apiPairPerms.InHardcore;
         currentModelPerms.DevotionalStatesForPair = apiPairPerms.DevotionalStatesForPair;
         currentModelPerms.AllowForcedFollow = apiPairPerms.AllowForcedFollow;
         currentModelPerms.AllowForcedSit = apiPairPerms.AllowForcedSit;

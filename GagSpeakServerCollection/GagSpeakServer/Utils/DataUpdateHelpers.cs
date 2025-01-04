@@ -22,8 +22,12 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static bool CanApplyGag(UserGagAppearanceData gagData, GagLayer layer)
+    public static bool CanApplyGag(UserGagAppearanceData gagData, ClientPairPermissions perms, GagLayer layer)
     {
+        // if they dont have apply gag permissions, reject and return false.
+        if (!perms.ApplyGags) 
+            return false;
+
         switch (layer)
         {
             case GagLayer.UnderLayer:
@@ -39,6 +43,15 @@ public static class DataUpdateHelpers
     // Your elementary true false spam, if it works, it works i guess.
     public static bool CanLockGag(UserGagAppearanceData gagData, ClientPairPermissions perms, GagLayer layer, out string ErrorMsg)
     {
+        ErrorMsg = string.Empty;
+
+        // return that we cannot lock gags if we dont have the permission to do so.
+        if (!perms.LockGags)
+        {
+            ErrorMsg = "Permission to Lock Gags not given!";
+            return false;
+        }
+
         string gagType = layer switch
         {
             GagLayer.UnderLayer => gagData.SlotOneGagType,
@@ -54,7 +67,6 @@ public static class DataUpdateHelpers
             _ => gagData.SlotOneGagPadlock
         };
 
-        ErrorMsg = string.Empty;
         if (string.Equals(gagType, GagType.None.GagName(), StringComparison.Ordinal))
         {
             ErrorMsg = "No Gag Equipped on " + layer.ToString() + "!";
@@ -63,6 +75,11 @@ public static class DataUpdateHelpers
         else if (!string.Equals(padlock, Padlocks.None.ToName(), StringComparison.Ordinal))
         {
             ErrorMsg = "The " + layer.ToString() + " is already locked!";
+            return false;
+        }
+        else if (padlock.ToPadlock() is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.OwnerPadlock or Padlocks.DevotionalPadlock && !perms.PermanentLocks)
+        {
+            ErrorMsg = "Permanent Locks not allowed!";
             return false;
         }
         else if (padlock.ToPadlock() is Padlocks.OwnerPadlock or Padlocks.OwnerTimerPadlock && !perms.OwnerLocks)
@@ -81,6 +98,14 @@ public static class DataUpdateHelpers
 
     public static bool CanUnlockGag(UserGagAppearanceData gagData, ClientPairPermissions perms, GagSlot gagSlot, GagLayer layer, out string ErrorMsg)
     {
+        ErrorMsg = string.Empty;
+        
+        if (!perms.UnlockGags)
+        {
+            ErrorMsg = "Permission to Unlock Gags not given!";
+            return false;
+        }
+
         string password = layer switch
         {
             GagLayer.UnderLayer => gagData.SlotOneGagPassword,
@@ -95,14 +120,15 @@ public static class DataUpdateHelpers
             GagLayer.TopLayer => gagData.SlotThreeGagAssigner,
             _ => gagData.SlotOneGagAssigner
         };
-        ErrorMsg = string.Empty;
+
         switch (gagSlot.Padlock.ToPadlock())
         {
             case Padlocks.None:
                 ErrorMsg = "No Lock to Unlock!";
                 return false; // No need to unlock if there is no lock.
-            case Padlocks.FiveMinutesPadlock:
             case Padlocks.MetalPadlock:
+            case Padlocks.FiveMinutesPadlock:
+            case Padlocks.TimerPadlock:
                 return true; // Always allow since there is no need for anything.
             case Padlocks.CombinationPadlock:
             case Padlocks.PasswordPadlock:
@@ -162,7 +188,7 @@ public static class DataUpdateHelpers
                 default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
             }
         }
-        if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock
+        if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPadlock or Padlocks.TimerPasswordPadlock
             or Padlocks.OwnerTimerPadlock or Padlocks.DevotionalTimerPadlock or Padlocks.MimicPadlock)
         {
             switch (layer)
@@ -235,6 +261,11 @@ public static class DataUpdateHelpers
         else if (data.ActiveSetPadLock.ToPadlock() is not Padlocks.None)
         {
             ErrorMsg = "Set is already Locked!";
+            return false;
+        }
+        else if (dtoData.Padlock.ToPadlock() is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.OwnerPadlock or Padlocks.DevotionalPadlock && !perms.PermanentLocks)
+        {
+            ErrorMsg = "Permanent Locks not allowed!";
             return false;
         }
         else if (dtoData.Padlock.ToPadlock() is Padlocks.OwnerPadlock or Padlocks.OwnerTimerPadlock && !perms.OwnerLocks)

@@ -310,10 +310,6 @@ public partial class GagspeakHub
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?").ConfigureAwait(false);
             return;
         }
-        else if (!pairPermissions.GagFeatures) {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "GagFeatures not modifiable for Pair!").ConfigureAwait(false);
-            return;
-        }
 
         var currentAppearanceData = await DbContext.UserAppearanceData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (currentAppearanceData == null) {
@@ -330,19 +326,15 @@ public partial class GagspeakHub
 
         // Verify all these pairs are cached for that pair. If not, cache them.
         bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
+        if (!allCached) await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         switch (dto.Type)
         {
             case GagUpdateType.GagApplied:
-                if (!DataUpdateHelpers.CanApplyGag(currentAppearanceData, dto.UpdatedLayer)) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Slot One is already Locked & cant be replaced occupied!").ConfigureAwait(false);
+                if (!DataUpdateHelpers.CanApplyGag(currentAppearanceData, pairPermissions, dto.UpdatedLayer)) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Either do not have permission to apply, or Slot One is already Locked!").ConfigureAwait(false);
                     return;
                 }
                 currentAppearanceData.UpdateGagState(dto.UpdatedLayer, dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer].GagType.ToGagType());
