@@ -978,19 +978,19 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("active_set_id");
 
-                    b.Property<string>("ActiveSetLockAssigner")
+                    b.Property<string>("Assigner")
                         .HasColumnType("text")
                         .HasColumnName("active_set_lock_assigner");
 
-                    b.Property<DateTimeOffset>("ActiveSetLockTime")
+                    b.Property<DateTimeOffset>("Timer")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("active_set_lock_time");
 
-                    b.Property<string>("ActiveSetPadLock")
+                    b.Property<string>("Padlock")
                         .HasColumnType("text")
                         .HasColumnName("active_set_pad_lock");
 
-                    b.Property<string>("ActiveSetPassword")
+                    b.Property<string>("Password")
                         .HasColumnType("text")
                         .HasColumnName("active_set_password");
 

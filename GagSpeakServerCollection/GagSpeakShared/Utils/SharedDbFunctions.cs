@@ -28,7 +28,7 @@ public static class SharedDbFunctions
         var pairKinksterRequests = await dbContext.KinksterPairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var globalPerms = await dbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         var appearanceData = await dbContext.UserAppearanceData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var activeStateData = await dbContext.UserActiveStateData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var activeStateData = await dbContext.UserActiveSetData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         var likedPatterns = await dbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var likedMoodles = await dbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var achievementData = await dbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);

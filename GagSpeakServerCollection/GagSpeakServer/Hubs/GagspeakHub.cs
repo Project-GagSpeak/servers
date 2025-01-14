@@ -113,6 +113,14 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
         dbUser.LastLoggedIn = DateTime.UtcNow;
 
+        // collect the list of auths for this user.
+        IReadOnlyList<string> accountProfileUids = await DbContext.Auth
+            .Include(u => u.User)
+            .Where(u => (u.UserUID != null && u.UserUID == UserUID) || (u.PrimaryUserUID != null && u.PrimaryUserUID == UserUID))
+            .Select(u => u.UserUID!)
+            .ToListAsync().ConfigureAwait(false);
+
+
         // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
             "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
@@ -136,11 +144,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         }
 
         // we should also perform a check for the current active-state-data. It is server-side only, but we need to create it if it does not exist,.
-        var clientCallerActiveStateData = await DbContext.UserActiveStateData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        var clientCallerActiveStateData = await DbContext.UserActiveSetData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
         if (clientCallerActiveStateData == null)
         {
-            clientCallerActiveStateData = new UserActiveStateData() { UserUID = UserUID };
-            DbContext.UserActiveStateData.Add(clientCallerActiveStateData);
+            clientCallerActiveStateData = new UserActiveSetData() { UserUID = UserUID };
+            DbContext.UserActiveSetData.Add(clientCallerActiveStateData);
         }
 
         // grab the achievement data.
@@ -168,10 +176,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
-            CharaAppearanceData = clientCallerAppearanceData.ToApiAppearanceData(),
-            CharacterActiveStateData = clientCallerActiveStateData.ToApiActiveStateData(),
+            GagData = clientCallerAppearanceData.ToApiAppearanceData(),
+            ActiveRestraintData = clientCallerActiveStateData.ToApiActiveStateData(),
             PublishedPatterns = publishedPatterns,
             PublishedMoodles = publishedMoodles,
+            ActiveAccountUidList = accountProfileUids,
             UserAchievements = clientCallerAchievementData.Base64AchievementData,
         };
     }

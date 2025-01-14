@@ -31,7 +31,7 @@ public partial class GagspeakHub
         List<KinksterRequest> kinksterRequests = await DbContext.KinksterPairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         UserGlobalPermissions? ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         UserGagAppearanceData? ownAppearanceData = await DbContext.UserAppearanceData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserActiveStateData? ownActiveStateData = await DbContext.UserActiveStateData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        UserActiveSetData? ownActiveStateData = await DbContext.UserActiveSetData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         List<LikesMoodles> ownLikedMoodles = await DbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         List<LikesPatterns> ownLikedPatterns = await DbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         UserAchievementData? ownAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
@@ -62,7 +62,7 @@ public partial class GagspeakHub
         if (ownAppearanceData != null) { DbContext.UserAppearanceData.Remove(ownAppearanceData); }
 
         // if the users active state data is not null, remove it from the database.
-        if (ownActiveStateData != null) { DbContext.UserActiveStateData.Remove(ownActiveStateData); }
+        if (ownActiveStateData != null) { DbContext.UserActiveSetData.Remove(ownActiveStateData); }
 
         // remove the range of pair permissions
         DbContext.ClientPairPermissions.RemoveRange(ownPairPermData);

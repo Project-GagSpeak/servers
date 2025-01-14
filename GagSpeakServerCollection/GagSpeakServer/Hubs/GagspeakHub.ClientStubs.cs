@@ -42,6 +42,7 @@ namespace GagspeakServer.Hubs
         public Task Client_UserReceiveDataIpc(OnlineUserCharaIpcDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveDataAppearance(OnlineUserCharaAppearanceDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveDataWardrobe(OnlineUserCharaWardrobeDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataOrders(OnlineUserCharaOrdersDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveDataAlias(OnlineUserCharaAliasDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveDataToybox(OnlineUserCharaToyboxDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveLightStorage(OnlineUserStorageUpdateDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");

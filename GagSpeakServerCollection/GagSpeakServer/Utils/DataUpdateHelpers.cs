@@ -1,163 +1,193 @@
 ﻿using GagspeakAPI.Data;
 using GagspeakAPI.Data.Character;
+using GagspeakAPI.Data.Interfaces;
 using GagspeakAPI.Dto.User;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
 using GagspeakShared.Models;
-using Microsoft.IdentityModel.Tokens;
 
 namespace GagspeakServer;
 
 // A collection of subtle helper functions to help minimize the bloat in the main gagspeak Hub.
 public static class DataUpdateHelpers
 {
-    public static void UpdateGagState(this UserGagAppearanceData data, GagLayer layer, GagType type)
+    public static void NewGagType(this UserGagAppearanceData data, GagLayer layer, string gagType)
     {
         switch (layer)
         {
-            case GagLayer.UnderLayer: data.SlotOneGagType = type.GagName(); break;
-            case GagLayer.MiddleLayer: data.SlotTwoGagType = type.GagName(); break;
-            case GagLayer.TopLayer: data.SlotThreeGagType = type.GagName(); break;
+            case GagLayer.UnderLayer: data.SlotOneGagType = gagType; break;
+            case GagLayer.MiddleLayer: data.SlotTwoGagType = gagType; break;
+            case GagLayer.TopLayer: data.SlotThreeGagType = gagType; break;
             default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
         }
     }
 
-    public static bool CanApplyGag(UserGagAppearanceData gagData, ClientPairPermissions perms, GagLayer layer)
+    public static void NewPadlock(this UserGagAppearanceData data, GagLayer layer, string padlock)
     {
-        // if they dont have apply gag permissions, reject and return false.
-        if (!perms.ApplyGags) 
-            return false;
-
         switch (layer)
         {
-            case GagLayer.UnderLayer:
-                return string.Equals(gagData.SlotOneGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
-            case GagLayer.MiddleLayer:
-                return string.Equals(gagData.SlotTwoGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
-            case GagLayer.TopLayer:
-                return string.Equals(gagData.SlotThreeGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal);
+            case GagLayer.UnderLayer: data.SlotOneGagPadlock = padlock; break;
+            case GagLayer.MiddleLayer: data.SlotTwoGagPadlock = padlock; break;
+            case GagLayer.TopLayer: data.SlotTwoGagPadlock = padlock; break;
             default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
         }
     }
 
-    // Your elementary true false spam, if it works, it works i guess.
-    public static bool CanLockGag(UserGagAppearanceData gagData, ClientPairPermissions perms, GagLayer layer, out string ErrorMsg)
+    public static void NewPassword(this UserGagAppearanceData data, GagLayer layer, string password)
     {
-        ErrorMsg = string.Empty;
-
-        // return that we cannot lock gags if we dont have the permission to do so.
-        if (!perms.LockGags)
+        switch (layer)
         {
-            ErrorMsg = "Permission to Lock Gags not given!";
-            return false;
+            case GagLayer.UnderLayer: data.SlotOneGagPassword = password; break;
+            case GagLayer.MiddleLayer: data.SlotTwoGagPassword = password; break;
+            case GagLayer.TopLayer: data.SlotThreeGagPassword = password; break;
+            default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
         }
-
-        string gagType = layer switch
-        {
-            GagLayer.UnderLayer => gagData.SlotOneGagType,
-            GagLayer.MiddleLayer => gagData.SlotTwoGagType,
-            GagLayer.TopLayer => gagData.SlotThreeGagType,
-            _ => gagData.SlotOneGagType
-        };
-        string padlock = layer switch
-        {
-            GagLayer.UnderLayer => gagData.SlotOneGagPadlock,
-            GagLayer.MiddleLayer => gagData.SlotTwoGagPadlock,
-            GagLayer.TopLayer => gagData.SlotThreeGagPadlock,
-            _ => gagData.SlotOneGagPadlock
-        };
-
-        if (string.Equals(gagType, GagType.None.GagName(), StringComparison.Ordinal))
-        {
-            ErrorMsg = "No Gag Equipped on " + layer.ToString() + "!";
-            return false;
-        }
-        else if (!string.Equals(padlock, Padlocks.None.ToName(), StringComparison.Ordinal))
-        {
-            ErrorMsg = "The " + layer.ToString() + " is already locked!";
-            return false;
-        }
-        else if (padlock.ToPadlock() is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.OwnerPadlock or Padlocks.DevotionalPadlock && !perms.PermanentLocks)
-        {
-            ErrorMsg = "Permanent Locks not allowed!";
-            return false;
-        }
-        else if (padlock.ToPadlock() is Padlocks.OwnerPadlock or Padlocks.OwnerTimerPadlock && !perms.OwnerLocks)
-        {
-            ErrorMsg = "Owner Locks not allowed!";
-            return false;
-        }
-        else if (padlock.ToPadlock() is Padlocks.DevotionalPadlock or Padlocks.DevotionalTimerPadlock && !perms.DevotionalLocks)
-        {
-            ErrorMsg = "Devotional Locks not allowed!";
-            return false;
-        }
-
-        return true;
     }
 
-    public static bool CanUnlockGag(UserGagAppearanceData gagData, ClientPairPermissions perms, GagSlot gagSlot, GagLayer layer, out string ErrorMsg)
+    public static void NewTimer(this UserGagAppearanceData data, GagLayer layer, DateTimeOffset releaseTime)
     {
-        ErrorMsg = string.Empty;
-        
-        if (!perms.UnlockGags)
+        switch (layer)
         {
-            ErrorMsg = "Permission to Unlock Gags not given!";
-            return false;
+            case GagLayer.UnderLayer: data.SlotOneGagTimer = releaseTime; break;
+            case GagLayer.MiddleLayer: data.SlotTwoGagTimer = releaseTime; break;
+            case GagLayer.TopLayer: data.SlotThreeGagTimer = releaseTime; break;
+            default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
         }
+    }
 
-        string password = layer switch
+    public static void NewAssigner(this UserGagAppearanceData data, GagLayer layer, string assigner)
+    {
+        switch (layer)
+        {
+            case GagLayer.UnderLayer: data.SlotOneGagAssigner = assigner; break;
+            case GagLayer.MiddleLayer: data.SlotTwoGagAssigner = assigner; break;
+            case GagLayer.TopLayer: data.SlotThreeGagAssigner = assigner; break;
+            default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
+        }
+    }
+
+    public static bool CanApplyOrLockGag(this UserGagAppearanceData gagData, GagLayer layer)
+    {
+        return layer switch
+        {
+            GagLayer.UnderLayer => string.Equals(gagData.SlotOneGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal),
+            GagLayer.MiddleLayer => string.Equals(gagData.SlotTwoGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal),
+            GagLayer.TopLayer => string.Equals(gagData.SlotThreeGagPadlock, Padlocks.None.ToName(), StringComparison.Ordinal),
+            _ => throw new ArgumentOutOfRangeException(nameof(layer), layer, null)
+        };
+    }
+
+    public static PadlockReturnCode IsLockUpdateValid(this CharaAppearanceData dtoData, GagLayer layer, ClientPairPermissions perms)
+    {
+        var slotToCheck = dtoData.GagSlots[(int)layer];
+        return ValidateLock(slotToCheck.Padlock.ToPadlock(), slotToCheck.Password, slotToCheck.Timer, perms.MaxGagTime, perms);
+    }
+
+    public static PadlockReturnCode IsLockUpdateValid(this CharaWardrobeData dtoData, ClientPairPermissions perms)
+    {
+        return ValidateLock(dtoData.Padlock.ToPadlock(), dtoData.Password, dtoData.Timer, perms.MaxAllowedRestraintTime, perms);
+    }
+
+    // A method taken from the API using the server model.
+    public static PadlockReturnCode ValidateLock(Padlocks lockDesired, string pass, DateTimeOffset time, TimeSpan maxLockTime, ClientPairPermissions perms)
+    {
+        var returnCode = PadlockReturnCode.Success;
+
+        if (lockDesired is Padlocks.None)
+            return returnCode |= PadlockReturnCode.NoPadlockSelected;
+
+        var validationRules = new Dictionary<Padlocks, Func<PadlockReturnCode>>
+        {
+            { Padlocks.MetalPadlock, () => PadlockReturnCode.Success },
+            { Padlocks.FiveMinutesPadlock, () => PadlockReturnCode.Success },
+            { Padlocks.CombinationPadlock, () =>
+                !GsPadlockEx.IsValidCombo(pass) ? PadlockReturnCode.InvalidCombination :
+                !perms.PermanentLocks ? PadlockReturnCode.PermanentRestricted : PadlockReturnCode.Success },
+            { Padlocks.PasswordPadlock, () =>
+                !GsPadlockEx.IsValidPass(pass) ? PadlockReturnCode.InvalidPassword :
+                !perms.PermanentLocks ? PadlockReturnCode.PermanentRestricted : PadlockReturnCode.Success },
+            { Padlocks.TimerPadlock, () =>
+                (time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
+            { Padlocks.TimerPasswordPadlock, () =>
+                !GsPadlockEx.IsValidPass(pass) ? PadlockReturnCode.InvalidPassword :
+                !(time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
+            { Padlocks.OwnerPadlock, () =>
+                !perms.OwnerLocks ? PadlockReturnCode.OwnerRestricted :
+                !perms.PermanentLocks ? PadlockReturnCode.PermanentRestricted : PadlockReturnCode.Success },
+            { Padlocks.OwnerTimerPadlock, () =>
+                !perms.OwnerLocks ? PadlockReturnCode.OwnerRestricted :
+                !(time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
+            { Padlocks.DevotionalPadlock, () =>
+                !perms.DevotionalLocks ? PadlockReturnCode.DevotionalRestricted :
+                !perms.PermanentLocks ? PadlockReturnCode.PermanentRestricted : PadlockReturnCode.Success },
+            { Padlocks.DevotionalTimerPadlock, () =>
+                !perms.DevotionalLocks ? PadlockReturnCode.DevotionalRestricted :
+                !(time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success }
+        };
+
+        // Check if validation rules exist for the padlock and return the corresponding error code
+        if (validationRules.TryGetValue(lockDesired, out var validate))
+            returnCode = validate();
+
+        return returnCode;
+    }
+
+    public static PadlockReturnCode IsUnlockUpdateValid(this UserGagAppearanceData gagData, string enactorUID, GagLayer layer, GagSlot padlockableItem, ClientPairPermissions perms)
+    {
+        var currentPassword = layer switch
         {
             GagLayer.UnderLayer => gagData.SlotOneGagPassword,
             GagLayer.MiddleLayer => gagData.SlotTwoGagPassword,
             GagLayer.TopLayer => gagData.SlotThreeGagPassword,
             _ => gagData.SlotOneGagPassword
         };
-        string lockAssigner = layer switch
+        return ValidateUnlock(padlockableItem, new(gagData.UserUID), currentPassword, enactorUID, perms);
+    }
+
+    public static PadlockReturnCode IsUnlockUpdateValid(this UserActiveSetData setData, string enactorUID, CharaWardrobeData dtoData, ClientPairPermissions perms)
+    {
+        return ValidateUnlock(dtoData, new(setData.UserUID), setData.Password, enactorUID, perms);
+    }
+
+    public static PadlockReturnCode ValidateUnlock<T>(T item, UserData itemOwner, string guessedPass, string unlockerUID, ClientPairPermissions perms) where T : IPadlockable
+    {
+        var returnCode = PadlockReturnCode.Success;
+
+        if (item is CharaWardrobeData && !perms.UnlockRestraintSets)
+            return returnCode |= PadlockReturnCode.UnlockingRestricted;
+
+        if (item is GagSlot && !perms.UnlockGags)
+            return returnCode |= PadlockReturnCode.UnlockingRestricted;
+
+        var validationRules = new Dictionary<Padlocks, Func<PadlockReturnCode>>
         {
-            GagLayer.UnderLayer => gagData.SlotOneGagAssigner,
-            GagLayer.MiddleLayer => gagData.SlotTwoGagAssigner,
-            GagLayer.TopLayer => gagData.SlotThreeGagAssigner,
-            _ => gagData.SlotOneGagAssigner
+            { Padlocks.MetalPadlock, () => PadlockReturnCode.Success },
+            { Padlocks.FiveMinutesPadlock, () => PadlockReturnCode.Success },
+            { Padlocks.TimerPadlock, () =>
+                string.Equals(itemOwner.UID, unlockerUID, StringComparison.Ordinal) ? PadlockReturnCode.UnlockingRestricted : PadlockReturnCode.Success },
+            { Padlocks.CombinationPadlock, () =>
+                !string.Equals(item.Password, guessedPass, StringComparison.Ordinal) ? PadlockReturnCode.InvalidCombination : PadlockReturnCode.Success },
+            { Padlocks.PasswordPadlock, () =>
+                !string.Equals(item.Password, guessedPass, StringComparison.Ordinal) ? PadlockReturnCode.InvalidPassword : PadlockReturnCode.Success },
+            { Padlocks.TimerPasswordPadlock, () =>
+                !string.Equals(item.Password, guessedPass, StringComparison.Ordinal) ? PadlockReturnCode.InvalidPassword : PadlockReturnCode.Success },
+            { Padlocks.OwnerPadlock, () =>
+                !perms.OwnerLocks ? PadlockReturnCode.OwnerRestricted : PadlockReturnCode.Success },
+            { Padlocks.OwnerTimerPadlock, () =>
+                !perms.OwnerLocks ? PadlockReturnCode.OwnerRestricted : PadlockReturnCode.Success },
+            { Padlocks.DevotionalPadlock, () =>
+                !perms.DevotionalLocks ? PadlockReturnCode.DevotionalRestricted :
+                !string.Equals(item.Assigner, unlockerUID, StringComparison.Ordinal) ? PadlockReturnCode.NotLockAssigner : PadlockReturnCode.Success },
+            { Padlocks.DevotionalTimerPadlock, () =>
+                !perms.DevotionalLocks ? PadlockReturnCode.DevotionalRestricted :
+                !string.Equals(item.Assigner, unlockerUID, StringComparison.Ordinal) ? PadlockReturnCode.NotLockAssigner : PadlockReturnCode.Success }
         };
 
-        switch (gagSlot.Padlock.ToPadlock())
-        {
-            case Padlocks.None:
-                ErrorMsg = "No Lock to Unlock!";
-                return false; // No need to unlock if there is no lock.
-            case Padlocks.MetalPadlock:
-            case Padlocks.FiveMinutesPadlock:
-            case Padlocks.TimerPadlock:
-                return true; // Always allow since there is no need for anything.
-            case Padlocks.CombinationPadlock:
-            case Padlocks.PasswordPadlock:
-            case Padlocks.TimerPasswordPadlock:
-                if (!string.Equals(password, gagSlot.Password, StringComparison.Ordinal))
-                {
-                    ErrorMsg = "Password does not match!";
-                    return false;
-                }
-                return true;
-            case Padlocks.OwnerPadlock:
-            case Padlocks.OwnerTimerPadlock:
-                if (!perms.OwnerLocks) // Defines if they have permission to remove "Owner" locks.
-                {
-                    ErrorMsg = "Cannot Unlock Owner Padlocks. Not Allowed!";
-                    return false;
-                }
-                return true;
-            case Padlocks.DevotionalPadlock:
-            case Padlocks.DevotionalTimerPadlock:
-                if (!string.Equals(lockAssigner, gagSlot.Assigner, StringComparison.Ordinal))
-                {
-                    ErrorMsg = "You did not Assign this Devotional Padlock. Not Allowed!";
-                    return false;
-                }
-                return true;
-            case Padlocks.MimicPadlock: return true; // Always allow unlock because it will always be done by automation.
-            default: throw new ArgumentOutOfRangeException(nameof(gagSlot), gagSlot.Padlock, null);
-        }
+        // Check if validation rules exist for the padlock and return the corresponding error code
+        if (validationRules.TryGetValue(item.Padlock.ToPadlock(), out var validate))
+            returnCode = validate();
+
+        return returnCode;
     }
 
     public static bool CanRemoveGag(this UserGagAppearanceData data, GagLayer layer)
@@ -171,209 +201,16 @@ public static class DataUpdateHelpers
         }
     }
 
-    // while the type conversions are not necessary, it ensures a valid state is always set.
-    public static void GagLockUpdate(this UserGagAppearanceData data, GagLayer layer, Padlocks padlock, string pwd, string assigner, DateTimeOffset endTime)
-    {
-        // do not do anything with these locks
-        if (padlock is Padlocks.None)
-            return;
-
-        if (padlock is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock)
-        {
-            switch (layer)
-            {
-                case GagLayer.UnderLayer: data.SlotOneGagPassword = pwd; break;
-                case GagLayer.MiddleLayer: data.SlotTwoGagPassword = pwd; break;
-                case GagLayer.TopLayer: data.SlotThreeGagPassword = pwd; break;
-                default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
-            }
-        }
-        if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPadlock or Padlocks.TimerPasswordPadlock
-            or Padlocks.OwnerTimerPadlock or Padlocks.DevotionalTimerPadlock or Padlocks.MimicPadlock)
-        {
-            switch (layer)
-            {
-                case GagLayer.UnderLayer: data.SlotOneGagTimer = endTime; break;
-                case GagLayer.MiddleLayer: data.SlotTwoGagTimer = endTime; break;
-                case GagLayer.TopLayer: data.SlotThreeGagTimer = endTime; break;
-                default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
-            }
-        }
-
-        // Assign the Assigner regardless.
-        switch (layer)
-        {
-            case GagLayer.UnderLayer:
-                data.SlotOneGagPadlock = padlock.ToName();
-                data.SlotOneGagAssigner = assigner;
-                break;
-            case GagLayer.MiddleLayer:
-                data.SlotTwoGagPadlock = padlock.ToName();
-                data.SlotTwoGagAssigner = assigner;
-                break;
-            case GagLayer.TopLayer:
-                data.SlotThreeGagPadlock = padlock.ToName();
-                data.SlotThreeGagAssigner = assigner;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
-        }
-    }
-
-    public static void GagUnlockUpdate(this UserGagAppearanceData data, GagLayer layer)
-    {
-        switch (layer)
-        {
-            case GagLayer.UnderLayer:
-                data.SlotOneGagPadlock = Padlocks.None.ToName();
-                data.SlotOneGagPassword = string.Empty;
-                data.SlotOneGagTimer = DateTimeOffset.UtcNow;
-                data.SlotOneGagAssigner = string.Empty;
-                break;
-            case GagLayer.MiddleLayer:
-                data.SlotTwoGagPadlock = Padlocks.None.ToName();
-                data.SlotTwoGagPassword = string.Empty;
-                data.SlotTwoGagTimer = DateTimeOffset.UtcNow;
-                data.SlotTwoGagAssigner = string.Empty;
-                break;
-            case GagLayer.TopLayer:
-                data.SlotThreeGagPadlock = Padlocks.None.ToName();
-                data.SlotThreeGagPassword = string.Empty;
-                data.SlotThreeGagTimer = DateTimeOffset.UtcNow;
-                data.SlotThreeGagAssigner = string.Empty;
-                break;
-            default: throw new ArgumentOutOfRangeException(nameof(layer), layer, null);
-        }
-    }
-
-    public static bool CanLockRestraint(UserActiveStateData data, ClientPairPermissions perms, CharaWardrobeData dtoData, out string ErrorMsg)
-    {
-        if (!perms.LockRestraintSets)
-        {
-            ErrorMsg = "Permission to Lock Restraint Sets not given!";
-            return false;
-        }
-        else if (data.ActiveSetId == Guid.Empty)
-        {
-            ErrorMsg = "No Active Set to Lock!";
-            return false;
-        }
-        else if (data.ActiveSetPadLock.ToPadlock() is not Padlocks.None)
-        {
-            ErrorMsg = "Set is already Locked!";
-            return false;
-        }
-        else if (dtoData.Padlock.ToPadlock() is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.OwnerPadlock or Padlocks.DevotionalPadlock && !perms.PermanentLocks)
-        {
-            ErrorMsg = "Permanent Locks not allowed!";
-            return false;
-        }
-        else if (dtoData.Padlock.ToPadlock() is Padlocks.OwnerPadlock or Padlocks.OwnerTimerPadlock && !perms.OwnerLocks)
-        {
-            ErrorMsg = "Cannot Lock Owner Padlocks. Not Allowed!";
-            return false;
-        }
-        else if (dtoData.Padlock.ToPadlock() is Padlocks.DevotionalPadlock or Padlocks.DevotionalTimerPadlock && !perms.DevotionalLocks)
-        {
-            ErrorMsg = "Cannot Lock Devotional Padlocks. Not Allowed!";
-            return false;
-        }
-
-        ErrorMsg = string.Empty;
-        return true;
-    }
-
-    public static bool CanUnlockRestraint(UserActiveStateData stateData, ClientPairPermissions perms, CharaWardrobeData lockInfo, out string ErrorMsg)
-    {
-        ErrorMsg = string.Empty;
-        if (!perms.UnlockRestraintSets)
-        {
-            ErrorMsg = "Permission to Unlock Restraint Sets not given!";
-            return false;
-        }
-        else if (stateData.ActiveSetPadLock.ToPadlock() is Padlocks.None)
-        {
-            ErrorMsg = "No Lock Present!";
-            return false;
-        }
-        switch (stateData.ActiveSetPadLock.ToPadlock())
-        {
-            case Padlocks.None:
-                ErrorMsg = "No Lock to Unlock!";
-                return false; // No need to unlock if there is no lock.
-            case Padlocks.FiveMinutesPadlock:
-            case Padlocks.MetalPadlock:
-                return true; // Always allow since there is no need for anything.
-            case Padlocks.CombinationPadlock:
-            case Padlocks.PasswordPadlock:
-            case Padlocks.TimerPasswordPadlock:
-                if (!string.Equals(stateData.ActiveSetPassword, lockInfo.Password, StringComparison.Ordinal))
-                {
-                    ErrorMsg = "Password does not match!";
-                    return false;
-                }
-                return true;
-            case Padlocks.OwnerPadlock:
-            case Padlocks.OwnerTimerPadlock:
-                if (!perms.OwnerLocks) // Defines if they have permission to remove "Owner" locks.
-                {
-                    ErrorMsg = "Cannot Unlock Owner Padlocks. Not Allowed!";
-                    return false;
-                }
-                return true;
-            case Padlocks.DevotionalPadlock:
-            case Padlocks.DevotionalTimerPadlock:
-                if (!perms.OwnerLocks) // Defines if they have permission to remove "Owner" locks.
-                {
-                    ErrorMsg = "Cannot Unlock Owner Padlocks. Not Allowed!";
-                    return false;
-                }
-                else if (!string.Equals(stateData.ActiveSetLockAssigner, lockInfo.Assigner, StringComparison.Ordinal))
-                {
-                    ErrorMsg = "You did not Assign this Devotional Padlock. Not Allowed!";
-                    return false;
-                }
-                return true;
-            case Padlocks.MimicPadlock: return true; // Always allow unlock because it will always be done by automation.
-            default:
-                throw new ArgumentOutOfRangeException(nameof(lockInfo), lockInfo.Padlock, null);
-        }
-    }
-
-    public static void RestraintLockUpdate(this UserActiveStateData activeState, Padlocks padlock, string password, string assigner, DateTimeOffset offsetTime)
-    {
-        // do not do anything with these locks
-        if (padlock is Padlocks.None)
-            return;
-
-        if (padlock is Padlocks.CombinationPadlock or Padlocks.PasswordPadlock or Padlocks.TimerPasswordPadlock)
-            activeState.ActiveSetPassword = password;
-        if (padlock is Padlocks.FiveMinutesPadlock or Padlocks.TimerPasswordPadlock or Padlocks.OwnerTimerPadlock or Padlocks.DevotionalTimerPadlock)
-            activeState.ActiveSetLockTime = offsetTime;
-
-        // Assign lock and assigner regardless.
-        activeState.ActiveSetPadLock = padlock.ToName();
-        activeState.ActiveSetLockAssigner = assigner;
-    }
-
-    public static void RestraintUnlockUpdate(this UserActiveStateData activeState)
-    {
-        activeState.ActiveSetPadLock = Padlocks.None.ToName();
-        activeState.ActiveSetPassword = string.Empty;
-        activeState.ActiveSetLockTime = DateTimeOffset.UtcNow;
-        activeState.ActiveSetLockAssigner = string.Empty;
-    }
-
-    public static CharaWardrobeData BuildUpdatedWardrobeData(CharaWardrobeData prevData, UserActiveStateData userActiveState)
+    public static CharaWardrobeData BuildUpdatedWardrobeData(CharaWardrobeData prevData, UserActiveSetData userActiveState)
     {
         return new CharaWardrobeData
         {
             ActiveSetId = prevData.ActiveSetId,
             ActiveSetEnabledBy = userActiveState.ActiveSetEnabler,
-            Padlock = userActiveState.ActiveSetPadLock,
-            Password = userActiveState.ActiveSetPassword,
-            Timer = userActiveState.ActiveSetLockTime,
-            Assigner = userActiveState.ActiveSetLockAssigner,
+            Padlock = userActiveState.Padlock,
+            Password = userActiveState.Password,
+            Timer = userActiveState.Timer,
+            Assigner = userActiveState.Assigner,
             ActiveCursedItems = prevData.ActiveCursedItems,
         };
     }

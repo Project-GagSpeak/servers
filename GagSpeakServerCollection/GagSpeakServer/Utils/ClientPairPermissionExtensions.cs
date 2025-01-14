@@ -38,18 +38,18 @@ public static class ClientPairPermissionExtensions
     #endregion AppearanceDataMigrations
 
     #region ActiveStateDataMigrations
-    public static GagspeakAPI.Data.Character.CharaActiveStateData ToApiActiveStateData(this UserActiveStateData? activeStateDataModel)
+    public static GagspeakAPI.Data.Character.CharaActiveSetData ToApiActiveStateData(this UserActiveSetData? activeStateDataModel)
     {
-        if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharaActiveStateData();
+        if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharaActiveSetData();
 
-        GagspeakAPI.Data.Character.CharaActiveStateData result = new GagspeakAPI.Data.Character.CharaActiveStateData();
+        GagspeakAPI.Data.Character.CharaActiveSetData result = new GagspeakAPI.Data.Character.CharaActiveSetData();
 
         result.ActiveSetId = activeStateDataModel.ActiveSetId;
         result.ActiveSetEnabler = activeStateDataModel.ActiveSetEnabler;
-        result.Padlock = activeStateDataModel.ActiveSetPadLock;
-        result.Password = activeStateDataModel.ActiveSetPassword;
-        result.Timer = activeStateDataModel.ActiveSetLockTime;
-        result.Assigner = activeStateDataModel.ActiveSetLockAssigner;
+        result.Padlock = activeStateDataModel.Padlock;
+        result.Password = activeStateDataModel.Password;
+        result.Timer = activeStateDataModel.Timer;
+        result.Assigner = activeStateDataModel.Assigner;
 
         return result;
     }
