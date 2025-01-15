@@ -114,7 +114,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         dbUser.LastLoggedIn = DateTime.UtcNow;
 
         // collect the list of auths for this user.
-        IReadOnlyList<string> accountProfileUids = await DbContext.Auth
+        List<string> accountProfileUids = await DbContext.Auth
             .Include(u => u.User)
             .Where(u => (u.UserUID != null && u.UserUID == UserUID) || (u.PrimaryUserUID != null && u.PrimaryUserUID == UserUID))
             .Select(u => u.UserUID!)

@@ -232,8 +232,8 @@ public partial class GagspeakHub
         // accounts for any possible tampered client side shinanagin bullshit.
         var newWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.Users(recipientUids).Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.PreviousLock, UpdateDir.Other)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.PreviousLock, UpdateDir.Own)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Other)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Own)).ConfigureAwait(false);
     }
 
     /// <summary> 
@@ -547,8 +547,8 @@ public partial class GagspeakHub
 
         var updatedWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
 
-        await Clients.User(dto.User.UID).Client_UserReceiveDataWardrobe(new(new(UserUID), dto.Enactor, updatedWardrobeData, dto.Type, dto.PreviousLock, UpdateDir.Own)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataWardrobe(new(dto.User, dto.Enactor, updatedWardrobeData, dto.Type, dto.PreviousLock, UpdateDir.Other)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveDataWardrobe(new(new(UserUID), dto.Enactor, updatedWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Own)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataWardrobe(new(dto.User, dto.Enactor, updatedWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Other)).ConfigureAwait(false);
     }
 
     public async Task UserPushPairDataAliasStorageUpdate(OnlineUserCharaAliasDataDto dto)
