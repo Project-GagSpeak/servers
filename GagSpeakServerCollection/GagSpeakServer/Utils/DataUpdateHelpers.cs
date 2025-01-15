@@ -116,13 +116,13 @@ public static class DataUpdateHelpers
                 !perms.PermanentLocks ? PadlockReturnCode.PermanentRestricted : PadlockReturnCode.Success },
             { Padlocks.OwnerTimerPadlock, () =>
                 !perms.OwnerLocks ? PadlockReturnCode.OwnerRestricted :
-                !(time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
+                (time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
             { Padlocks.DevotionalPadlock, () =>
                 !perms.DevotionalLocks ? PadlockReturnCode.DevotionalRestricted :
                 !perms.PermanentLocks ? PadlockReturnCode.PermanentRestricted : PadlockReturnCode.Success },
             { Padlocks.DevotionalTimerPadlock, () =>
                 !perms.DevotionalLocks ? PadlockReturnCode.DevotionalRestricted :
-                !(time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success }
+                (time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success }
         };
 
         // Check if validation rules exist for the padlock and return the corresponding error code
