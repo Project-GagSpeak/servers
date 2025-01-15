@@ -110,7 +110,7 @@ public static class DataUpdateHelpers
                 (time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
             { Padlocks.TimerPasswordPadlock, () =>
                 !GsPadlockEx.IsValidPass(pass) ? PadlockReturnCode.InvalidPassword :
-                !(time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
+                (time - DateTimeOffset.UtcNow > maxLockTime) ? PadlockReturnCode.InvalidTime : PadlockReturnCode.Success },
             { Padlocks.OwnerPadlock, () =>
                 !perms.OwnerLocks ? PadlockReturnCode.OwnerRestricted :
                 !perms.PermanentLocks ? PadlockReturnCode.PermanentRestricted : PadlockReturnCode.Success },
