@@ -16,7 +16,7 @@ namespace GagspeakShared.Models;
 /// IMPORTANT: THIS CAN HELP SERVE AS A WAY TO PREVENT CONCURRENT UPDATES TO THE SAME DATA.
 /// </b></para>
 /// </summary>
-public class UserActiveSetData
+public class UserActiveSetData : IPadlockable
 {
     [Required]
     [Key]

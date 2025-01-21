@@ -4,10 +4,9 @@ using Microsoft.Extensions.Logging;
 
 namespace GagspeakShared.Utils;
 
-/// <summary> The feature provider for our server conrollers </summary>
+/// <summary> The feature provider for our server controllers </summary>
 public class AllowedControllersFeatureProvider : ControllerFeatureProvider
 {
-    private readonly ILogger _logger;
     private readonly Type[] _allowedTypes;
 
     public AllowedControllersFeatureProvider(params Type[] allowedTypes)

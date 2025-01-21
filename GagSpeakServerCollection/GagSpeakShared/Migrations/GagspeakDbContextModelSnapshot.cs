@@ -1033,7 +1033,7 @@ namespace GagSpeakShared.Migrations
                     b.ToTable("user_active_state_data", (string)null);
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserGagAppearanceData", b =>
+            modelBuilder.Entity("GagspeakShared.Models.UserGagGagData", b =>
                 {
                     b.Property<string>("UserUID")
                         .HasColumnType("character varying(10)")
@@ -1648,7 +1648,7 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserGagAppearanceData", b =>
+            modelBuilder.Entity("GagspeakShared.Models.UserGagGagData", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "User")
                         .WithMany()

@@ -7,12 +7,12 @@ namespace GagspeakServer.Utils;
 #pragma warning disable MA0051 // Method is too long
 public static class ClientPairPermissionExtensions
 {
-    #region AppearanceDataMigrations
-    public static GagspeakAPI.Data.Character.CharaAppearanceData ToApiAppearanceData(this UserGagAppearanceData? appearanceDataModel)
+    #region GagDataMigrations
+    public static GagspeakAPI.Data.Character.CharaGagData ToApiGagData(this UserGagGagData? appearanceDataModel)
     {
-        if (appearanceDataModel == null) return new GagspeakAPI.Data.Character.CharaAppearanceData();
+        if (appearanceDataModel == null) return new GagspeakAPI.Data.Character.CharaGagData();
 
-        GagspeakAPI.Data.Character.CharaAppearanceData result = new GagspeakAPI.Data.Character.CharaAppearanceData();
+        GagspeakAPI.Data.Character.CharaGagData result = new GagspeakAPI.Data.Character.CharaGagData();
 
         // Assuming the slots are defined in order
         result.GagSlots[0].GagType = appearanceDataModel.SlotOneGagType;
@@ -35,10 +35,10 @@ public static class ClientPairPermissionExtensions
 
         return result;
     }
-    #endregion AppearanceDataMigrations
+    #endregion GagDataMigrations
 
     #region ActiveStateDataMigrations
-    public static GagspeakAPI.Data.Character.CharaActiveSetData ToApiActiveStateData(this UserActiveSetData? activeStateDataModel)
+    public static GagspeakAPI.Data.Character.CharaActiveSetData ToApiActiveSetData(this UserActiveSetData? activeStateDataModel)
     {
         if (activeStateDataModel == null) return new GagspeakAPI.Data.Character.CharaActiveSetData();
 

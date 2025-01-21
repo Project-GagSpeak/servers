@@ -1,4 +1,5 @@
 ﻿using GagspeakAPI.Data;
+using GagspeakAPI.Dto;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Dto.User;
@@ -286,8 +287,8 @@ public partial class GagspeakHub
         var otherPairPermsAccessApi = otherPairPermsAccess.ToApiUserPairEditAccessPerms();
 
         // construct a new UserPairDto based on the response
-        UserPairDto pairRequestAcceptingUserResponse = new UserPairDto(pairRequesterUser.ToUserData(), IndividualPairStatus.Bidirectional,
-            ownPairPermsApi, ownPairPermsAccessApi, otherGlobalsApi, otherPairPermsApi, otherPairPermsAccessApi);
+        UserPairDto pairRequestAcceptingUserResponse = new UserPairDto(pairRequesterUser.ToUserData(), ownPairPermsApi, ownPairPermsAccessApi, 
+            otherGlobalsApi, otherPairPermsApi, otherPairPermsAccessApi);
 
         // inform the client caller's user that the pair was added successfully, to add the pair to their pair manager.
         var removeRequestDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
@@ -300,8 +301,8 @@ public partial class GagspeakHub
         if (otherIdent is null)
             return;
 
-        UserPairDto pairRequesterUserResponse = new UserPairDto(pairRequestAcceptingUser.ToUserData(), IndividualPairStatus.Bidirectional,
-            otherPairPermsApi, otherPairPermsAccessApi, ownGlobalsApi, ownPairPermsApi, ownPairPermsAccessApi);
+        UserPairDto pairRequesterUserResponse = new UserPairDto(pairRequestAcceptingUser.ToUserData(), otherPairPermsApi, otherPairPermsAccessApi, 
+            ownGlobalsApi, ownPairPermsApi, ownPairPermsAccessApi);
 
         // They are online, so let them know to add the client pair to their pair manager.
         await Clients.User(pairRequesterUser.UID).Client_UserRemovePairRequest(removeRequestDto).ConfigureAwait(false);
@@ -527,7 +528,6 @@ public partial class GagspeakHub
         return pairs.Select(p =>
         {
             var pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
-                p.Value.ToIndividualPairStatus(),
                 p.Value.ownPairPermissions.ToApiUserPairPerms(),
                 p.Value.ownPairPermissionAccess.ToApiUserPairEditAccessPerms(),
                 p.Value.otherGlobalPerms.ToApiGlobalPerms(),

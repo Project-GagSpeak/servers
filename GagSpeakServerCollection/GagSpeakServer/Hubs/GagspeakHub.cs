@@ -136,11 +136,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         }
 
         // because it also contains the appearance data, we should fetch that as well
-        var clientCallerAppearanceData = await DbContext.UserAppearanceData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if (clientCallerAppearanceData == null)
+        var clientCallerGagData = await DbContext.UserGagData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        if (clientCallerGagData == null)
         {
-            clientCallerAppearanceData = new UserGagAppearanceData() { UserUID = UserUID };
-            DbContext.UserAppearanceData.Add(clientCallerAppearanceData);
+            clientCallerGagData = new UserGagGagData() { UserUID = UserUID };
+            DbContext.UserGagData.Add(clientCallerGagData);
         }
 
         // we should also perform a check for the current active-state-data. It is server-side only, but we need to create it if it does not exist,.
@@ -176,8 +176,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
             UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
-            GagData = clientCallerAppearanceData.ToApiAppearanceData(),
-            ActiveRestraintData = clientCallerActiveStateData.ToApiActiveStateData(),
+            GagData = clientCallerGagData.ToApiGagData(),
+            ActiveRestraintData = clientCallerActiveStateData.ToApiActiveSetData(),
             PublishedPatterns = publishedPatterns,
             PublishedMoodles = publishedMoodles,
             ActiveAccountUidList = accountProfileUids,

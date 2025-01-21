@@ -60,7 +60,7 @@ public class GagspeakDbContext : DbContext
     /*  Tables that handle what defines a user, their profile, the information, and settings associated with them.    */
     public DbSet<User> Users { get; set; } // Reflects a User profile. UID, last login time, timestamp of creation, alias, and vanity tier are defined here.
     public DbSet<UserGlobalPermissions> UserGlobalPermissions { get; set; } // permissions that when changed are globally modified
-    public DbSet<UserGagAppearanceData> UserAppearanceData { get; set; } // appearance data should be stored server side, as even when offline, it should display to your profile data, or be accessible to be viewed.
+    public DbSet<UserGagGagData> UserGagData { get; set; } // appearance data should be stored server side, as even when offline, it should display to your profile data, or be accessible to be viewed.
     public DbSet<UserActiveSetData> UserActiveSetData { get; set; } // contains generic info about the user's current state that should be stored in the database for reference.
     public DbSet<UserAchievementData> UserAchievementData { get; set; } // tracks the achievements a user has unlocked.
     public DbSet<UserProfileData> UserProfileData { get; set; } // every user has a profile associated with them, this contains information unique to the profile.
@@ -129,8 +129,8 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<User>().ToTable("users");
         modelBuilder.Entity<UserGlobalPermissions>().ToTable("user_global_permissions");
         modelBuilder.Entity<UserGlobalPermissions>().HasKey(c => c.UserUID);
-        modelBuilder.Entity<UserGagAppearanceData>().ToTable("user_appearance_data");
-        modelBuilder.Entity<UserGagAppearanceData>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<UserGagGagData>().ToTable("user_appearance_data");
+        modelBuilder.Entity<UserGagGagData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserActiveSetData>().ToTable("user_active_state_data");
         modelBuilder.Entity<UserActiveSetData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");

@@ -20,7 +20,7 @@ public partial class GagspeakHub
     /// Called by a connected client that desires to push the latest updates for their character COMBINED data
     /// </summary>
     [Authorize(Policy = "Identified")]
-    public async Task UserPushData(UserCharaCompositeDataMessageDto dto)
+    public async Task UserPushData(PushCompositeDataMessageDto dto)
     {
         _logger.LogCallInfo();
 
@@ -37,15 +37,56 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
-        await Clients.Users(recipientUids).Client_UserReceiveDataComposite(new(new(UserUID), dto.CompositeData)).ConfigureAwait(false);
+        // if a safeword, we need to clear all the data for the appearance and activeSetData.
+        if (dto.WasSafeword)
+        {
+            var curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            if (curGagData == null)
+            {
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot clear Gag Data, it does not exist!").ConfigureAwait(false);
+                return;
+            }
 
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataComposite);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataCompositeTo, recipientUids.Count);
+            var curActiveSetData = await DbContext.UserActiveSetData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            if (curActiveSetData == null)
+            {
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot clear Active Restraint Data, it does not exist!").ConfigureAwait(false);
+                return;
+            }
+
+            // clear the appearance data for all gags.
+            foreach (GagLayer layer in Enum.GetValues(typeof(GagLayer)))
+            {
+                curGagData.NewGagType(layer, GagType.None.GagName());
+                curGagData.NewPadlock(layer, Padlocks.None.ToName());
+                curGagData.NewPassword(layer, string.Empty);
+                curGagData.NewTimer(layer, DateTimeOffset.UtcNow);
+                curGagData.NewAssigner(layer, string.Empty);
+            }
+
+            // clear the active set data.
+            curActiveSetData.ActiveSetId = Guid.Empty;
+            curActiveSetData.ActiveSetEnabler = string.Empty;
+            curActiveSetData.Padlock = Padlocks.None.ToName();
+            curActiveSetData.Password = string.Empty;
+            curActiveSetData.Timer = DateTimeOffset.UtcNow;
+            curActiveSetData.Assigner = string.Empty;
+
+            // update the database with the new appearance data.
+            DbContext.UserGagData.Update(curGagData);
+            DbContext.UserActiveSetData.Update(curActiveSetData);
+            await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+            // this SHOULD be fine to update after a safeword as we would have triggered all functionality related to these changes on the client side beforehand.
+        }
+
+
+        _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
+        await Clients.Users(recipientUids).Client_UserReceiveDataComposite(new(new(UserUID), dto.CompositeData, dto.WasSafeword)).ConfigureAwait(false);
     }
 
     /// <summary> Called by a connected client to push own latest IPC Data to other paired clients. </summary>
-    public async Task UserPushDataIpc(UserCharaIpcDataMessageDto dto)
+    public async Task UserPushDataIpc(PushIpcDataUpdateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -63,10 +104,7 @@ public partial class GagspeakHub
         await Clients.Users(recipientUids).Client_UserReceiveDataIpc(new(new(UserUID), new(UserUID), dto.IpcData, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
     }
 
-    /// <summary> 
-    /// Called by a connected client that desires to push the latest updates for their character's APPEARANCE Data
-    /// </summary>
-    public async Task UserPushDataAppearance(UserCharaAppearanceDataMessageDto dto)
+    public async Task UserPushDataGags(PushGagDataUpdateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -80,57 +118,39 @@ public partial class GagspeakHub
         }
 
         // Grab our Appearance from the DB
-        var curGagData = await DbContext.UserAppearanceData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        var curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
         if (curGagData == null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot update other Pair, User does not have appearance data!").ConfigureAwait(false);
             return;
         }
 
-        var updateSlot = dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer];
+        // get the previous gag type and padlock from the current data.
+        var previousGag = curGagData.GetGagType(dto.Layer);
+        var previousPadlock = curGagData.GetGagPadlock(dto.Layer);
 
         // we can always assume that this is correct when applied by self.
         switch (dto.Type)
         {
-            case GagUpdateType.GagApplied:
-                curGagData.NewGagType(dto.UpdatedLayer, updateSlot.GagType);
+            case GagUpdateType.Applied:
+                curGagData.NewGagType(dto.Layer, dto.Gag.GagName());
                 break;
 
-            case GagUpdateType.GagLocked:
-                curGagData.NewPadlock(dto.UpdatedLayer, updateSlot.Padlock);
-                curGagData.NewPassword(dto.UpdatedLayer, updateSlot.Password);
-                curGagData.NewTimer(dto.UpdatedLayer, updateSlot.Timer);
-                curGagData.NewAssigner(dto.UpdatedLayer, updateSlot.Assigner);
+            case GagUpdateType.Locked:
+                curGagData.NewPadlock(dto.Layer, dto.Padlock.ToName());
+                curGagData.NewPassword(dto.Layer, dto.Password);
+                curGagData.NewTimer(dto.Layer, dto.Timer);
+                curGagData.NewAssigner(dto.Layer, dto.Assigner);
                 break;
 
-            case GagUpdateType.GagUnlocked:
-                curGagData.NewPadlock(dto.UpdatedLayer, updateSlot.Padlock);
-                curGagData.NewPassword(dto.UpdatedLayer, updateSlot.Password);
-                curGagData.NewTimer(dto.UpdatedLayer, updateSlot.Timer);
-                curGagData.NewAssigner(dto.UpdatedLayer, updateSlot.Assigner);
+            case GagUpdateType.Unlocked:
+                curGagData.NewPadlock(dto.Layer, dto.Padlock.ToName());
+                curGagData.NewPassword(dto.Layer, dto.Password);
+                curGagData.NewTimer(dto.Layer, dto.Timer);
+                curGagData.NewAssigner(dto.Layer, dto.Assigner);
                 break;
 
-            case GagUpdateType.GagRemoved:
-                curGagData.NewGagType(dto.UpdatedLayer, updateSlot.GagType);
-                break;
-
-            case GagUpdateType.MimicGagApplied:
-                curGagData.NewGagType(dto.UpdatedLayer, updateSlot.GagType);
-                curGagData.NewPadlock(dto.UpdatedLayer, updateSlot.Padlock);
-                curGagData.NewPassword(dto.UpdatedLayer, updateSlot.Password);
-                curGagData.NewTimer(dto.UpdatedLayer, updateSlot.Timer);
-                curGagData.NewAssigner(dto.UpdatedLayer, updateSlot.Assigner);
-                break;
-
-            case GagUpdateType.Safeword:
-                // clear the appearance data for all gags.
-                foreach (GagLayer layer in Enum.GetValues(typeof(GagLayer)))
-                {
-                    curGagData.NewGagType(layer, GagType.None.GagName());
-                    curGagData.NewPadlock(layer, Padlocks.None.ToName());
-                    curGagData.NewPassword(layer, string.Empty);
-                    curGagData.NewTimer(layer, DateTimeOffset.UtcNow);
-                    curGagData.NewAssigner(layer, string.Empty);
-                }
+            case GagUpdateType.Removed:
+                curGagData.NewGagType(dto.Layer, dto.Gag.GagName());
                 break;
 
             default:
@@ -140,19 +160,26 @@ public partial class GagspeakHub
         }
 
         // update the database with the new appearance data.
-        DbContext.UserAppearanceData.Update(curGagData);
+        DbContext.UserGagData.Update(curGagData);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var newAppearance = curGagData.ToApiAppearanceData();
+        var newAppearance = curGagData.ToApiGagData();
 
-        await Clients.Users(recipientUids).Client_UserReceiveDataAppearance(new(new(UserUID), new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock, UpdateDir.Other)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveDataAppearance(new(new(UserUID), new(UserUID), newAppearance, dto.UpdatedLayer, dto.Type, dto.PreviousLock, UpdateDir.Own)).ConfigureAwait(false);
+        var recipientDto = new OnlineUserGagDataDto(new(UserUID), new(UserUID), newAppearance, dto.Type, UpdateDir.Other)
+        {
+            AffectedLayer = dto.Layer,
+            PreviousGag = previousGag,
+            PreviousPadlock = previousPadlock
+        };
+
+        await Clients.Users(recipientUids).Client_UserReceiveDataAppearance(recipientDto).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataAppearance(recipientDto with { Direction = UpdateDir.Own }).ConfigureAwait(false);
     }
 
     /// <summary> 
     /// Called by a connected client that desires to push the latest updates for their character's WARDROBE Data
     /// </summary>
-    public async Task UserPushDataWardrobe(UserCharaWardrobeDataMessageDto dto)
+    public async Task UserPushDataRestraint(PushRestraintDataUpdateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -171,52 +198,33 @@ public partial class GagspeakHub
             return;
         }
 
+        var prevSetId = userActiveState.ActiveSetId;
+        var prevPadlock = userActiveState.Padlock.ToPadlock();
+
         switch (dto.Type)
         {
-            case WardrobeUpdateType.FullDataUpdate:
-                userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
-                userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
-                userActiveState.Padlock = dto.WardrobeData.Padlock;
-                userActiveState.Password = dto.WardrobeData.Password;
-                userActiveState.Timer = dto.WardrobeData.Timer;
-                userActiveState.Assigner = dto.WardrobeData.Assigner;
+            case WardrobeUpdateType.Applied:
+                userActiveState.ActiveSetId = dto.ActiveSetId;
+                userActiveState.ActiveSetEnabler = dto.Enabler;
                 break;
 
-            case WardrobeUpdateType.RestraintApplied:
-                userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
-                userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
+            case WardrobeUpdateType.Locked:
+                userActiveState.Padlock = dto.Padlock.ToName();
+                userActiveState.Password = dto.Password;
+                userActiveState.Timer = dto.Timer;
+                userActiveState.Assigner = dto.Assigner;
                 break;
 
-            case WardrobeUpdateType.RestraintLocked:
-                userActiveState.Padlock = dto.WardrobeData.Padlock;
-                userActiveState.Password = dto.WardrobeData.Password;
-                userActiveState.Timer = dto.WardrobeData.Timer;
-                userActiveState.Assigner = dto.WardrobeData.Assigner;
-                break;
-
-            case WardrobeUpdateType.RestraintUnlocked:
+            case WardrobeUpdateType.Unlocked:
                 userActiveState.Padlock = Padlocks.None.ToName();
                 userActiveState.Password = string.Empty;
                 userActiveState.Timer = DateTimeOffset.UtcNow;
                 userActiveState.Assigner = string.Empty;
                 break;
 
-            case WardrobeUpdateType.RestraintDisabled:
+            case WardrobeUpdateType.Disabled:
                 userActiveState.ActiveSetId = Guid.Empty;
                 userActiveState.ActiveSetEnabler = string.Empty;
-                break;
-
-            case WardrobeUpdateType.CursedItemApplied:
-            case WardrobeUpdateType.CursedItemRemoved:
-                break;
-
-            case WardrobeUpdateType.Safeword:
-                userActiveState.ActiveSetId = Guid.Empty;
-                userActiveState.ActiveSetEnabler = string.Empty;
-                userActiveState.Padlock = Padlocks.None.ToName();
-                userActiveState.Password = string.Empty;
-                userActiveState.Timer = DateTimeOffset.UtcNow;
-                userActiveState.Assigner = string.Empty;
                 break;
 
             default:
@@ -229,20 +237,21 @@ public partial class GagspeakHub
         DbContext.UserActiveSetData.Update(userActiveState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // accounts for any possible tampered client side shinanagin bullshit.
-        var newWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
+        // compile to api and push out.
+        var newWardrobeData = userActiveState.ToApiActiveSetData();
 
-        await Clients.Users(recipientUids).Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Other)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveDataWardrobe(new(new(UserUID), new(UserUID), newWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Own)).ConfigureAwait(false);
+        var recipientDto = new OnlineUserRestraintDataDto(new(UserUID), new(UserUID), newWardrobeData, dto.Type, UpdateDir.Other)
+        {
+            RestraintModified = dto.ActiveSetId,
+            PreviousPadlock = prevPadlock
+        };
+
+        await Clients.Users(recipientUids).Client_UserReceiveDataWardrobe(recipientDto).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataWardrobe(recipientDto with { Direction = UpdateDir.Own }).ConfigureAwait(false);
     }
 
-    /// <summary> 
-    /// Called by a connected client that desires to push the latest updates for their character's ORDERS Data
-    /// </summary>
-    public async Task UserPushDataOrders(UserCharaOrdersDataMessageDto dto)
+    public async Task<bool> UserPushDataCursedLoot(PushCursedLootDataUpdateDto dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
         var recipientUids = dto.Recipients.Select(r => r.UID).ToList();
         bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
         if (!allCached)
@@ -252,36 +261,60 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        // currently does nothing.
-        switch (dto.Type)
+        // Handle the cursed loot based on the type.
+        if(dto.IsCursedGag())
         {
-            case OrdersUpdateType.FullDataUpdate:
-                break;
+            // Grab our Appearance from the DB
+            var curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            if (curGagData is null)
+                return false;
 
-            case OrdersUpdateType.OrderAssigned:
-                break;
+            // get the previous gag.
+            var previousGag = curGagData.GetGagType(dto.Layer);
 
-            case OrdersUpdateType.OrderProgressMade:
-                break;
+            // update the gag data from the respective layer.
+            curGagData.NewGagType(dto.Layer, dto.GagType.GagName());
+            curGagData.NewPadlock(dto.Layer, Padlocks.MimicPadlock.ToName());
+            curGagData.NewPassword(dto.Layer, string.Empty);
+            curGagData.NewTimer(dto.Layer, dto.ReleaseTime);
+            curGagData.NewAssigner(dto.Layer, UserUID);
 
-            case OrdersUpdateType.OrderCompleted:
-                break;
+            // update the database with the new appearance data and push the changes out.
+            DbContext.UserGagData.Update(curGagData);
+            await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-            case OrdersUpdateType.OrderDisabled:
-                break;
+            var newAppearance = curGagData.ToApiGagData();
 
-            case OrdersUpdateType.Safeword:
-                break;
+            var recipientDto = new OnlineUserGagDataDto(new(UserUID), new(UserUID), newAppearance, GagUpdateType.AppliedCursed, UpdateDir.Other)
+            {
+                AffectedLayer = dto.Layer,
+                PreviousGag = previousGag,
+                PreviousPadlock = Padlocks.None // should always be none anyways so should not madder.
+            };
+
+            await Clients.Users(recipientUids).Client_UserReceiveDataAppearance(recipientDto).ConfigureAwait(false);
+            await Clients.Caller.Client_UserReceiveDataAppearance(recipientDto with { Direction = UpdateDir.Own }).ConfigureAwait(false);
         }
 
-        await Clients.Users(recipientUids).Client_UserReceiveDataOrders(new(new(UserUID), new(UserUID), dto.OrdersData, dto.Type, dto.AffectedItem, UpdateDir.Other)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveDataOrders(new(new(UserUID), new(UserUID), dto.OrdersData, dto.Type, dto.AffectedItem, UpdateDir.Own)).ConfigureAwait(false);
+        // Send back out that cursedLootData is updated for our user.
+        await Clients.Users(recipientUids).Client_UserReceiveDataCursedLoot(new(new(UserUID), dto.ActiveItems) { LastInteractedItem = dto.LootIdInteracted }).ConfigureAwait(false);
+        // return true to us to let us know the operation was successful.
+        return true;
+    }
+
+
+    /// <summary> 
+    /// Called by a connected client that desires to push the latest updates for their character's ORDERS Data
+    /// </summary>
+    public async Task UserPushDataOrders(PushOrdersDataUpdateDto dto)
+    {
+        // Do not do anything right now with this.
     }
 
     /// <summary> 
     /// Called by a connected client that desires to push the latest updates for their character's ALIAS Data
     /// </summary>
-    public async Task UserPushDataAlias(UserCharaAliasDataMessageDto dto)
+    public async Task UserPushDataAlias(PushAliasDataUpdateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -299,13 +332,13 @@ public partial class GagspeakHub
         }
 
         await Clients.User(recipientUid).Client_UserReceiveDataAlias(new(new(UserUID), new(UserUID), dto.AliasData, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
-        await Clients.Caller.Client_UserReceiveDataAlias(new(dto.RecipientUser, new(UserUID), dto.AliasData, dto.Type, UpdateDir.Own)).ConfigureAwait(false); // don't see why we need it, remove if excess overhead in the end.
+        await Clients.Caller.Client_UserReceiveDataAlias(new(dto.RecipientUser, new(UserUID), dto.AliasData, dto.Type, UpdateDir.Own)).ConfigureAwait(false);
     }
 
     /// <summary> 
     /// Called by a connected client that desires to push the latest updates for their character's ToyboxData 
     /// </summary>
-    public async Task UserPushDataToybox(UserCharaToyboxDataMessageDto dto)
+    public async Task UserPushDataToybox(PushToyboxDataUpdateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -318,13 +351,42 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        await Clients.Users(recipientUids).Client_UserReceiveDataToybox(new(new(UserUID), new(UserUID), dto.ToyboxInfo, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
+        // we need to update our lists based on the interacted item, and store what item was interacted with.
+        switch (dto.Type)
+        {
+            case ToyboxUpdateType.PatternExecuted:
+                dto.LatestActiveItems.ActivePattern = dto.AffectedIdentifier;
+                break;
+
+            case ToyboxUpdateType.PatternStopped:
+                dto.LatestActiveItems.ActivePattern = Guid.Empty;
+                break;
+
+            case ToyboxUpdateType.AlarmToggled:
+                if (dto.LatestActiveItems.ActiveAlarms.Contains(dto.AffectedIdentifier))
+                    dto.LatestActiveItems.ActiveAlarms.Remove(dto.AffectedIdentifier);
+                else
+                    dto.LatestActiveItems.ActiveAlarms.Add(dto.AffectedIdentifier);
+                break;
+
+            case ToyboxUpdateType.TriggerToggled:
+                if (dto.LatestActiveItems.ActiveTriggers.Contains(dto.AffectedIdentifier))
+                    dto.LatestActiveItems.ActiveTriggers.Remove(dto.AffectedIdentifier);
+                else
+                    dto.LatestActiveItems.ActiveTriggers.Add(dto.AffectedIdentifier);
+                break;
+
+            default:
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Toybox Data: " + dto.Type).ConfigureAwait(false);
+                _logger.LogWarning("Invalid UpdateKind for Toybox Data: " + dto.Type);
+                return;
+        }
+
+        await Clients.Users(recipientUids).Client_UserReceiveDataToybox(new(new(UserUID), new(UserUID), dto.LatestActiveItems, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
+        // can add own later if need be!
     }
 
-    /// <summary> 
-    /// Called by a connected client that desires to push the latest updates for their character's ToyboxData 
-    /// </summary>
-    public async Task UserPushDataLightStorage(UserCharaLightStorageMessageDto dto)
+    public async Task UserPushDataLightStorage(PushLightStorageMessageDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -343,7 +405,7 @@ public partial class GagspeakHub
     /// <summary>
     /// Bumps the change in Appearance Data to another pair.
     /// </summary>
-    public async Task UserPushPairDataAppearanceUpdate(OnlineUserCharaAppearanceDataDto dto)
+    public async Task UserPushPairDataGags(PushPairGagDataUpdateDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
@@ -352,23 +414,20 @@ public partial class GagspeakHub
             return;
         }
 
-        var pairPermissions = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPermissions == null) {
+        var pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPerms == null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?").ConfigureAwait(false);
             return;
         }
 
-        var currentAppearanceData = await DbContext.UserAppearanceData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (currentAppearanceData == null) {
+        var currentGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (currentGagData == null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update other Pair, User does not have appearance data!").ConfigureAwait(false);
             return;
         }
 
-        // Grabs all Pairs of the affected pair
         var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        // Filter the list to only include online pairs
         var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        // Convert from Dictionary<string,string> to List<string> of UID's.
         var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
 
         // Verify all these pairs are cached for that pair. If not, cache them.
@@ -377,60 +436,78 @@ public partial class GagspeakHub
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
-        var dtoSlotData = dto.AppearanceData.GagSlots[(int)dto.UpdatedLayer];
+        var previousGag = currentGagData.GetGagType(dto.Layer);
+        var previousPadlock = currentGagData.GetGagPadlock(dto.Layer);
 
         switch (dto.Type)
         {
-            case GagUpdateType.GagApplied:
-                if (!pairPermissions.ApplyGags || !currentAppearanceData.CanApplyOrLockGag(dto.UpdatedLayer)) {
+            case GagUpdateType.Applied:
+                if (!pairPerms.ApplyGags || !currentGagData.CanApplyOrLockGag(dto.Layer)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Not allowed access to Apply Gags!").ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.NewGagType(dto.UpdatedLayer, dtoSlotData.GagType);
+                currentGagData.NewGagType(dto.Layer, dto.Gag.GagName());
                 break;
 
-            case GagUpdateType.GagLocked:
-                if (!pairPermissions.LockGags || !currentAppearanceData.CanApplyOrLockGag(dto.UpdatedLayer)) {
+            case GagUpdateType.Locked:
+                if (!pairPerms.LockGags || !currentGagData.CanApplyOrLockGag(dto.Layer)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Not allowed access to Lock Gags!").ConfigureAwait(false);
                     return;
                 }
-                // validate if we can lock the gag, if not, throw a warning.
-                var lockCode = dto.AppearanceData.IsLockUpdateValid(dto.UpdatedLayer, pairPermissions);
+
+                // a little messy due to not wanting to parse timespan twice but can cleanup later when a better lock validation system is in place.
+                // (so we dont need to do logic on the server)
+                var lockCode = currentGagData.GetGagPadlock(dto.Layer) switch
+                {
+                    Padlocks.None => PadlockReturnCode.NoPadlockSelected,
+                    Padlocks.MetalPadlock => PadlockReturnCode.Success,
+                    Padlocks.FiveMinutesPadlock => PadlockReturnCode.Success,
+                    Padlocks.CombinationPadlock => GsPadlockEx.ValidateCombinationPadlock(dto.Password, pairPerms.PermanentLocks),
+                    Padlocks.PasswordPadlock => GsPadlockEx.ValidatePasswordPadlock(dto.Password, pairPerms.PermanentLocks),
+                    Padlocks.TimerPadlock => GsPadlockEx.ValidateTimerPadlock(dto.Timer, pairPerms.MaxGagTime),
+                    Padlocks.TimerPasswordPadlock => GsPadlockEx.ValidatePasswordTimerPadlock(dto.Password, dto.Timer, pairPerms.MaxGagTime),
+                    Padlocks.OwnerPadlock => GsPadlockEx.ValidateOwnerPadlock(pairPerms.OwnerLocks, pairPerms.PermanentLocks),
+                    Padlocks.OwnerTimerPadlock => GsPadlockEx.ValidateOwnerTimerPadlock(pairPerms.OwnerLocks, dto.Timer, pairPerms.MaxGagTime),
+                    Padlocks.DevotionalPadlock => GsPadlockEx.ValidateDevotionalPadlock(pairPerms.DevotionalLocks, pairPerms.PermanentLocks),
+                    Padlocks.DevotionalTimerPadlock => GsPadlockEx.ValidateDevotionalTimerPadlock(pairPerms.DevotionalLocks, dto.Timer, pairPerms.MaxGagTime),
+                    _ => PadlockReturnCode.NoPadlockSelected
+                };
                 if (lockCode != PadlockReturnCode.Success) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Error Validating Lock:"+ lockCode.ToFlagString()).ConfigureAwait(false);
                     return;
                 }
+
                 // update the lock.
-                currentAppearanceData.NewPadlock(dto.UpdatedLayer, dtoSlotData.Padlock);
-                currentAppearanceData.NewPassword(dto.UpdatedLayer, dtoSlotData.Password);
-                currentAppearanceData.NewTimer(dto.UpdatedLayer, dtoSlotData.Timer);
-                currentAppearanceData.NewAssigner(dto.UpdatedLayer, dtoSlotData.Assigner);
+                currentGagData.NewPadlock(dto.Layer, dto.Padlock.ToName());
+                currentGagData.NewPassword(dto.Layer, dto.Password);
+                currentGagData.NewTimer(dto.Layer, dto.Timer);
+                currentGagData.NewAssigner(dto.Layer, dto.Assigner);
                 break;
 
-            case GagUpdateType.GagUnlocked:
-                if (!pairPermissions.UnlockGags || !currentAppearanceData.CanRemoveGag(dto.UpdatedLayer)) {
+            case GagUpdateType.Unlocked:
+                if (!pairPerms.UnlockGags) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Not allowed access to Unlock Gags!").ConfigureAwait(false);
                     return;
                 }
                 // validate if we can unlock the gag, if not, throw a warning.
-                var unlockCode = currentAppearanceData.IsUnlockUpdateValid(UserUID, dto.UpdatedLayer, dtoSlotData, pairPermissions);
+                var unlockCode = GsPadlockEx.ValidateUnlock(currentGagData.ToGagSlot(dto.Layer), new(currentGagData.UserUID), dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
                 if (unlockCode != PadlockReturnCode.Success) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Error Validating Unlock:"+ unlockCode.ToFlagString()).ConfigureAwait(false);
                     return;
                 }
                 // update the unlock.
-                currentAppearanceData.NewPadlock(dto.UpdatedLayer, dtoSlotData.Padlock);
-                currentAppearanceData.NewPassword(dto.UpdatedLayer, dtoSlotData.Password);
-                currentAppearanceData.NewTimer(dto.UpdatedLayer, dtoSlotData.Timer);
-                currentAppearanceData.NewAssigner(dto.UpdatedLayer, dtoSlotData.Assigner);
+                currentGagData.NewPadlock(dto.Layer, Padlocks.None.ToName());
+                currentGagData.NewPassword(dto.Layer, string.Empty);
+                currentGagData.NewTimer(dto.Layer, DateTimeOffset.MinValue);
+                currentGagData.NewAssigner(dto.Layer, string.Empty);
                 break;
 
-            case GagUpdateType.GagRemoved:
-                if (!pairPermissions.RemoveGags || currentAppearanceData.CanRemoveGag(dto.UpdatedLayer)) {
+            case GagUpdateType.Removed:
+                if (!pairPerms.RemoveGags || currentGagData.CanRemoveGag(dto.Layer)) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Not allowed access to Remove Gags!").ConfigureAwait(false);
                     return;
                 }
-                currentAppearanceData.NewGagType(dto.UpdatedLayer, dtoSlotData.GagType);
+                currentGagData.NewGagType(dto.Layer, GagType.None.GagName());
                 break;
 
             default:
@@ -440,16 +517,25 @@ public partial class GagspeakHub
         }
 
         // update the database with the new appearance data.
-        DbContext.UserAppearanceData.Update(currentAppearanceData);
+        DbContext.UserGagData.Update(currentGagData);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var newAppearanceData = currentAppearanceData.ToApiAppearanceData();
+        var newGagData = currentGagData.ToApiGagData();
 
-        await Clients.User(dto.User.UID).Client_UserReceiveDataAppearance(new(new(UserUID), dto.Enactor, newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock, UpdateDir.Own)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataAppearance(new(dto.User, dto.Enactor, newAppearanceData, dto.UpdatedLayer, dto.Type, dto.PreviousPadlock, UpdateDir.Other)).ConfigureAwait(false);
+        var recipientDto = new OnlineUserGagDataDto(new(dto.User.UID), new(UserUID), newGagData, dto.Type, UpdateDir.Other)
+        {
+            AffectedLayer = dto.Layer,
+            PreviousGag = previousGag,
+            PreviousPadlock = previousPadlock
+        };
+
+        // send back to recipient.
+        await Clients.User(dto.User.UID).Client_UserReceiveDataAppearance(recipientDto with { Direction = UpdateDir.Own }).ConfigureAwait(false);
+        // send back to all recipients pairs.
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataAppearance(recipientDto with { Direction = UpdateDir.Other }).ConfigureAwait(false);
     }
 
-    public async Task UserPushPairDataWardrobeUpdate(OnlineUserCharaWardrobeDataDto dto)
+    public async Task UserPushPairDataRestraint(PushPairRestraintDataUpdateDto dto)
     {
         // display the ags being passed in.
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -458,83 +544,98 @@ public partial class GagspeakHub
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
 
         // Verify the pairing between these users exists. (Grab permissions via this)
-        var pairPermissions = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
+        var pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPerms == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // Fetch affected pair's current activeState data from the DB
-        var userActiveState = await DbContext.UserActiveSetData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (userActiveState == null) throw new Exception("User has no Active State Data!");
+        var userActiveSet = await DbContext.UserActiveSetData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (userActiveSet == null) throw new Exception("User has no Active State Data!");
 
-        // Grabs all Pairs of the affected pair
         var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        // Filter the list to only include online pairs
         var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        // Convert from Dictionary<string,string> to List<string> of UID's.
         var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
 
         // Verify all these pairs are cached for that pair. If not, cache them.
         bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        }
+        if (!allCached) await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
 
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
+        var prevSetId = userActiveSet.ActiveSetId;
+        var prevPadlock = userActiveSet.Padlock.ToPadlock();
+
         switch (dto.Type)
         {
-            case WardrobeUpdateType.RestraintApplied:
-                if (!pairPermissions.ApplyRestraintSets || !userActiveState.ActiveSetId.IsEmptyGuid() && userActiveState.Padlock.ToPadlock() is not Padlocks.None) {
+            case WardrobeUpdateType.Applied:
+                if (!pairPerms.ApplyRestraintSets || !userActiveSet.CanApplyRestraint()) {
                     await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Replace Currently Active Set because it is currently locked!").ConfigureAwait(false);
                     return;
                 }
-                userActiveState.ActiveSetId = dto.WardrobeData.ActiveSetId;
-                userActiveState.ActiveSetEnabler = dto.WardrobeData.ActiveSetEnabledBy;
+                userActiveSet.ActiveSetId = dto.ActiveSetId;
+                userActiveSet.ActiveSetEnabler = dto.Enabler;
                 break;
 
-            case WardrobeUpdateType.RestraintLocked:
-                // see if we are able to lock the restraint, and if we are, do so, otherwise, return the error code.
-                var lockResultCode = dto.WardrobeData.IsLockUpdateValid(pairPermissions);
-                if (lockResultCode != PadlockReturnCode.Success) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Error Validating Lock: " + lockResultCode.ToFlagString()).ConfigureAwait(false);
+            case WardrobeUpdateType.Locked:
+                if (!pairPerms.LockRestraintSets || !userActiveSet.CanLockRestraint()) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Lock Set!").ConfigureAwait(false);
+                    return;
+                }
+                // a little messy due to not wanting to parse timespan twice but can cleanup later when a better lock validation system is in place.
+                // (so we dont need to do logic on the server)
+                var lockCode = userActiveSet.Padlock.ToPadlock() switch
+                {
+                    Padlocks.None => PadlockReturnCode.NoPadlockSelected,
+                    Padlocks.MetalPadlock => PadlockReturnCode.Success,
+                    Padlocks.FiveMinutesPadlock => PadlockReturnCode.Success,
+                    Padlocks.CombinationPadlock => GsPadlockEx.ValidateCombinationPadlock(dto.Password, pairPerms.PermanentLocks),
+                    Padlocks.PasswordPadlock => GsPadlockEx.ValidatePasswordPadlock(dto.Password, pairPerms.PermanentLocks),
+                    Padlocks.TimerPadlock => GsPadlockEx.ValidateTimerPadlock(dto.Timer, pairPerms.MaxGagTime),
+                    Padlocks.TimerPasswordPadlock => GsPadlockEx.ValidatePasswordTimerPadlock(dto.Password, dto.Timer, pairPerms.MaxGagTime),
+                    Padlocks.OwnerPadlock => GsPadlockEx.ValidateOwnerPadlock(pairPerms.OwnerLocks, pairPerms.PermanentLocks),
+                    Padlocks.OwnerTimerPadlock => GsPadlockEx.ValidateOwnerTimerPadlock(pairPerms.OwnerLocks, dto.Timer, pairPerms.MaxGagTime),
+                    Padlocks.DevotionalPadlock => GsPadlockEx.ValidateDevotionalPadlock(pairPerms.DevotionalLocks, pairPerms.PermanentLocks),
+                    Padlocks.DevotionalTimerPadlock => GsPadlockEx.ValidateDevotionalTimerPadlock(pairPerms.DevotionalLocks, dto.Timer, pairPerms.MaxGagTime),
+                    _ => PadlockReturnCode.NoPadlockSelected
+                };
+                if (lockCode != PadlockReturnCode.Success) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Error Validating Lock:" + lockCode.ToFlagString()).ConfigureAwait(false);
                     return;
                 }
                 // update the stuff.
-                userActiveState.Padlock = dto.WardrobeData.Padlock;
-                userActiveState.Password = dto.WardrobeData.Password;
-                userActiveState.Timer = dto.WardrobeData.Timer;
-                userActiveState.Assigner = dto.WardrobeData.Assigner;
+                userActiveSet.Padlock = dto.Padlock.ToName();
+                userActiveSet.Password = dto.Password;
+                userActiveSet.Timer = dto.Timer;
+                userActiveSet.Assigner = dto.Assigner;
                 break;
 
-            case WardrobeUpdateType.RestraintUnlocked:
+            case WardrobeUpdateType.Unlocked:
+                if(!pairPerms.UnlockRestraintSets || !userActiveSet.CanUnlockRestraint()) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Unlock Set!").ConfigureAwait(false);
+                    return;
+                }
+
                 // see if we are able to unlock the restraint, and if we are, do so, otherwise, return the error code.
-                var unlockResultCode = userActiveState.IsUnlockUpdateValid(UserUID, dto.WardrobeData, pairPermissions);
-                if (unlockResultCode != PadlockReturnCode.Success) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Error Validating Unlock: " + unlockResultCode.ToFlagString()).ConfigureAwait(false);
+                var unlockCode = GsPadlockEx.ValidateUnlock(userActiveSet, new(dto.Recipient.UID), dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
+                if (unlockCode != PadlockReturnCode.Success) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Error Validating Unlock: " + unlockCode.ToFlagString()).ConfigureAwait(false);
                     return;
                 }
                 // update the stuff.
-                userActiveState.Padlock = dto.WardrobeData.Padlock;
-                userActiveState.Password = dto.WardrobeData.Password;
-                userActiveState.Timer = dto.WardrobeData.Timer;
-                userActiveState.Assigner = dto.WardrobeData.Assigner;
+                userActiveSet.Padlock = Padlocks.None.ToName();
+                userActiveSet.Password = string.Empty;
+                userActiveSet.Timer = DateTimeOffset.MinValue;
+                userActiveSet.Assigner = string.Empty;
                 break;
 
-            case WardrobeUpdateType.RestraintDisabled:
-                if (userActiveState.ActiveSetId.IsEmptyGuid()) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No active set to remove!").ConfigureAwait(false);
+            case WardrobeUpdateType.Disabled:
+                if (!pairPerms.RemoveRestraintSets || !userActiveSet.CanRemoveRestraint()) {
+                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot Remove Set!").ConfigureAwait(false);
                     return;
                 }
-                if (userActiveState.Padlock.ToPadlock() is not Padlocks.None) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Active set is still locked!").ConfigureAwait(false);
-                    return;
-                }
-                userActiveState.ActiveSetId = Guid.Empty;
-                break;
-
-            case WardrobeUpdateType.CursedItemApplied:
-            case WardrobeUpdateType.CursedItemRemoved:
+                // update the stuff.
+                userActiveSet.ActiveSetId = Guid.Empty;
+                userActiveSet.ActiveSetEnabler = string.Empty;
                 break;
 
             default:
@@ -542,16 +643,23 @@ public partial class GagspeakHub
         }
 
         // update the changes to the database.
-        DbContext.UserActiveSetData.Update(userActiveState);
+        DbContext.UserActiveSetData.Update(userActiveSet);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var updatedWardrobeData = DataUpdateHelpers.BuildUpdatedWardrobeData(dto.WardrobeData, userActiveState);
+        var updatedWardrobeData = userActiveSet.ToApiActiveSetData();
 
-        await Clients.User(dto.User.UID).Client_UserReceiveDataWardrobe(new(new(UserUID), dto.Enactor, updatedWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Own)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataWardrobe(new(dto.User, dto.Enactor, updatedWardrobeData, dto.Type, dto.AffectedItem, UpdateDir.Other)).ConfigureAwait(false);
+        // send the update to the recipient.
+        var recipientDto = new OnlineUserRestraintDataDto(dto.Recipient, new(UserUID), updatedWardrobeData, dto.Type, UpdateDir.Other)
+        {
+            RestraintModified = prevSetId,
+            PreviousPadlock = prevPadlock
+        };
+
+        await Clients.User(dto.User.UID).Client_UserReceiveDataWardrobe(recipientDto with { Direction = UpdateDir.Own }).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataWardrobe(recipientDto).ConfigureAwait(false);
     }
 
-    public async Task UserPushPairDataAliasStorageUpdate(OnlineUserCharaAliasDataDto dto)
+    public async Task UserPushPairDataAliasStorage(PushPairAliasDataUpdateDto dto)
     {
         // display the ags being passed in.
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -560,21 +668,19 @@ public partial class GagspeakHub
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
 
         // verify that a pair between the two clients is made.
-        var pairPermissions = await DbContext.ClientPairs.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
+        var pairPerms = await DbContext.ClientPairs.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPerms == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // ensure that the update kind of to change the registered names. If it is not, throw exception.
         if (dto.Type is not PuppeteerUpdateType.PlayerNameRegistered) throw new Exception("Invalid UpdateKind for Pair Alias Data!");
 
         // in our dto, we have the PAIR WE ARE PROVIDING OUR NAME TO as the user-data, with our name info inside.
         // so when we construct the message to update the client's OWN data, we need to place the client callers name info inside.
-        await Clients.User(dto.User.UID).Client_UserReceiveDataAlias(new(new(UserUID), dto.Enactor, dto.AliasData, dto.Type, UpdateDir.Own)).ConfigureAwait(false);
-
-        // when we push the update back to our client caller, we must inform them that the client callers name was updated.
-        await Clients.Caller.Client_UserReceiveDataAlias(new(dto.User, dto.Enactor, dto.AliasData, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveDataAlias(new(new(dto.User.UID), new(UserUID), dto.LastAliasData, dto.Type, UpdateDir.Own)).ConfigureAwait(false);
+        await Clients.Caller.Client_UserReceiveDataAlias(new(new(dto.User.UID), new(UserUID), dto.LastAliasData, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
     }
 
-    public async Task UserPushPairDataToyboxUpdate(OnlineUserCharaToyboxDataDto dto)
+    public async Task UserPushPairDataToybox(PushPairToyboxDataUpdateDto dto)
     {
         // display the ags being passed in.
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -583,8 +689,8 @@ public partial class GagspeakHub
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) throw new Exception("Cannot update self, only use this to update another pair!");
 
         // Verify the pairing between these users exists. (Grab permissions via this)
-        var pairPermissions = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPermissions == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
+        var pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPerms == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // Grabs all Pairs of the affected pair
         var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
@@ -601,40 +707,39 @@ public partial class GagspeakHub
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
+        // we need to update our lists based on the interacted item, and store what item was interacted with.
         switch (dto.Type)
         {
             case ToyboxUpdateType.PatternExecuted:
-                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to execute Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
-                    return;
-                }
+                dto.LastToyboxData.ActivePattern = dto.AffectedIdentifier;
                 break;
+
             case ToyboxUpdateType.PatternStopped:
-                if (!pairPermissions.CanExecutePatterns || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to stop Patterns, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
-                    return;
-                }
+                dto.LastToyboxData.ActivePattern = Guid.Empty;
                 break;
 
             case ToyboxUpdateType.AlarmToggled:
-                if (!pairPermissions.CanToggleAlarms || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle Alarms, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
-                    return;
-                }
+                if (dto.LastToyboxData.ActiveAlarms.Contains(dto.AffectedIdentifier))
+                    dto.LastToyboxData.ActiveAlarms.Remove(dto.AffectedIdentifier);
+                else
+                    dto.LastToyboxData.ActiveAlarms.Add(dto.AffectedIdentifier);
                 break;
 
             case ToyboxUpdateType.TriggerToggled:
-                if (!pairPermissions.CanToggleTriggers || dto.ToyboxInfo.InteractionId.IsEmptyGuid()) {
-                    await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pair doesn't allow you to toggle triggers, or you used a Guid.Empty transaction ID!").ConfigureAwait(false);
-                    return;
-                }
+                if (dto.LastToyboxData.ActiveTriggers.Contains(dto.AffectedIdentifier))
+                    dto.LastToyboxData.ActiveTriggers.Remove(dto.AffectedIdentifier);
+                else
+                    dto.LastToyboxData.ActiveTriggers.Add(dto.AffectedIdentifier);
                 break;
+
             default:
-                throw new Exception("Invalid UpdateKind for Toybox Data!");
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Invalid UpdateKind for Toybox Data: " + dto.Type).ConfigureAwait(false);
+                _logger.LogWarning("Invalid UpdateKind for Toybox Data: " + dto.Type);
+                return;
         }
 
-        await Clients.User(dto.User.UID).Client_UserReceiveDataToybox(new(new(UserUID), dto.Enactor, dto.ToyboxInfo, dto.Type, UpdateDir.Own)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataToybox(new(dto.User, dto.Enactor, dto.ToyboxInfo, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Client_UserReceiveDataToybox(new(dto.Recipient, new(UserUID), dto.LastToyboxData, dto.Type, UpdateDir.Own)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Client_UserReceiveDataToybox(new(dto.Recipient, new(UserUID), dto.LastToyboxData, dto.Type, UpdateDir.Other)).ConfigureAwait(false);
     }
 }
 #pragma warning restore MA0051 // Method is too long

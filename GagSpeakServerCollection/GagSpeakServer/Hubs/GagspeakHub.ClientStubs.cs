@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Dto.Connection;
+﻿using GagspeakAPI.Dto;
+using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.IPC;
 using GagspeakAPI.Dto.Permissions;
 using GagspeakAPI.Dto.Toybox;
@@ -39,12 +40,13 @@ namespace GagspeakServer.Hubs
         public Task Client_UserUpdatePairPermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
 
         public Task Client_UserReceiveDataComposite(OnlineUserCompositeDataDto dataDto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataIpc(OnlineUserCharaIpcDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataAppearance(OnlineUserCharaAppearanceDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataWardrobe(OnlineUserCharaWardrobeDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataOrders(OnlineUserCharaOrdersDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataAlias(OnlineUserCharaAliasDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataToybox(OnlineUserCharaToyboxDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataIpc(OnlineUserIpcDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataAppearance(OnlineUserGagDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataWardrobe(OnlineUserRestraintDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataCursedLoot(OnlineUserCursedLootDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataOrders(OnlineUserOrdersDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataAlias(OnlineUserAliasDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserReceiveDataToybox(OnlineUserToyboxDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
         public Task Client_UserReceiveLightStorage(OnlineUserStorageUpdateDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
 
         public Task Client_UserReceiveShockInstruction(ShockCollarActionDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");

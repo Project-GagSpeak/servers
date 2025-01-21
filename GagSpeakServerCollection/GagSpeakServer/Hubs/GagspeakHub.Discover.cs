@@ -1,5 +1,6 @@
 ﻿using GagspeakAPI;
 using GagspeakAPI.Data;
+using GagspeakAPI.Dto;
 using GagspeakAPI.Dto.Patterns;
 using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Enums;

@@ -55,18 +55,13 @@ public partial class AccountWizard
         ulong userToCheckForDiscordId = Context.User.Id;
 
         var dbUser = await db.Users.SingleOrDefaultAsync(u => u.UID == uid).ConfigureAwait(false);
+        var dbUserAuth = await db.Auth.SingleOrDefaultAsync(u => u.UserUID == uid).ConfigureAwait(false);
 
         var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("GagspeakHub:UID:" + dbUser.UID).ConfigureAwait(false);
 
         // display the user's set Alias if they have one
-        if (!string.IsNullOrEmpty(dbUser.Alias))
-        {
-            eb.AddField("Vanity UID", dbUser.Alias);
-        }
-        else
-        {
-            eb.AddField("Vanity UID", "No Vanity UID Set");
-        }
+        eb.AddField("Vanity UID", dbUser?.Alias ?? "No Vanity UID Set");
+        eb.AddField("Secret Key", dbUserAuth?.HashedKey ?? "No Secret Key");
 
         // Last login UTC & Last login Local
         var lastOnlineUtc = new DateTimeOffset(dbUser.LastLoggedIn, TimeSpan.Zero);

@@ -3,7 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 
-public class UserGagAppearanceData // the user's appearance data
+public class UserGagGagData // the user's appearance data
 {
     [Required]
     [Key]

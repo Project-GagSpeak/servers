@@ -51,15 +51,10 @@ public partial class AccountWizard
 
         // grab the database context
         using var db = GetDbContext();
-        // fetch the accountclaim entry in the Database's AccountClaimAuth table where the discordID matches the interaction user's Discord ID & registration time began.
-        // if this is found, this means the user was in a registration process, but it got canceled for whatever reason, so we should reset this.
-        var entry = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id && u.StartedAt != null).ConfigureAwait(false);
-        
-        // if the entry exists, remove it from the database, the initial keys, and the verified users, to reset the user for account claim verification.
+        // if we enter this menu at all, for whatever reason, we should remove the user from the claimauth table, and the initial key mapping.
+        var entry = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false);
         if (entry != null)
-        {
             db.AccountClaimAuth.Remove(entry);
-        }
         _botServices.DiscordInitialKeyMapping.TryRemove(Context.User.Id, out _);
         _botServices.DiscordVerifiedUsers.TryRemove(Context.User.Id, out _);
 
