@@ -173,7 +173,7 @@ public partial class AccountWizard
         using var scope = _services.CreateScope();
         using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
         // if it is empty, fail the handle.
-        if (arg.InitialKeyStr == null)
+        if (arg.InitialKeyStr is null)
         {
             embed.WithTitle("Initial key was not provided in the modal. Try again.");
             return false;

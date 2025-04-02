@@ -26,7 +26,7 @@ public partial class GagspeakHub
     {
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null)
+        if (pairPerms is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
             return false;
@@ -64,7 +64,7 @@ public partial class GagspeakHub
     {
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null)
+        if (pairPerms is null)
         {
              await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
              return false;
@@ -131,7 +131,7 @@ public partial class GagspeakHub
     {
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null)
+        if (pairPerms is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
             return false;
@@ -159,7 +159,7 @@ public partial class GagspeakHub
     {
         // simply validate that they are an existing pair.
         var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null)
+        if (pairPerms is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
             return false;

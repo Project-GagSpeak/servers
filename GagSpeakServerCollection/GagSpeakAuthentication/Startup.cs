@@ -64,7 +64,7 @@ public class Startup
             foreach (var source in endpoints.DataSources.SelectMany(e => e.Endpoints).Cast<RouteEndpoint>())
             {
                 // if the source is not null
-                if (source == null) continue;
+                if (source is null) continue;
                 // we should log the enpoints.
                 _logger.LogInformation("Endpoint: {url} ", source.RoutePattern.RawText);
             }

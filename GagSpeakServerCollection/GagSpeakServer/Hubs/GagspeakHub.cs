@@ -1,4 +1,5 @@
 using GagspeakAPI.Data;
+using GagspeakAPI.Data.Character;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Enums;
 using GagspeakAPI.SignalR;
@@ -13,7 +14,6 @@ using GagspeakShared.Utils.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
 
@@ -98,7 +98,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         _metrics.IncCounter(MetricsAPI.CounterInitializedConnections);
 
         // a failsafe to make sure that any logged in account that is no longer in the DB cannot reconnect.
-        var userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
+        bool userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
         if (!userExists)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error,
@@ -126,46 +126,65 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
             " Kinksters are online.\nWe hope you enjoy your fun~").ConfigureAwait(false);
 
-        // because the connection DTO contains the user's global permissions, we will need to fetch them.
-        var clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        // if the permissions do not yet exist, we should create them & add them to the database
-        if (clientCallerGlobalPerms == null)
+        // Ensure GlobalPerms.
+        UserGlobalPermissions clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        if (clientCallerGlobalPerms is null)
         {
             clientCallerGlobalPerms = new UserGlobalPermissions() { UserUID = UserUID };
             DbContext.UserGlobalPermissions.Add(clientCallerGlobalPerms);
         }
 
-        // because it also contains the appearance data, we should fetch that as well
-        var clientCallerGagData = await DbContext.UserGagData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if (clientCallerGagData == null)
+        // Handle retrieving all GagData entries for the user, and correcting any invalid ones.
+        List<UserGagData> gagStateCache = await DbContext.UserGagData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+        for (byte layer = 0; layer < gagStateCache.Count; layer++)
         {
-            clientCallerGagData = new UserGagGagData() { UserUID = UserUID };
-            DbContext.UserGagData.Add(clientCallerGagData);
+            if (gagStateCache[layer] is null)
+            {
+                gagStateCache[layer] = new UserGagData() { UserUID = UserUID, Layer = layer };
+                DbContext.UserGagData.Add(gagStateCache[layer]);
+            }
         }
+        // Compile the API output.
+        var gagDataApi = gagStateCache.Select(g => g.ToApiGagSlot()).ToArray();
+        CharaActiveGags clientGags = new CharaActiveGags(gagDataApi);
 
-        // we should also perform a check for the current active-state-data. It is server-side only, but we need to create it if it does not exist,.
-        var clientCallerActiveStateData = await DbContext.UserActiveSetData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if (clientCallerActiveStateData == null)
+        // Handle retrieving all RestrictionData entries for the user, and correcting any invalid ones.
+        List<UserRestrictionData> restrictionStateCache = await DbContext.UserRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+        for (byte layer = 0; layer < restrictionStateCache.Count; layer++)
         {
-            clientCallerActiveStateData = new UserActiveSetData() { UserUID = UserUID };
-            DbContext.UserActiveSetData.Add(clientCallerActiveStateData);
+            if (restrictionStateCache[layer] is null)
+            {
+                restrictionStateCache[layer] = new UserRestrictionData() { UserUID = UserUID, Layer = layer };
+                DbContext.UserRestrictionData.Add(restrictionStateCache[layer]);
+            }
+        }
+        // Compile the API output.
+        var restrictionDataApi = restrictionStateCache.Select(r => r.ToApiRestrictionSlot()).ToArray();
+        CharaActiveRestrictions clientRestrictions = new CharaActiveRestrictions(restrictionDataApi);
+
+        // Handle retrieving the RestraintSetData entry for the user, and correcting it if invalid.
+        UserRestraintData restraintSetData = await DbContext.UserRestraintData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        if (restraintSetData is null)
+        {
+            restraintSetData = new UserRestraintData() { UserUID = UserUID };
+            DbContext.UserRestraintData.Add(restraintSetData);
         }
 
         // grab the achievement data.
-        var clientCallerAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if (clientCallerAchievementData == null)
+        UserAchievementData clientCallerAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+        if (clientCallerAchievementData is null)
         {
-            clientCallerAchievementData = new UserAchievementData() { UserUID = UserUID };
+            clientCallerAchievementData = new UserAchievementData() { UserUID = UserUID, Base64AchievementData = null };
             DbContext.UserAchievementData.Add(clientCallerAchievementData);
         }
 
         // we will need to grab all of our published patterns and append them as PublishedPattern object to the connectionDto
-        var callerPatternPublications = await DbContext.Patterns.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
-        var publishedPatterns = callerPatternPublications.Select(p => p.ToPublishedPattern()).ToList();
+        List<PatternEntry> callerPatternPublications = await DbContext.Patterns.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
+        List<PublishedPattern> publishedPatterns = callerPatternPublications.Select(p => p.ToPublishedPattern()).ToList();
 
         // grab all the published moodles and append them as the published pattern object to the connectionDto
-        var callerMoodlePublications = await DbContext.Moodles.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
-        var publishedMoodles = callerMoodlePublications.Select(m => m.ToPublishedMoodle()).ToList();
+        List<MoodleStatus> callerMoodlePublications = await DbContext.Moodles.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
+        List<PublishedMoodle> publishedMoodles = callerMoodlePublications.Select(m => m.ToPublishedMoodle()).ToList();
 
         // Save the DbContext (never know if it was added or not so always good to be safe.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -175,9 +194,10 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
-            UserGlobalPermissions = clientCallerGlobalPerms.ToApiGlobalPerms(),
-            GagData = clientCallerGagData.ToApiGagData(),
-            ActiveRestraintData = clientCallerActiveStateData.ToApiActiveSetData(),
+            GlobalPerms = clientCallerGlobalPerms.ToApiGlobalPerms(),
+            SyncedGagData = clientGags,
+            SyncedRestrictionsData = clientRestrictions,
+            SyncedRestraintSetData = restraintSetData.ToApiRestraintData(),
             PublishedPatterns = publishedPatterns,
             PublishedMoodles = publishedMoodles,
             ActiveAccountUidList = accountProfileUids,
@@ -194,13 +214,13 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     {
         // we will use this function to generate a new UID, and create an auth object for the user.
         // create a new user
-        var user = new User() { CreatedDate = DateTime.UtcNow };
+        User user = new User() { CreatedDate = DateTime.UtcNow };
 
         // set has valid UID to false, so we can generate a new UID
-        var hasValidUid = false;
+        bool hasValidUid = false;
         while (!hasValidUid) // while its false, keep generating a new one.
         {
-            var uid = StringUtils.GenerateRandomString(10);
+            string uid = StringUtils.GenerateRandomString(10);
             if (DbContext.Users.Any(u => u.UID == uid || u.Alias == uid)) continue;
             user.UID = uid;
             hasValidUid = true;
@@ -211,11 +231,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
         // generate a hashed secret key based on a randomly generated string + the current time to make sure it is always unique.
 #pragma warning disable MA0011 // IFormatProvider is missing
-        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        string computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
 #pragma warning restore MA0011 // IFormatProvider is missing
 
         // now we create a new authentication object with that hashed secret key in it and the user object.
-        var auth = new Auth()
+        Auth auth = new Auth()
         {
             HashedKey = computedHash,
             User = user,
@@ -274,7 +294,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         /* -------------------- Regular Connection -------------------- */
         // Attempt to retrieve an existing connection ID for the user UID.
         // If it exists, it means they are already connected.
-        if (_userConnections.TryGetValue(UserUID, out var oldId))
+        if (_userConnections.TryGetValue(UserUID, out string oldId))
         {
             // if we got here log, a warning that we are updating the users UID to the new connection 
             _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "UpdatingId", oldId, Context.ConnectionId));
@@ -331,7 +351,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
         /* -------------------- Regular Connection -------------------- */
         // Attempt to retrieve an existing connection ID for the user UID.
-        if (_userConnections.TryGetValue(UserUID, out var connectionId)
+        if (_userConnections.TryGetValue(UserUID, out string connectionId)
             && string.Equals(connectionId, Context.ConnectionId, StringComparison.Ordinal))
         {
             // if they were already in the dictionary, log that we have a user disconnecting from the current connection total

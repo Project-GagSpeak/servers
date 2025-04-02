@@ -188,7 +188,7 @@ public partial class ToyboxHub : Hub<IToyboxHub>, IToyboxHub
 
                 // get the PrivateRoomPair of the pair who is the host of that room.
                 var roomHost = await DbContext.PrivateRoomPairs.SingleOrDefaultAsync(pru => pru.PrivateRoomNameID == room.PrivateRoomNameID && pru.PrivateRoomUserUID == roomData.HostUID).ConfigureAwait(false);
-                if(roomHost == null) continue;
+                if(roomHost is null) continue;
 
                 // add the room to the list of connected rooms
                 connectedRooms.Add(new RoomInfoDto

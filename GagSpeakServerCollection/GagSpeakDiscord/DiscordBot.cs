@@ -145,7 +145,7 @@ internal partial class DiscordBot : IHostedService
 
         // fetch the channel for the account management system message
         var discordChannelForCommands = _discordConfigService.GetValue<ulong?>(nameof(DiscordConfiguration.DiscordChannelForCommands));
-        if (discordChannelForCommands == null)
+        if (discordChannelForCommands is null)
         {
             _logger.LogWarning("Account Management Wizard: No channel configured");
             return;
@@ -191,7 +191,7 @@ internal partial class DiscordBot : IHostedService
         // that will display the account information.
         cb.WithButton("Start GagSpeak Account Management", style: ButtonStyle.Primary, customId: "wizard-home:true", emote: Emoji.Parse("🎀"));
         // if the previous message is null
-        if (prevMessage == null)
+        if (prevMessage is null)
         {
             // send the message to the channel
             var msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
@@ -432,7 +432,7 @@ internal partial class DiscordBot : IHostedService
                             $"({accountClaimAuth.User.Alias}), User in Roles: {string.Join(", ", discordUser?.RoleIds ?? new List<ulong>())}");
 
                             // if the discord user no longer exists, or no longer has any of the allowed role ID's for these benifits....
-                            if (discordUser == null || !discordUser.RoleIds.Any(u => allowedRoleIds.Keys.Contains(u)))
+                            if (discordUser is null || !discordUser.RoleIds.Any(u => allowedRoleIds.Keys.Contains(u)))
                             {
                                 // we should clear the user's alias "and their other vanity benifits, but add those later)
                                 _logger.LogInformation($"User {accountClaimAuth.User.UID} not in allowed roles, deleting alias");

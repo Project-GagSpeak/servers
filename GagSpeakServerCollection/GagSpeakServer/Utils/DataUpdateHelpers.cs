@@ -12,7 +12,7 @@ namespace GagspeakServer;
 // A collection of subtle helper functions to help minimize the bloat in the main gagspeak Hub.
 public static class DataUpdateHelpers
 {
-    public static GagType GetGagType(this UserGagGagData data, GagLayer layer)
+    public static GagType GetGagType(this UserGagData data, GagLayer layer)
     {
         return layer switch
         {
@@ -23,7 +23,7 @@ public static class DataUpdateHelpers
         };
     }
 
-    public static Padlocks GetGagPadlock(this UserGagGagData data, GagLayer layer)
+    public static Padlocks GetGagPadlock(this UserGagData data, GagLayer layer)
     {
         return layer switch
         {
@@ -34,7 +34,7 @@ public static class DataUpdateHelpers
         };
     }
 
-    public static void NewGagType(this UserGagGagData data, GagLayer layer, string gagType)
+    public static void NewGagType(this UserGagData data, GagLayer layer, string gagType)
     {
         switch (layer)
         {
@@ -45,7 +45,7 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static void NewPadlock(this UserGagGagData data, GagLayer layer, string padlock)
+    public static void NewPadlock(this UserGagData data, GagLayer layer, string padlock)
     {
         switch (layer)
         {
@@ -56,7 +56,7 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static void NewPassword(this UserGagGagData data, GagLayer layer, string password)
+    public static void NewPassword(this UserGagData data, GagLayer layer, string password)
     {
         switch (layer)
         {
@@ -67,7 +67,7 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static void NewTimer(this UserGagGagData data, GagLayer layer, DateTimeOffset releaseTime)
+    public static void NewTimer(this UserGagData data, GagLayer layer, DateTimeOffset releaseTime)
     {
         switch (layer)
         {
@@ -78,7 +78,7 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static void NewAssigner(this UserGagGagData data, GagLayer layer, string assigner)
+    public static void NewAssigner(this UserGagData data, GagLayer layer, string assigner)
     {
         switch (layer)
         {
@@ -89,7 +89,7 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static bool CanApplyOrLockGag(this UserGagGagData gagData, GagLayer layer)
+    public static bool CanApplyOrLockGag(this UserGagData gagData, GagLayer layer)
     {
         return layer switch
         {
@@ -100,7 +100,7 @@ public static class DataUpdateHelpers
         };
     }
 
-    public static bool CanRemoveGag(this UserGagGagData data, GagLayer layer)
+    public static bool CanRemoveGag(this UserGagData data, GagLayer layer)
     {
         switch (layer)
         {
@@ -111,7 +111,7 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static GagSlot ToGagSlot(this UserGagGagData data, GagLayer layer)
+    public static GagSlot ToGagSlot(this UserGagData data, GagLayer layer)
     {
         switch (layer)
         {
@@ -122,10 +122,10 @@ public static class DataUpdateHelpers
         }
     }
 
-    public static bool CanApplyRestraint(this UserActiveSetData data) => !data.ActiveSetId.IsEmptyGuid() && data.Padlock.ToPadlock() is not Padlocks.None;
-    public static bool CanLockRestraint(this UserActiveSetData data) => data.Padlock.ToPadlock() is Padlocks.None;
-    public static bool CanUnlockRestraint(this UserActiveSetData data) => data.Padlock.ToPadlock() is not Padlocks.None;
-    public static bool CanRemoveRestraint(this UserActiveSetData data) => data.Padlock.ToPadlock() is Padlocks.None && !data.ActiveSetId.IsEmptyGuid();
+    public static bool CanApplyRestraint(this UserRestraintData data) => !data.ActiveSetId.IsEmptyGuid() && data.Padlock.ToPadlock() is not Padlocks.None;
+    public static bool CanLockRestraint(this UserRestraintData data) => data.Padlock.ToPadlock() is Padlocks.None;
+    public static bool CanUnlockRestraint(this UserRestraintData data) => data.Padlock.ToPadlock() is not Padlocks.None;
+    public static bool CanRemoveRestraint(this UserRestraintData data) => data.Padlock.ToPadlock() is Padlocks.None && !data.ActiveSetId.IsEmptyGuid();
     public static void UpdateInfoFromDto(this UserProfileData storedData, KinkPlateContent dtoContent)
     {
         // update all other values from the Info in the dto.

@@ -12,7 +12,7 @@ public class ServerConfiguration : GagspeakConfigurationBase
     public bool PurgeUnusedAccounts { get; set; } = false;
 
     [RemoteConfig]
-    public int PurgeUnusedAccountsPeriodInDays { get; set; } = 14;
+    public int PurgeUnusedAccountsPeriodInDays { get; set; } = 120;
 
     public override string ToString()
     {

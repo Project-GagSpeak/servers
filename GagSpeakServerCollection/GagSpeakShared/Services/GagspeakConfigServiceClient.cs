@@ -51,7 +51,7 @@ public class GagspeakConfigServiceClient<T> : IHostedService, IConfigurationServ
     public T1 GetValueOrDefault<T1>(string key, T1 defaultValue)
     {
         var prop = _config.CurrentValue.GetType().GetProperty(key);
-        if (prop == null) return defaultValue;
+        if (prop is null) return defaultValue;
         if (prop.PropertyType != typeof(T1)) throw new InvalidCastException($"Invalid Cast: Property {key} is {prop.PropertyType}, wanted: {typeof(T1)}");
         bool isRemote = prop.GetCustomAttributes(typeof(RemoteConfigAttribute), inherit: true).Any();
         if (isRemote && _cachedRemoteProperties.TryGetValue(key, out var remotevalue))
@@ -68,7 +68,7 @@ public class GagspeakConfigServiceClient<T> : IHostedService, IConfigurationServ
     public T1 GetValue<T1>(string key)
     {
         var prop = _config.CurrentValue.GetType().GetProperty(key);
-        if (prop == null) throw new KeyNotFoundException(key);
+        if (prop is null) throw new KeyNotFoundException(key);
         if (prop.PropertyType != typeof(T1)) throw new InvalidCastException($"Invalid Cast: Property {key} is {prop.PropertyType}, wanted: {typeof(T1)}");
         bool isRemote = prop.GetCustomAttributes(typeof(RemoteConfigAttribute), inherit: true).Any();
         if (isRemote && _cachedRemoteProperties.TryGetValue(key, out var remotevalue))

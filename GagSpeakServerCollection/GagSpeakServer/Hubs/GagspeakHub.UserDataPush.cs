@@ -41,14 +41,14 @@ public partial class GagspeakHub
         if (dto.WasSafeword)
         {
             var curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-            if (curGagData == null)
+            if (curGagData is null)
             {
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot clear Gag Data, it does not exist!").ConfigureAwait(false);
                 return;
             }
 
-            var curActiveSetData = await DbContext.UserActiveSetData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-            if (curActiveSetData == null)
+            var curActiveSetData = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            if (curActiveSetData is null)
             {
                 await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot clear Active Restraint Data, it does not exist!").ConfigureAwait(false);
                 return;
@@ -74,7 +74,7 @@ public partial class GagspeakHub
 
             // update the database with the new appearance data.
             DbContext.UserGagData.Update(curGagData);
-            DbContext.UserActiveSetData.Update(curActiveSetData);
+            DbContext.UserRestraintData.Update(curActiveSetData);
             await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
             // this SHOULD be fine to update after a safeword as we would have triggered all functionality related to these changes on the client side beforehand.
@@ -119,7 +119,7 @@ public partial class GagspeakHub
 
         // Grab our Appearance from the DB
         var curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-        if (curGagData == null) {
+        if (curGagData is null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot update other Pair, User does not have appearance data!").ConfigureAwait(false);
             return;
         }
@@ -143,14 +143,14 @@ public partial class GagspeakHub
                 break;
 
             case GagUpdateType.Unlocked:
-                curGagData.NewPadlock(dto.Layer, dto.Padlock.ToName());
-                curGagData.NewPassword(dto.Layer, dto.Password);
-                curGagData.NewTimer(dto.Layer, dto.Timer);
-                curGagData.NewAssigner(dto.Layer, dto.Assigner);
+                curGagData.NewPadlock(dto.Layer, Padlocks.None.ToName());
+                curGagData.NewPassword(dto.Layer, string.Empty);
+                curGagData.NewTimer(dto.Layer, DateTimeOffset.UtcNow);
+                curGagData.NewAssigner(dto.Layer, string.Empty);
                 break;
 
             case GagUpdateType.Removed:
-                curGagData.NewGagType(dto.Layer, dto.Gag.GagName());
+                curGagData.NewGagType(dto.Layer, GagType.None.GagName());
                 break;
 
             default:
@@ -192,8 +192,8 @@ public partial class GagspeakHub
             await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
         }
 
-        var userActiveState = await DbContext.UserActiveSetData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-        if (userActiveState == null) {
+        var userActiveState = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        if (userActiveState is null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "You somehow does not have active state data!").ConfigureAwait(false);
             return;
         }
@@ -234,7 +234,7 @@ public partial class GagspeakHub
         }
 
         // update the database with the new active state data.
-        DbContext.UserActiveSetData.Update(userActiveState);
+        DbContext.UserRestraintData.Update(userActiveState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // compile to api and push out.
@@ -415,13 +415,13 @@ public partial class GagspeakHub
         }
 
         var pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null) {
+        if (pairPerms is null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?").ConfigureAwait(false);
             return;
         }
 
         var currentGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (currentGagData == null) {
+        if (currentGagData is null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot update other Pair, User does not have appearance data!").ConfigureAwait(false);
             return;
         }
@@ -431,8 +431,8 @@ public partial class GagspeakHub
         var allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
 
         // Verify all these pairs are cached for that pair. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached) await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
+        if (!await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false))
+            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
@@ -545,11 +545,11 @@ public partial class GagspeakHub
 
         // Verify the pairing between these users exists. (Grab permissions via this)
         var pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
+        if (pairPerms is null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // Fetch affected pair's current activeState data from the DB
-        var userActiveSet = await DbContext.UserActiveSetData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (userActiveSet == null) throw new Exception("User has no Active State Data!");
+        var userActiveSet = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (userActiveSet is null) throw new Exception("User has no Active State Data!");
 
         var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
         var allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
@@ -643,7 +643,7 @@ public partial class GagspeakHub
         }
 
         // update the changes to the database.
-        DbContext.UserActiveSetData.Update(userActiveSet);
+        DbContext.UserRestraintData.Update(userActiveSet);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         var updatedWardrobeData = userActiveSet.ToApiActiveSetData();
@@ -669,7 +669,7 @@ public partial class GagspeakHub
 
         // verify that a pair between the two clients is made.
         var pairPerms = await DbContext.ClientPairs.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
+        if (pairPerms is null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // ensure that the update kind of to change the registered names. If it is not, throw exception.
         if (dto.Type is not PuppeteerUpdateType.PlayerNameRegistered) throw new Exception("Invalid UpdateKind for Pair Alias Data!");
@@ -690,7 +690,7 @@ public partial class GagspeakHub
 
         // Verify the pairing between these users exists. (Grab permissions via this)
         var pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms == null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
+        if (pairPerms is null) throw new Exception("Cannot update other Pair, No PairPerms exist for you two. Are you paired two-way?");
 
         // Grabs all Pairs of the affected pair
         var allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);

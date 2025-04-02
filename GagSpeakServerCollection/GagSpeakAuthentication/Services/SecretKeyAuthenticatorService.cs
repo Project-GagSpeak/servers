@@ -41,7 +41,7 @@ public class SecretKeyAuthenticatorService
         && existingFailedAuthorization.FailedAttempts > _configurationService.GetValueOrDefault(nameof(AuthServiceConfiguration.FailedAuthForTempBan), 5))
         {
             // and if the reset task is null, then we can temp ban the IP.
-            if (existingFailedAuthorization.ResetTask == null)
+            if (existingFailedAuthorization.ResetTask is null)
             {
                 // log the temp ban
                 _logger.LogWarning("TempBan {ip} for authorization spam", ip);

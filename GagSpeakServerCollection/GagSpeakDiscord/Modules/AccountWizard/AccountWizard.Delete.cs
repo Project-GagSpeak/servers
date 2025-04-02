@@ -37,7 +37,7 @@ public partial class AccountWizard
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionDeleteAccount), Context.Interaction.User.Id, uid);
 
         using var gagspeakDb = GetDbContext();
-        bool isPrimary = gagspeakDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID == null;
+        bool isPrimary = gagspeakDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID is null;
         EmbedBuilder eb = new();
         eb.WithTitle($"Are you sure you want to delete {uid}?");
         eb.WithDescription($"This operation is irreversible. All pairs of {uid}, your settings, and permissions " +

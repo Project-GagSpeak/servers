@@ -149,7 +149,7 @@ public class JwtController : Controller
             {
                 // validate the localcontentID here (e.g., check if it exists in your database)
                 // if validation fails, return appropriate responce
-                if (contentID == null) // replace with better security
+                if (contentID is null) // replace with better security
                 {
                     _logger.LogInformation("Authenticate:LOCALCONTENTID:{id}:{ident}", contentID, charaIdent);
                     return BadRequest("Invalid LocalContentID");
@@ -314,7 +314,7 @@ public class JwtController : Controller
         // fetch the primary user from the auth table where the primary user UID is the same as the user UID.
         var primaryUser = await _gagspeakDbContext.Auth.Include(a => a.User).FirstOrDefaultAsync(f => f.PrimaryUserUID == uid);
         // set the toBanUID to the primary user UID if the primary user is not null, otherwise set it to the user UID.
-        var toBanUid = primaryUser == null ? uid : primaryUser.UserUID;
+        var toBanUid = primaryUser is null ? uid : primaryUser.UserUID;
 
         // fetch the accountClaimAuth used to claim ownership over the account, if one exists.
         var accountClaimAuth = await _gagspeakDbContext.AccountClaimAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User.UID == toBanUid);

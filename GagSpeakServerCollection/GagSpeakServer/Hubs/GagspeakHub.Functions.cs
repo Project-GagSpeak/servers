@@ -30,8 +30,8 @@ public partial class GagspeakHub
         List<ClientPairPermissionAccess> ownPairAccessData = await DbContext.ClientPairPermissionAccess.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         List<KinksterRequest> kinksterRequests = await DbContext.KinksterPairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         UserGlobalPermissions? ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserGagGagData? ownGagData = await DbContext.UserGagData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserActiveSetData? ownActiveStateData = await DbContext.UserActiveSetData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        UserGagData? ownGagData = await DbContext.UserGagData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        UserRestraintData? ownActiveStateData = await DbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         List<LikesMoodles> ownLikedMoodles = await DbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         List<LikesPatterns> ownLikedPatterns = await DbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         UserAchievementData? ownAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
@@ -62,7 +62,7 @@ public partial class GagspeakHub
         if (ownGagData != null) { DbContext.UserGagData.Remove(ownGagData); }
 
         // if the users active state data is not null, remove it from the database.
-        if (ownActiveStateData != null) { DbContext.UserActiveSetData.Remove(ownActiveStateData); }
+        if (ownActiveStateData != null) { DbContext.UserRestraintData.Remove(ownActiveStateData); }
 
         // remove the range of pair permissions
         DbContext.ClientPairPermissions.RemoveRange(ownPairPermData);
@@ -383,8 +383,8 @@ public partial class GagspeakHub
                                 && u.UID == user.OtherUserUID
                                 && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
                                 && ownaccess.UserUID == user.UserUID && ownaccess.OtherUserUID == user.OtherUserUID
-                                && (otherperm == null || (otherperm.UserUID == user.OtherUserUID && otherperm.OtherUserUID == user.UserUID))
-                                && (otheraccess == null || (otheraccess.UserUID == user.OtherUserUID && otheraccess.OtherUserUID == user.UserUID))
+                                && (otherperm is null || (otherperm.UserUID == user.OtherUserUID && otherperm.OtherUserUID == user.UserUID))
+                                && (otheraccess is null || (otheraccess.UserUID == user.OtherUserUID && otheraccess.OtherUserUID == user.UserUID))
                             // Select the final projection of data to include in the results
                             select new
                             {

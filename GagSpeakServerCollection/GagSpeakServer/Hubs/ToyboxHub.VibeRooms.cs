@@ -126,11 +126,11 @@ public partial class ToyboxHub
         // ensure the client caller inviting the user is the host of the room they are inviting.
         var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == dto.RoomName).ConfigureAwait(false);
         // if not valid, return.
-        if (room == null || !string.Equals(room.HostUID, UserUID, StringComparison.Ordinal)) return false;
+        if (room is null || !string.Equals(room.HostUID, UserUID, StringComparison.Ordinal)) return false;
 
         // grab the caller from the db
         var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user == null) return false;
+        if (user is null) return false;
 
         // send the invite to the user.
         await Clients.User(dto.UserInvited.UID).Client_UserReceiveRoomInvite
@@ -155,7 +155,7 @@ public partial class ToyboxHub
 
         // Ensure the room exists.
         var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == userJoining.RoomName).ConfigureAwait(false);
-        if (room == null)
+        if (room is null)
         {
             await Clients.Caller.Client_ReceiveToyboxServerMessage
                 (MessageSeverity.Error, $"Room {userJoining.RoomName} does not exist, aborting join.").ConfigureAwait(false);
@@ -164,7 +164,7 @@ public partial class ToyboxHub
 
         // grab the caller from the db
         var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user == null) return;
+        if (user is null) return;
 
 
         // if the user joining already has a pair for the privateroompairs of this room, simply set InRoom to true
@@ -217,7 +217,7 @@ public partial class ToyboxHub
 
         // find the host of the room that is in the private room pairs.
         var roomHost = RoomParticipants.FirstOrDefault(pru => string.Equals(pru.PrivateRoomUserUID, room.HostUID, StringComparison.Ordinal));
-        if (roomHost == null) return;
+        if (roomHost is null) return;
 
 
         // Send a notification to the active users in the room that a new user has joined
@@ -320,7 +320,7 @@ public partial class ToyboxHub
         var roomPair = await DbContext.PrivateRoomPairs
             .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == roomName && pru.PrivateRoomUserUID == UserUID)
             .ConfigureAwait(false);
-        if (roomPair == null) return;
+        if (roomPair is null) return;
 
         // update the pair to allow vibes & save the changes.
         roomPair.AllowingVibe = true;
@@ -367,7 +367,7 @@ public partial class ToyboxHub
         var roomPair = await DbContext.PrivateRoomPairs
             .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == roomName && pru.PrivateRoomUserUID == UserUID)
             .ConfigureAwait(false);
-        if (roomPair == null) return;
+        if (roomPair is null) return;
 
         // update the pair to allow vibes & save the changes.
         roomPair.AllowingVibe = false;
@@ -449,7 +449,7 @@ public partial class ToyboxHub
         // find the room the user is in that matches the room name of the dto room they are wishing to leave.
         var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync
             (pru => pru.PrivateRoomUserUID == UserUID && pru.PrivateRoomNameID == dto.RoomName && pru.InRoom).ConfigureAwait(false);
-        if (roomUser == null) throw new Exception("User is not in a room.");
+        if (roomUser is null) throw new Exception("User is not in a room.");
 
 
         // find the list of room participants associated with the same PrivateRoomNameID
@@ -497,7 +497,7 @@ public partial class ToyboxHub
         var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync
             (pru => pru.PrivateRoomUserUID == UserUID && pru.PrivateRoomNameID == roomToRemove).ConfigureAwait(false);
 
-        if (roomUser == null) return;
+        if (roomUser is null) return;
 
         // check if the user is the host of the room they are calling this on
         var isHost = RoomHosts.TryGetValue(roomToRemove, out var hostUID) && string.Equals(hostUID, UserUID, StringComparison.Ordinal);

@@ -152,7 +152,7 @@ public partial class AccountWizard
         await Task.Run(() => Console.WriteLine("Hello World"));
         // dont care about it right now
         /*     var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
-             if (lodestoneId == null)
+             if (lodestoneId is null)
              {
                  embed.WithTitle("Invalid Lodestone URL");
                  embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine

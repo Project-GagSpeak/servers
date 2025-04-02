@@ -440,7 +440,7 @@ public class Startup
             // log the endpoints for the server if they are not null
             foreach (var source in endpoints.DataSources.SelectMany(e => e.Endpoints).Cast<RouteEndpoint>())
             {
-                if (source == null) continue;
+                if (source is null) continue;
                 _logger.LogInformation("Endpoint: {url} ", source.RoutePattern.RawText);
                 // log the full path including the base address
 

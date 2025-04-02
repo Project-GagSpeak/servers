@@ -76,9 +76,9 @@ public static class Extensions
 
     public static void CopyPropertiesTo<T>(this T source, T target)
     {
-        if (source == null)
+        if (source is null)
             throw new ArgumentNullException(nameof(source), "Source object is null");
-        if (target == null)
+        if (target is null)
             throw new ArgumentNullException(nameof(target), "Target object is null");
 
 
@@ -95,7 +95,7 @@ public static class Extensions
         }
     }
 
-    public static CharaGagData ToApiAppearance(this UserGagGagData data)
+    public static CharaGagData ToApiAppearance(this UserGagData data)
     => new CharaGagData
     {
         GagSlots = new GagSlot[]

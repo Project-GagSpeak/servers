@@ -32,7 +32,7 @@ public partial class GagspeakHub
 
 		// fetch the user global perm from the database.
 		var globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-		if (globalPerms == null) { await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false); return; }
+		if (globalPerms is null) { await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false); return; }
 
 		// update the permissions to the new values passed in.
 		var newGlobalPerms = dto.GlobalPermissions.ToModelGlobalPerms(globalPerms);
@@ -61,14 +61,14 @@ public partial class GagspeakHub
 
 		// grab our pair permissions for this user.
 		var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
-		if (pairPerms == null)
+		if (pairPerms is null)
 		{
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair Permission Not Found").ConfigureAwait(false);
 			return;
 		}
 		// grab the pair permission access for this user.
 		var pairAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
-		if (pairAccess == null)
+		if (pairAccess is null)
 		{
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission access not found").ConfigureAwait(false);
 			return;

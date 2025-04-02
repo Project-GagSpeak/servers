@@ -71,7 +71,7 @@ public partial class AccountWizard
         eb.WithColor(Color.Red);
         eb.WithTitle($"Set Vanity UID for {uid}");
         eb.WithDescription($"You are about to change the Vanity UID for {uid}" + Environment.NewLine + Environment.NewLine
-            + "The current Vanity UID is set to: **" + (user.Alias == null ? "No Vanity UID set" : user.Alias) + "**");
+            + "The current Vanity UID is set to: **" + (user.Alias is null ? "No Vanity UID set" : user.Alias) + "**");
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-vanity", ButtonStyle.Secondary, emote: new Emoji("❌"));
         cb.WithButton("Set Vanity ID", "wizard-vanity-uid-set:" + uid, ButtonStyle.Primary, new Emoji("💅"));

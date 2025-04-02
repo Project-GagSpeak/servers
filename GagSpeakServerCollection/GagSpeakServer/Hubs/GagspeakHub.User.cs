@@ -1,7 +1,6 @@
 ﻿using GagspeakAPI.Data;
 using GagspeakAPI.Dto;
 using GagspeakAPI.Dto.Connection;
-using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Dto.User;
 using GagspeakAPI.Dto.UserPair;
 using GagspeakAPI.Enums;
@@ -29,11 +28,11 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // ensure that the user we want to send a request to is not ourselves.
-        var uid = dto.User.UID.Trim();
+        string uid = dto.User.UID.Trim();
 
         // return invalid if the user we wanna add is not in the database.
-        var otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
-        if (otherUser == null)
+        User? otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
+        if (otherUser is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot send Kinkster Request to {dto.User.UID}, the UID does not exist").ConfigureAwait(false);
             return;
@@ -47,7 +46,7 @@ public partial class GagspeakHub
         }
 
         // if a client pair relation between you and the other user already exists in client pairs. return invalid.
-        var existingPair = await DbContext.ClientPairs.AnyAsync(p => (p.UserUID == UserUID && p.OtherUserUID == otherUser.UID) || (p.UserUID == otherUser.UID && p.OtherUserUID == UserUID)).ConfigureAwait(false);
+        bool existingPair = await DbContext.ClientPairs.AnyAsync(p => (p.UserUID == UserUID && p.OtherUserUID == otherUser.UID) || (p.UserUID == otherUser.UID && p.OtherUserUID == UserUID)).ConfigureAwait(false);
         if (existingPair)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot send Kinkster Request to {dto.User.UID}, already paired").ConfigureAwait(false);
@@ -56,14 +55,14 @@ public partial class GagspeakHub
 
 
         // verify an existing entry does not already exist.
-        var existingRequest = await DbContext.KinksterPairRequests.AnyAsync(k => (k.UserUID == UserUID && k.OtherUserUID == otherUser.UID) || (k.UserUID == otherUser.UID && k.OtherUserUID == UserUID)).ConfigureAwait(false);
+        bool existingRequest = await DbContext.KinksterPairRequests.AnyAsync(k => (k.UserUID == UserUID && k.OtherUserUID == otherUser.UID) || (k.UserUID == otherUser.UID && k.OtherUserUID == UserUID)).ConfigureAwait(false);
         if (existingRequest)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"A Request for this Kinkster is already present").ConfigureAwait(false);
             return;
         }
 
-        var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         // create a new KinksterPairRequest object, and add it to the database.
         KinksterRequest request = new KinksterRequest()
         {
@@ -78,10 +77,10 @@ public partial class GagspeakHub
 
 
         // send back to both pairs that they have a new kinkster request.
-        var newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), dto.AttachedMessage, request.CreationTime);
+        UserPairRequestDto newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), dto.AttachedMessage, request.CreationTime);
         await Clients.User(UserUID).Client_UserAddPairRequest(newDto).ConfigureAwait(false);
         // send the request to them if the other user is online as well.
-        var otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
+        string? otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
         if (otherIdent is null) return;
         // if they are, send the request to them.
         await Clients.User(otherUser.UID).Client_UserAddPairRequest(newDto).ConfigureAwait(false);
@@ -93,7 +92,7 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // ensure that the user we want to cancel a request to is not ourselves.
-        var uid = dto.User.UID.Trim();
+        string uid = dto.User.UID.Trim();
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(dto.User.UID))
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot cancel a Kinkster Request to self").ConfigureAwait(false);
@@ -101,7 +100,7 @@ public partial class GagspeakHub
         }
 
         // return invalid if the user we wanna add is not in the database.
-        var otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
+        User? otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
         if (otherUser is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot cancel Kinkster Request to {dto.User.UID}, the UID does not exist").ConfigureAwait(false);
@@ -109,21 +108,21 @@ public partial class GagspeakHub
         }
 
         // if the existing entry was removed or no longer exists, notify them it was expired.
-        var existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == UserUID && k.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+        KinksterRequest? existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == UserUID && k.OtherUserUID == otherUser.UID).ConfigureAwait(false);
         if (existingRequest is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot cancel Kinkster Request to {dto.User.UID}, the request does not exist").ConfigureAwait(false);
             return;
         }
 
-        var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // notify the client caller and the recipient that the request was cancelled.
-        var newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), string.Empty, existingRequest.CreationTime);
+        UserPairRequestDto newDto = new UserPairRequestDto(new(user.UID), new(otherUser.UID), string.Empty, existingRequest.CreationTime);
         await Clients.User(UserUID).Client_UserRemovePairRequest(newDto).ConfigureAwait(false);
 
         // send off to the other user.
-        var otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
+        string? otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
         if (otherIdent is not null) await Clients.User(otherUser.UID).Client_UserRemovePairRequest(newDto).ConfigureAwait(false);
 
         // now we can safely remove it from the DB and save changes.
@@ -142,7 +141,7 @@ public partial class GagspeakHub
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(dto.User.UID)) return;
 
         // Verify the person who sent this request still has an account.
-        var pairRequesterUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == dto.User.UID || u.Alias == dto.User.UID).ConfigureAwait(false);
+        User? pairRequesterUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == dto.User.UID || u.Alias == dto.User.UID).ConfigureAwait(false);
         if (pairRequesterUser is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot accept Kinkster Request from {dto.User.UID}, the UID does not exist").ConfigureAwait(false);
@@ -150,7 +149,7 @@ public partial class GagspeakHub
         }
 
         // verify that the request exists in the database. (the pairRequesterUser would be the UserUID, we are OtherUserUID)
-        var existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == pairRequesterUser.UID && k.OtherUserUID == UserUID).ConfigureAwait(false);
+        KinksterRequest? existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == pairRequesterUser.UID && k.OtherUserUID == UserUID).ConfigureAwait(false);
         if (existingRequest is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot accept Kinkster Request from {dto.User.UID}, the request does not exist").ConfigureAwait(false);
@@ -158,7 +157,7 @@ public partial class GagspeakHub
         }
 
         // ensure that the client pair entry is not already existing.
-        var existingEntry = await DbContext.ClientPairs.AsNoTracking().FirstOrDefaultAsync(p => p.User.UID == UserUID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
+        ClientPair? existingEntry = await DbContext.ClientPairs.AsNoTracking().FirstOrDefaultAsync(p => p.User.UID == UserUID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
         if (existingEntry is not null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot pair with {dto.User.UID}, already paired").ConfigureAwait(false);
@@ -166,7 +165,7 @@ public partial class GagspeakHub
         }
 
         // create a client pair entry for the client caller and the other user.
-        var pairRequestAcceptingUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        User pairRequestAcceptingUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         ClientPair callerToRecipient = new ClientPair() { User = pairRequestAcceptingUser, OtherUser = pairRequesterUser, };
         ClientPair recipientToCaller = new ClientPair() { User = pairRequesterUser, OtherUser = pairRequestAcceptingUser, };
@@ -177,20 +176,20 @@ public partial class GagspeakHub
         // Obtain ALL relevant information about the relationship between these pairs.
         // This includes their current global perms, pair perms, and pair perms access.
         // If none are present, creates new versions.
-        var existingData = await GetPairInfo(UserUID, pairRequesterUser.UID).ConfigureAwait(false);
+        UserInfo? existingData = await GetPairInfo(UserUID, pairRequesterUser.UID).ConfigureAwait(false);
 
 
         // store the existing data permission items to objects for setting if null.
-        var ownGlobals = existingData?.ownGlobalPerms;
-        var ownPairPerms = existingData?.ownPairPermissions;
-        var ownPairPermsAccess = existingData?.ownPairPermissionAccess;
-        var otherGlobals = existingData?.otherGlobalPerms;
-        var otherPairPerms = existingData?.otherPairPermissions;
-        var otherPairPermsAccess = existingData?.otherPairPermissionAccess;
+        UserGlobalPermissions? ownGlobals = existingData?.ownGlobalPerms;
+        ClientPairPermissions? ownPairPerms = existingData?.ownPairPermissions;
+        ClientPairPermissionAccess? ownPairPermsAccess = existingData?.ownPairPermissionAccess;
+        UserGlobalPermissions? otherGlobals = existingData?.otherGlobalPerms;
+        ClientPairPermissions? otherPairPerms = existingData?.otherPairPermissions;
+        ClientPairPermissionAccess? otherPairPermsAccess = existingData?.otherPairPermissionAccess;
         // Handle OwnGlobals
         if (ownGlobals is null)
         {
-            var existingOwnGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
+            UserGlobalPermissions? existingOwnGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
             if(existingOwnGlobals is null)
             {
                 ownGlobals = new UserGlobalPermissions() { User = pairRequestAcceptingUser };
@@ -204,7 +203,7 @@ public partial class GagspeakHub
         // Handle OwnPerms
         if (ownPairPerms is null)
         {
-            var existingOwnPairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
+            ClientPairPermissions? existingOwnPairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
             if(existingOwnPairPerms is null)
             {
                 ownPairPerms = new ClientPairPermissions() { User = pairRequestAcceptingUser, OtherUser = pairRequesterUser };
@@ -218,7 +217,7 @@ public partial class GagspeakHub
 
         if (ownPairPermsAccess is null)
         {
-            var existingOwnPairPermsAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
+            ClientPairPermissionAccess? existingOwnPairPermsAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
             if(existingOwnPairPermsAccess is null)
             {
                 ownPairPermsAccess = new ClientPairPermissionAccess() { User = pairRequestAcceptingUser, OtherUser = pairRequesterUser };
@@ -232,7 +231,7 @@ public partial class GagspeakHub
 
         if (otherGlobals is null)
         {
-            var existingOtherGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID).ConfigureAwait(false);
+            UserGlobalPermissions? existingOtherGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID).ConfigureAwait(false);
             if(existingOtherGlobals is null)
             {
                 otherGlobals = new UserGlobalPermissions() { User = pairRequesterUser };
@@ -246,7 +245,7 @@ public partial class GagspeakHub
 
         if (otherPairPerms is null)
         {
-            var existingOtherPairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID && p.OtherUserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
+            ClientPairPermissions? existingOtherPairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID && p.OtherUserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
             if(existingOtherPairPerms is null)
             {
                 otherPairPerms = new ClientPairPermissions() { User = pairRequesterUser, OtherUser = pairRequestAcceptingUser };
@@ -260,7 +259,7 @@ public partial class GagspeakHub
 
         if (otherPairPermsAccess is null)
         {
-            var existingOtherPairPermsAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID && p.OtherUserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
+            ClientPairPermissionAccess? existingOtherPairPermsAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID && p.OtherUserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
             if (existingOtherPairPermsAccess is null)
             {
                 otherPairPermsAccess = new ClientPairPermissionAccess() { User = pairRequesterUser, OtherUser = pairRequestAcceptingUser };
@@ -279,24 +278,24 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // compile the api data objects.
-        var ownGlobalsApi = ownGlobals.ToApiGlobalPerms();
-        var ownPairPermsApi = ownPairPerms.ToApiUserPairPerms();
-        var ownPairPermsAccessApi = ownPairPermsAccess.ToApiUserPairEditAccessPerms();
-        var otherGlobalsApi = otherGlobals.ToApiGlobalPerms();
-        var otherPairPermsApi = otherPairPerms.ToApiUserPairPerms();
-        var otherPairPermsAccessApi = otherPairPermsAccess.ToApiUserPairEditAccessPerms();
+        GagspeakAPI.Data.Permissions.UserGlobalPermissions ownGlobalsApi = ownGlobals.ToApiGlobalPerms();
+        GagspeakAPI.Data.Permissions.UserPairPermissions ownPairPermsApi = ownPairPerms.ToApiUserPairPerms();
+        GagspeakAPI.Data.Permissions.UserEditAccessPermissions ownPairPermsAccessApi = ownPairPermsAccess.ToApiUserPairEditAccessPerms();
+        GagspeakAPI.Data.Permissions.UserGlobalPermissions otherGlobalsApi = otherGlobals.ToApiGlobalPerms();
+        GagspeakAPI.Data.Permissions.UserPairPermissions otherPairPermsApi = otherPairPerms.ToApiUserPairPerms();
+        GagspeakAPI.Data.Permissions.UserEditAccessPermissions otherPairPermsAccessApi = otherPairPermsAccess.ToApiUserPairEditAccessPerms();
 
         // construct a new UserPairDto based on the response
         UserPairDto pairRequestAcceptingUserResponse = new UserPairDto(pairRequesterUser.ToUserData(), ownPairPermsApi, ownPairPermsAccessApi, 
             otherGlobalsApi, otherPairPermsApi, otherPairPermsAccessApi);
 
         // inform the client caller's user that the pair was added successfully, to add the pair to their pair manager.
-        var removeRequestDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
+        UserPairRequestDto removeRequestDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
         await Clients.User(UserUID).Client_UserRemovePairRequest(removeRequestDto).ConfigureAwait(false);
         await Clients.User(pairRequestAcceptingUser.UID).Client_UserAddClientPair(pairRequestAcceptingUserResponse).ConfigureAwait(false);
 
         // check if other user is online
-        var otherIdent = await GetUserIdent(pairRequesterUser.UID).ConfigureAwait(false);
+        string? otherIdent = await GetUserIdent(pairRequesterUser.UID).ConfigureAwait(false);
         // do not send update to other user if they are not online.
         if (otherIdent is null)
             return;
@@ -318,7 +317,7 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // grab the existing request from the database.
-        var existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == dto.User.UID && k.OtherUserUID == UserUID).ConfigureAwait(false);
+        KinksterRequest? existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == dto.User.UID && k.OtherUserUID == UserUID).ConfigureAwait(false);
         if (existingRequest is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot reject Kinkster Request from {dto.User.UID}, the request does not exist").ConfigureAwait(false);
@@ -326,11 +325,11 @@ public partial class GagspeakHub
         }
 
         // send to both users to remove the kinkster request.
-        var rejectionDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
+        UserPairRequestDto rejectionDto = new UserPairRequestDto(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
         await Clients.User(UserUID).Client_UserRemovePairRequest(rejectionDto).ConfigureAwait(false);
 
         // send it to the other person if they are online at the time as well.
-        var otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
+        string? otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
         if (otherIdent is not null)
         {
             await Clients.User(dto.User.UID).Client_UserRemovePairRequest(rejectionDto).ConfigureAwait(false);
@@ -353,7 +352,7 @@ public partial class GagspeakHub
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal)) return;
 
         // See if clientPair exists at all in the database
-        var callerPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == UserUID && w.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        ClientPair? callerPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == UserUID && w.OtherUserUID == dto.User.UID).ConfigureAwait(false);
         if (callerPair is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, $"Cannot remove {dto.User.UID} from your client pair list, the pair does not exist").ConfigureAwait(false);
@@ -361,7 +360,7 @@ public partial class GagspeakHub
         }
 
         // Get pair info of the user we are removing
-        var pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
+        UserInfo? pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
 
         // remove the client pair from the database and all associated permissions. And then update changes
         DbContext.ClientPairs.Remove(callerPair);
@@ -369,7 +368,7 @@ public partial class GagspeakHub
         if (pairData?.ownPairPermissionAccess is not null) DbContext.ClientPairPermissionAccess.Remove(pairData.ownPairPermissionAccess);
         // remove the other user's permissions as well.
         // grab the clientPairs item for the other direction.
-        var otherPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == dto.User.UID && w.OtherUserUID == UserUID).ConfigureAwait(false);
+        ClientPair? otherPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == dto.User.UID && w.OtherUserUID == UserUID).ConfigureAwait(false);
         if (otherPair is not null)
         {
             DbContext.ClientPairs.Remove(otherPair);
@@ -383,7 +382,7 @@ public partial class GagspeakHub
         await Clients.User(UserUID).Client_UserRemoveClientPair(dto).ConfigureAwait(false);
 
         // Check if the other user is online.
-        var otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
+        string? otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
         if (otherIdent is null)
             return;
 
@@ -406,14 +405,14 @@ public partial class GagspeakHub
         _logger.LogCallInfo();
 
         // fetch the client callers user data from the database.
-        var userEntry = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        User userEntry = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         // for any other profiles registered under this account, fetch them from the database as well.
-        var secondaryUsers = await DbContext.Auth.Include(u => u.User)
+        List<User?> secondaryUsers = await DbContext.Auth.Include(u => u.User)
             .Where(u => u.PrimaryUserUID == UserUID)
             .Select(c => c.User)
             .ToListAsync().ConfigureAwait(false);
         // remove all the client callers secondary profiles, then finally, remove their primary profile. (dont through helper functions)
-        foreach (var user in secondaryUsers)
+        foreach (User? user in secondaryUsers)
         {
             if (user is not null) await DeleteUser(user).ConfigureAwait(false);
         }
@@ -430,9 +429,9 @@ public partial class GagspeakHub
         _logger.LogCallInfo();
 
         // fetch all users who are paired with the requesting client caller and do not have them paused
-        var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         // obtain a list of all the paired users who are currently online.
-        var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
+        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
 
         // send that you are online to all connected online pairs of the client caller.
         await SendOnlineToAllPairedUsers().ConfigureAwait(false);
@@ -457,12 +456,12 @@ public partial class GagspeakHub
         List<User> PairedUsers = await GetSyncedPairs(UserUID).ConfigureAwait(false);
 
         // now, let's check to see if each of these paired users have valid tables in the database. if they don't we should create them.
-        foreach (var otherUser in PairedUsers)
+        foreach (User otherUser in PairedUsers)
         {
             // fetch our own global permissions
-            var ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID).ConfigureAwait(false);
+            UserGlobalPermissions? ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID).ConfigureAwait(false);
             // check if null, if so, create new ClientCaller Global Permissions & add it to the database.
-            if (ownGlobalPerms == null)
+            if (ownGlobalPerms is null)
             {
                 _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {UserUID}, creating new one.");
                 ownGlobalPerms = new UserGlobalPermissions() { User = ClientCallerUser };
@@ -470,9 +469,9 @@ public partial class GagspeakHub
             }
 
             // fetch our own pair permissions for the other user
-            var ownPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+            ClientPairPermissions? ownPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
             // check if null, if so, create new ClientCaller Pair Permissions & add it to the database.
-            if (ownPairPermissions == null)
+            if (ownPairPermissions is null)
             {
                 _logger.LogMessage($"No PairPermissions TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
                 ownPairPermissions = new ClientPairPermissions() { User = ClientCallerUser, OtherUser = otherUser };
@@ -480,9 +479,9 @@ public partial class GagspeakHub
             }
 
             // fetch our own pair permissions access for the other user
-            var ownPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+            ClientPairPermissionAccess? ownPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
             // check if null, if so, create new ClientCaller Pair Permissions Access & add it to the database.
-            if (ownPairPermissionAccess == null)
+            if (ownPairPermissionAccess is null)
             {
                 _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
                 ownPairPermissionAccess = new ClientPairPermissionAccess() { User = ClientCallerUser, OtherUser = otherUser };
@@ -490,9 +489,9 @@ public partial class GagspeakHub
             }
 
             // fetch the other users global permissions
-            var otherGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID).ConfigureAwait(false);
+            UserGlobalPermissions? otherGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID).ConfigureAwait(false);
             // check if null, if so, create new OtherUser Global Permissions & add it to the database.
-            if (otherGlobalPerms == null)
+            if (otherGlobalPerms is null)
             {
                 _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {otherUser.UID}, creating new one.");
                 otherGlobalPerms = new UserGlobalPermissions() { User = otherUser };
@@ -500,9 +499,9 @@ public partial class GagspeakHub
             }
 
             // fetch the other users pair permissions
-            var otherPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+            ClientPairPermissions? otherPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
             // check if null, if so, create new OtherUser Pair Permissions & add it to the database.
-            if (otherPairPermissions == null)
+            if (otherPairPermissions is null)
             {
                 _logger.LogMessage($"No PairPermissions TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
                 otherPairPermissions = new ClientPairPermissions() { User = otherUser, OtherUser = ClientCallerUser };
@@ -510,9 +509,9 @@ public partial class GagspeakHub
             }
 
             // fetch the other users pair permissions access
-            var otherPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+            ClientPairPermissionAccess? otherPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
             // check if null, if so, create new OtherUser Pair Permissions Access & add it to the database.
-            if (otherPairPermissionAccess == null)
+            if (otherPairPermissionAccess is null)
             {
                 _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
                 otherPairPermissionAccess = new ClientPairPermissionAccess() { User = otherUser, OtherUser = ClientCallerUser };
@@ -522,12 +521,12 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // fetch all the pair information of the client caller
-        var pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
+        Dictionary<string, UserInfo> pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
 
         // return the list of UserPair DTO's containing the paired clients of the client caller
         return pairs.Select(p =>
         {
-            var pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
+            UserPairDto pairList = new UserPairDto(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
                 p.Value.ownPairPermissions.ToApiUserPairPerms(),
                 p.Value.ownPairPermissionAccess.ToApiUserPairEditAccessPerms(),
                 p.Value.otherGlobalPerms.ToApiGlobalPerms(),
@@ -541,7 +540,7 @@ public partial class GagspeakHub
     public async Task<List<UserPairRequestDto>> UserGetPairRequests()
     {
         // fetch all the pair requests with the UserUid in either the UserUID or OtherUserUID
-        var requests = await DbContext.KinksterPairRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
+        List<KinksterRequest> requests = await DbContext.KinksterPairRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
 
         // return the list of UserPairRequest DTO's containing the pair requests of the client caller
         return requests.Select(r => new UserPairRequestDto(new(r.UserUID), new(r.OtherUserUID), r.AttachedMessage, r.CreationTime)).ToList();
@@ -564,9 +563,9 @@ public partial class GagspeakHub
         }
 
         // make sure they are added as a pair of the client caller.
-        var userPairGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        var userPairPermsForCaller = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (userPairPermsForCaller == null || userPairGlobalPerms == null)
+        UserGlobalPermissions? userPairGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        ClientPairPermissions? userPairPermsForCaller = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (userPairPermsForCaller is null || userPairGlobalPerms is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
             return;
@@ -596,13 +595,13 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(user));
 
         // Grab all users Client Caller is paired with.
-        var allUserPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        List<string> allUserPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
 
         // Grab the requested user's profile data from the database
         UserProfileData? data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
         if (data is null)
         {
-            var newPlate = new KinkPlateContent();
+            KinkPlateContent newPlate = new KinkPlateContent();
             return new UserKinkPlateDto(user.User, newPlate, string.Empty);
         }
         // If requested User Profile is not in list of pairs, and is not self, return blank profile update.
@@ -611,70 +610,56 @@ public partial class GagspeakHub
             // if the profile is not public, and it was required from a non-paired user, return a blank profile.
             if (!data.ProfileIsPublic)
             {
-                var newPlate = new KinkPlateContent() { Description = "Profile is not Public!" };
+                KinkPlateContent newPlate = new KinkPlateContent() { Description = "Profile is not Public!" };
                 return new UserKinkPlateDto(user.User, newPlate, string.Empty);
             }
         }
         if (data.ProfileDisabled)
         {
-            var newPlate = new KinkPlateContent() { Disabled = true, Description = "This profile is currently disabled" };
+            KinkPlateContent newPlate = new KinkPlateContent() { Disabled = true, Description = "This profile is currently disabled" };
             return new UserKinkPlateDto(user.User, newPlate, string.Empty);
         }
         // Return the valid profile.
         return new UserKinkPlateDto(user.User, data.FromProfileData(), data.Base64ProfilePic);
     }
 
-    /// <summary>
-    /// Called by the client who wishes to update the database with their latest achievement data.
-    /// </summary>
+    /// <summary> Called by the client who wishes to update the database with their latest achievement data. </summary>
     [Authorize(Policy = "Identified")]
-    public async Task UserUpdateAchievementData(UserAchievementsDto dto)
+    public async Task<bool> UserUpdateAchievementData(UserAchievementsDto dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
 
         // return if the client caller doesnt match the user dto.
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot modify achievement data for anyone but yourself").ConfigureAwait(false);
-            return;
-        }
+            return false;
 
         // handle case where it was called after a user delete.
         if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false) is null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot Save Achievement Data for a Deleted User").ConfigureAwait(false);
-            return;
-        }
+            return false;
 
-        // Grab Client Callers current profile data from the database
-        var existingData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (existingData is not null)
+        // The achievement data can be null, or contain data. If it contains data, we should update it.
+        var userSaveData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (userSaveData is not null)
         {
             if (!dto.AchievementDataBase64.IsNullOrEmpty())
-            {
-                existingData.Base64AchievementData = dto.AchievementDataBase64;
-            }
+                userSaveData.Base64AchievementData = dto.AchievementDataBase64;
             else
-            {
-                // they tried to update with null data, which shouldnt ever happen.
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Cannot update achievement data with null or empty data").ConfigureAwait(false);
-                return;
-            }
+                return false;
         }
-        // otherwise profile data has not been made, so create a fresh instance.
         else
         {
-            UserAchievementData userProfileData = new()
+            UserAchievementData newProfileData = new()
             {
                 UserUID = dto.User.UID,
                 Base64AchievementData = dto.AchievementDataBase64,
             };
-            await DbContext.UserAchievementData.AddAsync(userProfileData).ConfigureAwait(false);
+            await DbContext.UserAchievementData.AddAsync(newProfileData).ConfigureAwait(false);
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Fresh Achievement Data Created").ConfigureAwait(false);
         }
 
         // Save DB Changes
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        return true;
     }
 
     /// <summary> 
@@ -692,7 +677,7 @@ public partial class GagspeakHub
         }
 
         // Grab Client Callers current profile data from the database
-        var existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        UserProfileData? existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         // Validate the rest of the profile data.
         if (existingData is not null)
         {
@@ -701,7 +686,7 @@ public partial class GagspeakHub
         }
         else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
         {
-            var userProfileData = new UserProfileData() { UserUID = dto.User.UID };
+            UserProfileData userProfileData = new UserProfileData() { UserUID = dto.User.UID };
             userProfileData.UpdateInfoFromDto(dto.Info);
             await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
@@ -710,9 +695,9 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // Fetch all paired user's of the client caller
-        var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         // Get Online users.
-        var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
+        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
 
         // Inform the client caller and all their pairs that their profile has been updated.
         await Clients.Users(pairs.Select(p => p.Key)).Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
@@ -734,7 +719,7 @@ public partial class GagspeakHub
         }
 
         // Grab Client Callers current profile data from the database
-        var existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        UserProfileData? existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
 
         // Grab the new ProfilePictureData if it exists
         if (!string.IsNullOrEmpty(dto.ProfilePictureBase64))
@@ -746,7 +731,7 @@ public partial class GagspeakHub
             using MemoryStream ms = new(imageData);
 
             // Detect format of the image
-            var format = await Image.DetectFormatAsync(ms).ConfigureAwait(false);
+            SixLabors.ImageSharp.Formats.IImageFormat format = await Image.DetectFormatAsync(ms).ConfigureAwait(false);
 
             // Ensure it is a png format, throw exception if it is not.
             if (!format.FileExtensions.Contains("png", StringComparer.OrdinalIgnoreCase))
@@ -756,7 +741,7 @@ public partial class GagspeakHub
             }
 
             // Temporarily load the image into memory from the image data to check its ImageSize & FileSize.
-            using var image = Image.Load<Rgba32>(imageData);
+            using Image<Rgba32> image = Image.Load<Rgba32>(imageData);
 
             // Ensure Image meets required parameters.
             if (image.Width > 256 || image.Height > 256)
@@ -774,7 +759,7 @@ public partial class GagspeakHub
         }
         else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
         {
-            var userProfileData = new UserProfileData() { UserUID = dto.User.UID };
+            UserProfileData userProfileData = new UserProfileData() { UserUID = dto.User.UID };
             userProfileData.Base64ProfilePic = dto.ProfilePictureBase64;
             await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
@@ -783,9 +768,9 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // Fetch all paired user's of the client caller
-        var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         // Get Online users.
-        var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
+        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
 
         // Inform the client caller and all their pairs that their profile has been updated.
         await Clients.Users(pairs.Select(p => p.Key)).Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
@@ -808,7 +793,7 @@ public partial class GagspeakHub
 
         // grab the profile of the user being reported. If it doesn't exist, inform the client caller and return.
         UserProfileData? profile = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (profile == null)
+        if (profile is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "This user has no profile").ConfigureAwait(false);
             return;
@@ -839,8 +824,8 @@ public partial class GagspeakHub
         await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Your Report has been made successfully, and is now pending validation from CK").ConfigureAwait(false);
 
         // Notify other user pairs to update their profiles, so they obtain the latest information, including the profile, now being flagged.
-        var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
+        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
         await Clients.Users(pairs.Select(p => p.Key)).Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
         await Clients.Caller.Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
     }

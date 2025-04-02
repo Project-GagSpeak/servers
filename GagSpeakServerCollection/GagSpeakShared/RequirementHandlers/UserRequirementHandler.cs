@@ -48,7 +48,7 @@ public class UserRequirementHandler : AuthorizationHandler<UserRequirement, HubI
             // if the UID is null, fail the context
             //_logger.LogInformation("GagspeakHub:UID: {uid}", uid);
 
-            if (uid == null) context.Fail();
+            if (uid is null) context.Fail();
             // fetch the ident(ity) from the Redis database
             
             //_logger.LogInformation("Fetching ident from Redis");

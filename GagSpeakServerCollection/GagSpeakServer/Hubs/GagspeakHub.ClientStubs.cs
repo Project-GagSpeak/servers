@@ -1,10 +1,11 @@
-﻿using GagspeakAPI.Dto;
+﻿using GagspeakAPI.Data;
+using GagspeakAPI.Dto;
 using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.IPC;
 using GagspeakAPI.Dto.Permissions;
-using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Dto.User;
 using GagspeakAPI.Dto.UserPair;
+using GagspeakAPI.Dto.VibeRoom;
 using GagspeakAPI.Enums;
 
 namespace GagspeakServer.Hubs
@@ -18,42 +19,56 @@ namespace GagspeakServer.Hubs
     /// </summary>
     public partial class GagspeakHub
     {
-        public Task Client_ReceiveServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_ReceiveHardReconnectMessage(MessageSeverity messageSeverity, string message, ServerState state) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UpdateSystemInfo(SystemInfoDto systemInfo) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_ReceiveServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_ReceiveHardReconnectMessage(MessageSeverity messageSeverity, string message, ServerState state) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UpdateSystemInfo(SystemInfoDto systemInfo) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
 
-        public Task Client_UserApplyMoodlesByGuid(ApplyMoodlesByGuidDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserRemoveMoodles(RemoveMoodlesDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserClearMoodles(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserAddClientPair(UserPairDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserRemoveClientPair(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserAddPairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserRemovePairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
 
-        public Task Client_UserAddClientPair(UserPairDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserRemoveClientPair(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserAddPairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserRemovePairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        /// <summary> Callbacks to update moodles. </summary>
+        public Task Client_UserApplyMoodlesByGuid(ApplyMoodlesByGuidDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserRemoveMoodles(RemoveMoodlesDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserClearMoodles(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
 
-        public Task Client_UserUpdateAllPerms(UserPairUpdateAllPermsDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserUpdateAllGlobalPerms(UserPairUpdateAllGlobalPermsDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserUpdateAllUniquePerms(UserPairUpdateAllUniqueDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserUpdatePairPermsGlobal(UserGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserUpdatePairPerms(UserPairPermChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserUpdatePairPermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        /// <summary> Callbacks to update permissions. </summary>
+        public Task Client_UserUpdateAllPerms(BulkUpdatePermsAllDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdateAllGlobalPerms(BulkUpdatePermsGlobalDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdateAllUniquePerms(BulkUpdatePermsUniqueDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdatePairPermsGlobal(UserGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdatePairPerms(UserPairPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
 
-        public Task Client_UserReceiveDataComposite(OnlineUserCompositeDataDto dataDto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataIpc(OnlineUserIpcDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataAppearance(OnlineUserGagDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataWardrobe(OnlineUserRestraintDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataCursedLoot(OnlineUserCursedLootDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataOrders(OnlineUserOrdersDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataAlias(OnlineUserAliasDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveDataToybox(OnlineUserToyboxDataDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserReceiveLightStorage(OnlineUserStorageUpdateDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        public Task Client_UserUpdatePairPermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
 
-        public Task Client_UserReceiveShockInstruction(ShockCollarActionDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_GlobalChatMessage(GlobalChatMessageDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserSendOffline(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserSendOnline(OnlineUserIdentDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_UserUpdateProfile(UserDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
-        public Task Client_DisplayVerificationPopup(VerificationDto dto) => throw new PlatformNotSupportedException("Calling clientside method on server not supported");
+        /// <summary> Callbacks to update own or pair data. </summary>
+        public Task Client_UserReceiveDataComposite(OnlineUserCompositeDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataIpc(CallbackIpcDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataGags(CallbackGagDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataRestrictions(CallbackRestrictionDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataRestraint(CallbackRestraintDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataCursedLoot(CallbackCursedLootDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataOrders(CallbackOrdersDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataAlias(CallbackAliasDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveDataToybox(CallbackToyboxDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveLightStorage(CallbackLightStorageDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserReceiveShockInstruction(ShockCollarActionDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+
+        public Task Client_RoomJoin(VibeRoomKinksterFullDto user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_RoomLeave(VibeRoomKinksterFullDto user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_RoomReceiveDeviceUpdate(UserData user, DeviceInfo deviceInfo) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_RoomReceiveDataStream(SexToyDataStreamCallbackDto dataStream) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_RoomUserAccessGranted(UserData user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_RoomUserAccessRevoked(UserData user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_RoomReceiveChatMessage(UserData user, string message) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+
+        public Task Client_GlobalChatMessage(GlobalChatMessageDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserSendOffline(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserSendOnline(OnlineUserIdentDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdateProfile(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+
+        public Task Client_DisplayVerificationPopup(VerificationDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
     }
 }

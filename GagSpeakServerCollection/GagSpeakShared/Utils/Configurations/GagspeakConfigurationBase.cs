@@ -17,7 +17,7 @@ public class GagspeakConfigurationBase : IGagspeakConfiguration
     public T GetValue<T>(string key)
     {
         var prop = GetType().GetProperty(key);
-        if (prop == null) throw new KeyNotFoundException(key);
+        if (prop is null) throw new KeyNotFoundException(key);
         if (prop.PropertyType != typeof(T)) throw new ArgumentException($"Requested {key} with T:{typeof(T)}, where {key} is {prop.PropertyType}");
         return (T)prop.GetValue(this);
     }
@@ -27,7 +27,7 @@ public class GagspeakConfigurationBase : IGagspeakConfiguration
     {
         var prop = GetType().GetProperty(key);
         if (prop.PropertyType != typeof(T)) throw new ArgumentException($"Requested {key} with T:{typeof(T)}, where {key} is {prop.PropertyType}");
-        if (prop == null) return defaultValue;
+        if (prop is null) return defaultValue;
         return (T)prop.GetValue(this);
     }
 
@@ -35,8 +35,8 @@ public class GagspeakConfigurationBase : IGagspeakConfiguration
     public string SerializeValue(string key, string defaultValue)
     {
         var prop = GetType().GetProperty(key);
-        if (prop == null) return defaultValue;
-        if (prop.GetCustomAttribute<RemoteConfigAttribute>() == null) return defaultValue;
+        if (prop is null) return defaultValue;
+        if (prop.GetCustomAttribute<RemoteConfigAttribute>() is null) return defaultValue;
         return JsonSerializer.Serialize(prop.GetValue(this), prop.PropertyType);
     }
 

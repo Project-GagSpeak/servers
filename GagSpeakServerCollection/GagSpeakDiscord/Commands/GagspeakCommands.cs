@@ -151,7 +151,7 @@ public class GagspeakCommands : InteractionModuleBase
             if (response.IsSuccessStatusCode)
             {
                 var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
-                if (uid == null && discordChannelForMessages != null)
+                if (uid is null && discordChannelForMessages != null)
                 {
                     var discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
                     if (discordChannel != null)
@@ -313,7 +313,7 @@ public class GagspeakCommands : InteractionModuleBase
         var user = await Context.Guild.GetUserAsync(Context.User.Id);
         var assistantRole = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Assistant", StringComparison.Ordinal));
         var isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
-        if ((assistantRole == null || !user.RoleIds.Contains(assistantRole.Id)) && !isAdminOrOwner)
+        if ((assistantRole is null || !user.RoleIds.Contains(assistantRole.Id)) && !isAdminOrOwner)
         {
             await RespondAsync("You do not have permission to use this command.", ephemeral: true).ConfigureAwait(false);
             return;
@@ -326,8 +326,8 @@ public class GagspeakCommands : InteractionModuleBase
         var serverBoosterRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Server Booster");
         var contributorRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Contributor");
 
-        if (distinguishedConnoisseurRole == null || serverBoosterRole == null
-        || esteemedPatreonRole == null || illustriousSupporterRole == null || contributorRole == null)
+        if (distinguishedConnoisseurRole is null || serverBoosterRole is null
+        || esteemedPatreonRole is null || illustriousSupporterRole is null || contributorRole is null)
         {
             await RespondAsync("One or more roles do not exist.", ephemeral: true).ConfigureAwait(false);
             return;
@@ -479,7 +479,7 @@ public class GagspeakCommands : InteractionModuleBase
         ulong userToCheckForDiscordId = id;
 
         // If the primary user is null, set the title and description of the embed builder and return it.
-        if (primaryUser == null)
+        if (primaryUser is null)
         {
             eb.WithTitle("No account");
             eb.WithDescription("No GagSpeak account was found associated to your Discord user");
@@ -507,7 +507,7 @@ public class GagspeakCommands : InteractionModuleBase
             }
 
             // If the user in the database is null, set the title and description of the embed builder and return it.
-            if (userInDb == null)
+            if (userInDb is null)
             {
                 eb.WithTitle("No account");
                 eb.WithDescription("The Discord user has no valid GagSpeak account");
@@ -526,7 +526,7 @@ public class GagspeakCommands : InteractionModuleBase
         if (showForSecondaryUser)
         {
             dbUser = (await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.PrimaryUserUID == dbUser.UID && u.UserUID == secondaryUserUid))?.User;
-            if (dbUser == null)
+            if (dbUser is null)
             {
                 eb.WithTitle("No such secondary UID");
                 eb.WithDescription($"A secondary UID {secondaryUserUid} was not found attached to your primary UID {primaryUser.User.UID}.");

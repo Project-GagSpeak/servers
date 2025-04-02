@@ -13,7 +13,7 @@ public class ValidTokenRequirementHandler : AuthorizationHandler<ValidTokenRequi
         // Get the expiration claim value
         var expirationClaimValue = context.User.Claims.SingleOrDefault(r => string.Equals(r.Type, GagspeakClaimTypes.Expires, StringComparison.Ordinal));
         // if the expiration claim value is null, fail the context
-        if (expirationClaimValue == null)
+        if (expirationClaimValue is null)
         {
             context.Fail();
             return Task.CompletedTask;
@@ -44,7 +44,7 @@ public class ValidTokenHubRequirementHandler : AuthorizationHandler<ValidTokenRe
         // Get the expiration claim value
         var expirationClaimValue = context.User.Claims.SingleOrDefault(r => string.Equals(r.Type, GagspeakClaimTypes.Expires, StringComparison.Ordinal));
         // if the expiration claim value is null, fail the context
-        if (expirationClaimValue == null)
+        if (expirationClaimValue is null)
         {
             context.Fail();
             return Task.CompletedTask;
