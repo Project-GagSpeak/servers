@@ -1,8 +1,7 @@
 using GagspeakAPI.SignalR;
-using GagspeakServer.Controllers;
 using GagspeakServer.Hubs;
+using GagspeakServer.Listeners;
 using GagspeakServer.Services;
-using GagspeakServer.Utils;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
 using GagspeakShared.RequirementHandlers;
@@ -14,17 +13,14 @@ using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Connections;
-using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using Prometheus;
 using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Configuration;
 using StackExchange.Redis.Extensions.System.Text.Json;
 using System.Net;
-using GagspeakServer.Listeners;
 using System.Text;
 
 namespace GagspeakServer;
@@ -125,7 +121,7 @@ public class Startup
         services.AddSingleton<IUserIdProvider, IdBasedUserIdProvider>();
 
         // next, we need to configure our signalR service.
-        var signalRServiceBuilder = services.AddSignalR(hubOptions =>
+        ISignalRServerBuilder signalRServiceBuilder = services.AddSignalR(hubOptions =>
         {
             // set up our hub options as well.
             hubOptions.MaximumReceiveMessageSize = long.MaxValue;       // the max size a message can be
@@ -138,7 +134,7 @@ public class Startup
         .AddMessagePackProtocol(opt => // add a message pack protocol to the signalR so it knows the formats of the Dto's we are sending
         {
             // and create a composite resolver for the message pack serializer options
-            var resolver = CompositeResolver.Create(StandardResolverAllowPrivate.Instance,
+            IFormatterResolver resolver = CompositeResolver.Create(StandardResolverAllowPrivate.Instance,
                 BuiltinResolver.Instance,
                 AttributeFormatterResolver.Instance,
                 // replace enum resolver
@@ -157,7 +153,7 @@ public class Startup
         });
 
         // lets now configure our redi's connection for the signalR connection
-        var redisConnection = gagspeakConfig.GetValue(nameof(ServerConfiguration.RedisConnectionString), string.Empty);
+        string redisConnection = gagspeakConfig.GetValue(nameof(ServerConfiguration.RedisConnectionString), string.Empty);
         if (string.IsNullOrWhiteSpace(redisConnection))
         {
             logger.LogError("Redis connection string is missing or empty in the configuration.");
@@ -167,10 +163,10 @@ public class Startup
         signalRServiceBuilder.AddStackExchangeRedis(redisConnection, options => { });
 
         // fetch the options from the redi's connection
-        var options = ConfigurationOptions.Parse(redisConnection);
+        ConfigurationOptions options = ConfigurationOptions.Parse(redisConnection);
 
         // set the endpoint to the redi's connection endpoint
-        var endpoint = options.EndPoints[0];
+        EndPoint endpoint = options.EndPoints[0];
         // initialize a blank address and port
         string address = "";
         int port = 0;
@@ -189,7 +185,7 @@ public class Startup
         }
 
         // finally, configure the redi's connection for the signalR service
-        var redisConfiguration = new RedisConfiguration()
+        RedisConfiguration redisConfiguration = new RedisConfiguration()
         {
             AbortOnConnectFail = true,                              // abort on connect failure
             KeyPrefix = "",                                         // set the key prefix to blank
@@ -392,7 +388,7 @@ public class Startup
     {
         logger.LogInformation("Running Configure");
         // Fetch the IconfigService for the gagspeak config base.
-        var config = app.ApplicationServices.GetRequiredService<IConfigurationService<GagspeakConfigurationBase>>();
+        IConfigurationService<GagspeakConfigurationBase> config = app.ApplicationServices.GetRequiredService<IConfigurationService<GagspeakConfigurationBase>>();
 
         // use routing for our endpoint connections
         app.UseRouting();
@@ -403,7 +399,7 @@ public class Startup
 
         // for the metrics server, initialize it with the metrics port from the configuration
 #pragma warning disable IDISP001 // Dispose created
-        var metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 4980));
+        KestrelMetricServer metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 4980));
 #pragma warning restore IDISP001 // Dispose created
 #pragma warning disable IDISP004 // Don't ignore created IDisposable
         metricServer.Start();
@@ -424,21 +420,13 @@ public class Startup
                 // configure the transports to be websockets, server sent events, and long polling
                 options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
             });
-            // create a maphub that maps the gagspeak hub to the gagspeak hub path
-            endpoints.MapHub<ToyboxHub>(IToyboxHub.Path, options =>
-            {
-                options.ApplicationMaxBufferSize = 5242880; // the max buffer size
-                options.TransportMaxBufferSize = 5242880;   // the transport max buffer size
-                // configure the transports to be websockets, server sent events, and long polling
-                options.Transports = HttpTransportType.WebSockets | HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
-            });
 
             // map the health checks to the health endpoint
             endpoints.MapHealthChecks("/health").AllowAnonymous(); // allow anonymous access to the health checks
             endpoints.MapControllers();
 
             // log the endpoints for the server if they are not null
-            foreach (var source in endpoints.DataSources.SelectMany(e => e.Endpoints).Cast<RouteEndpoint>())
+            foreach (RouteEndpoint source in endpoints.DataSources.SelectMany(e => e.Endpoints).Cast<RouteEndpoint>())
             {
                 if (source is null) continue;
                 _logger.LogInformation("Endpoint: {url} ", source.RoutePattern.RawText);

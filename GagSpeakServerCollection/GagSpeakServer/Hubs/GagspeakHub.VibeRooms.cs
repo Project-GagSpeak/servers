@@ -1,6 +1,3 @@
-using GagspeakAPI.Data;
-using GagspeakAPI.Dto.Connection;
-using GagspeakAPI.Dto.Toybox;
 using GagspeakAPI.Enums;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
@@ -9,10 +6,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GagspeakServer.Hubs;
 
-/// <summary>
-/// Partial class dealing with the main toybox hub room / group functionality.
-/// </summary>
-public partial class ToyboxHub
+/// <summary> handles the hardcore adult immersive content. </summary>
+public partial class GagspeakHub
 {
     /// <summary> 
     /// Create a new room. 
@@ -28,7 +23,7 @@ public partial class ToyboxHub
         if (existingRoomsMadeByHost)
         {
             _logger.LogWarning("User is already a host of another room.");
-            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
                 $"Already a Host of another Room. Close it before creating a new one!").ConfigureAwait(false);
             return false;
         }
@@ -40,17 +35,17 @@ public partial class ToyboxHub
         if (isActivelyInRoom)
         {
             _logger.LogWarning("User is already in a room.");
-            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
                 $"Already in a Room. Leave it before creating a new one!").ConfigureAwait(false);
             return false;
         }
 
         // Check if the room name already exists in the database
-        var roomExists = DbContext.PrivateRooms.Any(r => r.NameID == dto.NewRoomName);
+        bool roomExists = DbContext.PrivateRooms.Any(r => r.NameID == dto.NewRoomName);
         if (roomExists)
         {
             _logger.LogWarning("Room already exists.");
-            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning, "Room already in use.").ConfigureAwait(false);
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Room already in use.").ConfigureAwait(false);
             return false;
         }
 
@@ -58,7 +53,7 @@ public partial class ToyboxHub
         var user = await DbContext.Users.FirstOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // Create new Private Room, set creation time, & add to database
-        var newRoom = new PrivateRoom
+        PrivateRoom newRoom = new PrivateRoom
         {
             NameID = dto.NewRoomName,
             HostUID = UserUID,
@@ -68,7 +63,7 @@ public partial class ToyboxHub
         DbContext.PrivateRooms.Add(newRoom);
 
         // Make new PrivateRoomPair, with the Client Caller as the first user in the room.
-        var newRoomUser = new PrivateRoomPair
+        PrivateRoomPair newRoomUser = new PrivateRoomPair
         {
             PrivateRoomNameID = dto.NewRoomName,
             PrivateRoom = newRoom,
@@ -87,7 +82,7 @@ public partial class ToyboxHub
         RoomHosts.TryAdd(dto.NewRoomName, UserUID);
 
         // Notify client caller in notifications that room has been created.
-        await Clients.Caller.Client_ReceiveToyboxServerMessage
+        await Clients.Caller.Client_ReceiveServerMessage
             (MessageSeverity.Information, $"Room {dto.NewRoomName} created.").ConfigureAwait(false);
 
         // Collect and map the list of PrivateRoomPairs in the room to PrivateRoomUsers
@@ -148,7 +143,7 @@ public partial class ToyboxHub
 
         if (isActivelyInRoom)
         {
-            await Clients.Caller.Client_ReceiveToyboxServerMessage(MessageSeverity.Warning,
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
                 $"Already in a Room. Leave it before creating a new one!").ConfigureAwait(false);
             throw new Exception($"You are already in a Private Room. You must leave the current Room to join a new one!");
         }
@@ -157,7 +152,7 @@ public partial class ToyboxHub
         var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == userJoining.RoomName).ConfigureAwait(false);
         if (room is null)
         {
-            await Clients.Caller.Client_ReceiveToyboxServerMessage
+            await Clients.Caller.Client_ReceiveServerMessage
                 (MessageSeverity.Error, $"Room {userJoining.RoomName} does not exist, aborting join.").ConfigureAwait(false);
             throw new Exception($"Room {userJoining.RoomName} does not exist, aborting join.");
         }
@@ -182,7 +177,7 @@ public partial class ToyboxHub
         else
         {
             // they did not exist, so make a new pair for them.
-            var newRoomUser = new PrivateRoomPair
+            PrivateRoomPair newRoomUser = new PrivateRoomPair
             {
                 PrivateRoomNameID = userJoining.RoomName,
                 PrivateRoom = room,
@@ -221,7 +216,7 @@ public partial class ToyboxHub
 
 
         // Send a notification to the active users in the room that a new user has joined
-        await Clients.Users(ActiveParticipants.Select(u => u.UserUID).ToList()).Client_ReceiveToyboxServerMessage
+        await Clients.Users(ActiveParticipants.Select(u => u.UserUID).ToList()).Client_ReceiveServerMessage
             (MessageSeverity.Information, $"{currentRoomUser.ChatAlias} has joined the room.").ConfigureAwait(false);
 
         // send a OtherUserJoinedRoom update to all room participants, so their room information is updated.
@@ -307,7 +302,7 @@ public partial class ToyboxHub
     {
         _logger.LogCallInfo();
         // verify the user is active in a room.
-        var isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
+        bool isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
 
         if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
 
@@ -354,7 +349,7 @@ public partial class ToyboxHub
     {
         _logger.LogCallInfo();
         // verify the user is active in a room.
-        var isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
+        bool isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
 
         if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
 

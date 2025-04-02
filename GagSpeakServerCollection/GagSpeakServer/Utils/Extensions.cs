@@ -1,9 +1,6 @@
 using GagspeakAPI.Data;
-using GagspeakAPI.Data.Character;
-using GagspeakAPI.Enums;
 using GagspeakShared.Models;
 using System.Reflection;
-using static GagspeakServer.Hubs.GagspeakHub;
 
 namespace GagspeakServer;
 
@@ -45,7 +42,7 @@ public static class Extensions
         return new PublishedPattern()
         {
             Identifier = pattern.Identifier,
-            Name = pattern.Name,
+            Label = pattern.Name,
             Description = pattern.Description,
             Author = pattern.Author,
             Looping = pattern.ShouldLoop,
@@ -55,7 +52,7 @@ public static class Extensions
     }
 
 
-    // an extention method for the userData 
+    // an extension method for the userData 
     public static UserData ToUserData(this User user)
     {
         return new UserData(user.UID, string.IsNullOrWhiteSpace(user.Alias) ? null : user.Alias, user.VanityTier, user.CreatedDate);
@@ -66,14 +63,6 @@ public static class Extensions
         return new UserData(UserUID, null, null);
     }
 
-    /// <summary> Fetch the individual pair status based on the userInfo </summary>
-    public static IndividualPairStatus ToIndividualPairStatus(this UserInfo userInfo)
-    {
-        if (userInfo.IsSynced) return IndividualPairStatus.Bidirectional;
-        if (!userInfo.IsSynced) return IndividualPairStatus.OneSided;
-        return IndividualPairStatus.None;
-    }
-
     public static void CopyPropertiesTo<T>(this T source, T target)
     {
         if (source is null)
@@ -82,48 +71,16 @@ public static class Extensions
             throw new ArgumentNullException(nameof(target), "Target object is null");
 
 
-        var type = typeof(T);
-        var properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        Type type = typeof(T);
+        PropertyInfo[] properties = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-        foreach (var property in properties)
+        foreach (PropertyInfo property in properties)
         {
             if (property.CanRead && property.CanWrite)
             {
-                var value = property.GetValue(source, null);
+                object value = property.GetValue(source, null);
                 property.SetValue(target, value, null);
             }
         }
     }
-
-    public static CharaGagData ToApiAppearance(this UserGagData data)
-    => new CharaGagData
-    {
-        GagSlots = new GagSlot[]
-        {
-            new GagSlot
-            {
-                GagType = data.SlotOneGagType,
-                Padlock = data.SlotOneGagPadlock,
-                Password = data.SlotOneGagPassword,
-                Timer = data.SlotOneGagTimer,
-                Assigner = data.SlotOneGagAssigner
-            },
-            new GagSlot
-            {
-                GagType = data.SlotTwoGagType,
-                Padlock = data.SlotTwoGagPadlock,
-                Password = data.SlotTwoGagPassword,
-                Timer = data.SlotTwoGagTimer,
-                Assigner = data.SlotTwoGagAssigner
-            },
-            new GagSlot
-            {
-                GagType = data.SlotThreeGagType,
-                Padlock = data.SlotThreeGagPadlock,
-                Password = data.SlotThreeGagPassword,
-                Timer = data.SlotThreeGagTimer,
-                Assigner = data.SlotThreeGagAssigner
-            }
-        }
-    };
 }

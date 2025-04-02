@@ -1,5 +1,5 @@
-using GagspeakAPI.SignalR;
 using GagspeakAPI.Dto.Connection;
+using GagspeakAPI.SignalR;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
@@ -20,7 +20,7 @@ public sealed class SystemInfoService : IHostedService, IDisposable
     private readonly IHubContext<GagspeakHub, IGagspeakHub> _hubContext;
     private readonly IRedisDatabase _redis;
     private Timer _timer = null!;
-    public SystemInfoDto SystemInfoDto { get; private set; } = new();
+    public SystemInfoDto SystemInfoDto { get; private set; } = new(0);
 
     public SystemInfoService(GagspeakMetrics metrics, IConfigurationService<ServerConfiguration> configurationService, IServiceProvider services,
         ILogger<SystemInfoService> logger, IHubContext<GagspeakHub, IGagspeakHub> hubContext, IRedisDatabase redis)
@@ -37,7 +37,7 @@ public sealed class SystemInfoService : IHostedService, IDisposable
     {
         _logger.LogInformation("System Info Service started");
 
-        var timeOut = _config.IsMain ? 15 : 60;
+        int timeOut = _config.IsMain ? 15 : 60;
 
 #pragma warning disable CS8622 // Nullability of reference types in type of parameter doesn't match the target delegate (possibly because of nullability attributes).
         _timer = new Timer(PushSystemInfo, null, TimeSpan.Zero, TimeSpan.FromSeconds(timeOut));
@@ -55,24 +55,15 @@ public sealed class SystemInfoService : IHostedService, IDisposable
             _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableWorkerThreads, workerThreads);
             _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
 
-            var gagspeakOnlineUsers = (_redis.SearchKeysAsync("GagspeakHub:UID:*").GetAwaiter().GetResult()).Count();
-            var toyboxOnlineUsers = (_redis.SearchKeysAsync("ToyboxHub:UID:*").GetAwaiter().GetResult()).Count();
+            int gagspeakOnlineUsers = (_redis.SearchKeysAsync("GagspeakHub:UID:*").GetAwaiter().GetResult()).Count();
+            int toyboxOnlineUsers = (_redis.SearchKeysAsync("ToyboxHub:UID:*").GetAwaiter().GetResult()).Count();
 
-            SystemInfoDto = new SystemInfoDto()
-            {
-                OnlineUsers = gagspeakOnlineUsers, // Specific to GagspeakHub
-                OnlineToyboxUsers = toyboxOnlineUsers, // Specific to ToyboxHub
-            };
-
+            SystemInfoDto = new SystemInfoDto(gagspeakOnlineUsers);
             if (_config.IsMain)
             {
-                // can always just refer to discord bot for this number instead of letting it spam my logs.
-                // _logger.LogInformation("Online Users: {onlineUsers}", gagspeakOnlineUsers);
-
                 _ = _hubContext.Clients.All.Client_UpdateSystemInfo(SystemInfoDto);
-
-                using var scope = _services.CreateScope();
-                using var db = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
+                using IServiceScope scope = _services.CreateScope();
+                using GagspeakDbContext db = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
 
                 _metrics.SetGaugeTo(MetricsAPI.GaugeAuthorizedConnections, gagspeakOnlineUsers);
                 _metrics.SetGaugeTo(MetricsAPI.GaugePairs, db.ClientPairs.AsNoTracking().Count());

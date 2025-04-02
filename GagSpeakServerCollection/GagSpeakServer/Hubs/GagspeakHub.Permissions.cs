@@ -1,14 +1,10 @@
-using GagspeakAPI.Enums;
-using GagspeakAPI.SignalR;
-using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Dto.Permissions;
+using GagspeakAPI.Enums;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using System.Reflection;
-using GagspeakAPI.Data;
 
 namespace GagspeakServer.Hubs;
 
@@ -21,7 +17,7 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub
 {
 	// the input name should be the same as the client caller
-	public async Task UserPushAllGlobalPerms(UserPairUpdateAllGlobalPermsDto dto)
+	public async Task UserPushAllGlobalPerms(BulkUpdatePermsGlobalDto dto)
 	{
 		_logger.LogCallInfo();
 		if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
@@ -30,12 +26,12 @@ public partial class GagspeakHub
 			return;
 		}
 
-		// fetch the user global perm from the database.
-		var globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        // fetch the user global perm from the database.
+        GagspeakShared.Models.UserGlobalPermissions globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
 		if (globalPerms is null) { await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false); return; }
 
-		// update the permissions to the new values passed in.
-		var newGlobalPerms = dto.GlobalPermissions.ToModelGlobalPerms(globalPerms);
+        // update the permissions to the new values passed in.
+        GagspeakShared.Models.UserGlobalPermissions newGlobalPerms = dto.GlobalPermissions.ToModelGlobalPerms(globalPerms);
 
 		// update the database with the new permissions & save DB changes
 		DbContext.Update(newGlobalPerms);
@@ -43,14 +39,14 @@ public partial class GagspeakHub
 
 		// grab the user pairs of the client caller
 		List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-		var pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
 
 		await Clients.Caller.Client_UserUpdateAllGlobalPerms(new(new(UserUID), dto.Enactor, dto.GlobalPermissions, UpdateDir.Own)).ConfigureAwait(false);
 		await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdateAllGlobalPerms(new(new(UserUID), dto.Enactor, dto.GlobalPermissions, UpdateDir.Other)).ConfigureAwait(false);
 	}
 
 	// this dto pushes to ANOTHER INTENDED PAIR the permissions WE are updating for THEM. We should use callbacks accordingly.
-	public async Task UserPushAllUniquePerms(UserPairUpdateAllUniqueDto dto)
+	public async Task UserPushAllUniquePerms(BulkUpdatePermsUniqueDto dto)
 	{
 		_logger.LogCallInfo();
 		if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
@@ -59,24 +55,24 @@ public partial class GagspeakHub
 			return;
 		}
 
-		// grab our pair permissions for this user.
-		var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        // grab our pair permissions for this user.
+        ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
 		if (pairPerms is null)
 		{
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair Permission Not Found").ConfigureAwait(false);
 			return;
 		}
-		// grab the pair permission access for this user.
-		var pairAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        // grab the pair permission access for this user.
+        ClientPairPermissionAccess pairAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
 		if (pairAccess is null)
 		{
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission access not found").ConfigureAwait(false);
 			return;
 		}
 
-		// Update the global permissions, pair permissions, and editAccess permissions with the new values.
-		var newPairPerms = dto.UniquePerms.ToModelUserPairPerms(pairPerms);
-		var newPairAccess = dto.UniqueAccessPerms.ToModelUserPairEditAccessPerms(pairAccess);
+        // Update the global permissions, pair permissions, and editAccess permissions with the new values.
+        ClientPairPermissions newPairPerms = dto.UniquePerms.ToModelUserPairPerms(pairPerms);
+        ClientPairPermissionAccess newPairAccess = dto.UniqueAccessPerms.ToModelUserPairEditAccessPerms(pairAccess);
 
 		// update the database with the new permissions & save DB changes
 		DbContext.Update(newPairPerms);
@@ -102,8 +98,8 @@ public partial class GagspeakHub
 			return;
 		}
 
-		// fetch the user global perm from the database.
-		var globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        // fetch the user global perm from the database.
+        GagspeakShared.Models.UserGlobalPermissions globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
 		if (globalPerms is null) 
 		{ 
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false); 
@@ -123,7 +119,7 @@ public partial class GagspeakHub
 
 		// grab the user pairs of the client caller
 		List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-		var pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
 
 		// callback to the client caller's pairs, letting them know that our permission was updated.
 		await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdatePairPermsGlobal(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
@@ -148,8 +144,8 @@ public partial class GagspeakHub
 			return;
 		}
 
-		// fetch the global permission table row belonging to the user in the Dto
-		var globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        // fetch the global permission table row belonging to the user in the Dto
+        GagspeakShared.Models.UserGlobalPermissions globalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
 		if (globalPerms is null)
 		{
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false);
@@ -169,7 +165,7 @@ public partial class GagspeakHub
 
 		// grab the user pairs that the paired user we are updating has.
 		List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-		var pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
 
 		// debug the list of pairs of client
 		/*foreach (var pair in pairsOfClient) _logger.LogMessage($"Pair: {pair.Key}");*/
@@ -191,8 +187,8 @@ public partial class GagspeakHub
 	{
 		_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
-		// grab the pair permission, where the user is the client caller, and the other user is the one we are updating the pair permissions for.
-		var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        // grab the pair permission, where the user is the client caller, and the other user is the one we are updating the pair permissions for.
+        ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
 		if(pairPerms is null)
 		{
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false);
@@ -223,12 +219,12 @@ public partial class GagspeakHub
 
 		// we have performed a pause change, so need to make sure that we send online/offline respectively base on update.
 		_logger.LogMessage("Pause change detected, checking if both users are online to send online/offline updates.");
-		// grab the other players pair perms for you
-		var otherPairData = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        // grab the other players pair perms for you
+        ClientPairPermissions otherPairData = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
 		if (otherPairData is not null && !otherPairData.IsPaused)
 		{
-			// only perform the following if they are online.
-			var otherCharaIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
+            // only perform the following if they are online.
+            string otherCharaIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
 			if (UserCharaIdent is null || otherCharaIdent is null)
 				return;
 
@@ -258,8 +254,8 @@ public partial class GagspeakHub
 		// no way to verify if we are using it properly, so just make the assumption that we are.
 		_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
-		// grab the pair permission row belonging to the paired user so we can modify it.
-		var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        // grab the pair permission row belonging to the paired user so we can modify it.
+        ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
 		if (pairPerms is null)
 		{
 			await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false);
@@ -289,8 +285,8 @@ public partial class GagspeakHub
 	public async Task UserUpdateOwnPairPermAccess(UserPairAccessChangeDto dto)
 	{
 		_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-		// grab the edit access permission
-		var pairAccess = await DbContext.ClientPairPermissionAccess.SingleAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        // grab the edit access permission
+        ClientPairPermissionAccess pairAccess = await DbContext.ClientPairPermissionAccess.SingleAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
 
         // Attempt to make the change to the permissions.
         if (!pairAccess.UpdatePairPermsAccess(dto.ChangedAccessPermission, out string errorMsg))

@@ -1,4 +1,5 @@
 ﻿using GagspeakAPI.Enums;
+using GagspeakAPI.Extensions;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
@@ -114,7 +115,7 @@ public partial class GagspeakHub
     /// <summary> Helper function to get the user's identity from the redis by their UID </summary>
     private async Task<string> GetUserIdent(string uid)
     {
-        if (uid.IsNullOrEmpty()) return string.Empty;
+        if (uid.NullOrEmpty()) return string.Empty;
 #pragma warning disable CS8603 // Possible null reference return.
         return await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
 #pragma warning restore CS8603 // Possible null reference return.
@@ -383,8 +384,8 @@ public partial class GagspeakHub
                                 && u.UID == user.OtherUserUID
                                 && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
                                 && ownaccess.UserUID == user.UserUID && ownaccess.OtherUserUID == user.OtherUserUID
-                                && (otherperm is null || (otherperm.UserUID == user.OtherUserUID && otherperm.OtherUserUID == user.UserUID))
-                                && (otheraccess is null || (otheraccess.UserUID == user.OtherUserUID && otheraccess.OtherUserUID == user.UserUID))
+                                && (otherperm == null || (otherperm.UserUID == user.OtherUserUID && otherperm.OtherUserUID == user.UserUID))
+                                && (otheraccess == null || (otheraccess.UserUID == user.OtherUserUID && otheraccess.OtherUserUID == user.UserUID))
                             // Select the final projection of data to include in the results
                             select new
                             {

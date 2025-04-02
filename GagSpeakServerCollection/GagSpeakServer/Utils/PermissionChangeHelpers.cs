@@ -22,7 +22,7 @@ public static class PermissionChangeHelpers
             propertyInfo.SetValue(data, newValue);
             return true;
         }
-        // if it fails, attempt to reconize timespan.
+        // if it fails, attempt to recognize timespan.
         if (newValue is UInt64 && propertyInfo.PropertyType == typeof(TimeSpan))
         {
             long ticks = (long)(ulong)newValue;  // Safe cast from ulong to long
@@ -36,7 +36,7 @@ public static class PermissionChangeHelpers
             return true;
         }
 
-        // Output type missmatch error for logs.
+        // Output type miss-match error for logs.
         error = "Property type mismatch! PropertyType was: " + propertyInfo.PropertyType + ", but NewValueType: " + newValue.GetType();
         return false;
     }

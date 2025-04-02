@@ -19,15 +19,12 @@ public class ClientMessageController : Controller
     // Declare private variables for logger and hub context
     private ILogger<ClientMessageController> _logger;
     private IHubContext<GagspeakHub, IGagspeakHub> _hubContextMain;
-    private IHubContext<ToyboxHub, IToyboxHub> _hubContextToybox;
 
     // Constructor for this controller, injecting dependencies
-    public ClientMessageController(ILogger<ClientMessageController> logger, 
-        IHubContext<GagspeakHub, IGagspeakHub> hubContext, IHubContext<ToyboxHub, IToyboxHub> hubContextToybox)
+    public ClientMessageController(ILogger<ClientMessageController> logger, IHubContext<GagspeakHub, IGagspeakHub> hubContext)
     {
         _logger = logger;
         _hubContextMain = hubContext;
-        _hubContextToybox = hubContextToybox;
     }
 
     // Define the route and HTTP method for sending a message

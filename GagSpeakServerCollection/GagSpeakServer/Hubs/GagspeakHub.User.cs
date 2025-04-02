@@ -4,12 +4,12 @@ using GagspeakAPI.Dto.Connection;
 using GagspeakAPI.Dto.User;
 using GagspeakAPI.Dto.UserPair;
 using GagspeakAPI.Enums;
+using GagspeakAPI.Extensions;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using System.Data;
@@ -573,7 +573,7 @@ public partial class GagspeakHub
 
         // ensure that this user is in hardcore mode with you.
         if (!userPairPermsForCaller.InHardcore ||
-        (userPairGlobalPerms.GlobalShockShareCode.IsNullOrEmpty() && userPairPermsForCaller.ShockCollarShareCode.IsNullOrEmpty()))
+        (userPairGlobalPerms.GlobalShockShareCode.NullOrEmpty() && userPairPermsForCaller.PiShockShareCode.NullOrEmpty()))
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error, "User is not in hardcore mode with you, or " +
                 "doesn't have any shock collars configured!").ConfigureAwait(false);
@@ -638,10 +638,10 @@ public partial class GagspeakHub
             return false;
 
         // The achievement data can be null, or contain data. If it contains data, we should update it.
-        var userSaveData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        UserAchievementData userSaveData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (userSaveData is not null)
         {
-            if (!dto.AchievementDataBase64.IsNullOrEmpty())
+            if (!dto.AchievementDataBase64.NullOrEmpty())
                 userSaveData.Base64AchievementData = dto.AchievementDataBase64;
             else
                 return false;

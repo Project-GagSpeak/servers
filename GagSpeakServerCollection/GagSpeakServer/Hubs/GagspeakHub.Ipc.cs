@@ -1,7 +1,6 @@
-﻿using GagspeakAPI.Enums;
-using GagspeakAPI.Data.IPC;
-using GagspeakAPI.Dto.IPC;
+﻿using GagspeakAPI.Dto.IPC;
 using GagspeakAPI.Dto.User;
+using GagspeakAPI.Enums;
 using GagspeakShared.Metrics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -25,7 +24,7 @@ public partial class GagspeakHub
     public async Task<bool> UserApplyMoodlesByGuid(ApplyMoodlesByGuidDto dto)
     {
         // simply validate that they are an existing pair.
-        var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        GagspeakShared.Models.ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
         if (pairPerms is null)
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
@@ -33,14 +32,14 @@ public partial class GagspeakHub
         }
 
         // ensure that the client caller has permission to apply the pairs own moodles.
-        if (!pairPerms.PairCanApplyYourMoodlesToYou)
+        if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.PairCanApplyYourMoodlesToYou))
         {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
             return false;
         }
 
         // construct a new dto with the client caller as the user.
-        var newDto = new ApplyMoodlesByGuidDto(User: UserUID.ToUserDataFromUID(), Statuses: dto.Statuses, Type: dto.Type);
+        ApplyMoodlesByGuidDto newDto = new ApplyMoodlesByGuidDto(User: UserUID.ToUserDataFromUID(), Statuses: dto.Statuses, Type: dto.Type);
 
         // notify the recipient pair to apply the moodles.
         await Clients.User(dto.User.UID).Client_UserApplyMoodlesByGuid(newDto).ConfigureAwait(false);
@@ -63,60 +62,43 @@ public partial class GagspeakHub
     public async Task<bool> UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto)
     {
         // simply validate that they are an existing pair.
-        var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms is null)
-        {
+        GagspeakShared.Models.ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPerms is null) {
              await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
              return false;
         }
-        if (!pairPerms.PairCanApplyOwnMoodlesToYou)
-        {
+        if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.PairCanApplyTheirMoodlesToYou)) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
             return false;
         }
 
-        var moodlesToApply = dto.Statuses;
+        List<(Guid GUID, int IconID, string Title, string Description, StatusType Type, string Applier, bool Dispelable, int Stacks, bool Persistent, int Days, int Hours, int Minutes, int Seconds, bool NoExpire, bool AsPermanent, Guid StatusOnDispell, string CustomVFXPath, bool StackOnReapply, int StacksIncOnReapply)> moodlesToApply = dto.Statuses;
 
-        if (moodlesToApply.Any(m => m.Type == StatusType.Positive && !pairPerms.AllowPositiveStatusTypes))
-        {
+        if (moodlesToApply.Any(m => m.Type is StatusType.Positive && !pairPerms.MoodlePerms.HasAny(MoodlePerms.PositiveStatusTypes))) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses have a positive type, which this pair does not allow!").ConfigureAwait(false);
             return false;
         }
-
-        if (moodlesToApply.Any(m => m.Type == StatusType.Negative && !pairPerms.AllowNegativeStatusTypes))
-        {
+        else if (moodlesToApply.Any(m => m.Type is StatusType.Negative && !pairPerms.MoodlePerms.HasAny(MoodlePerms.NegativeStatusTypes))) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses have a negative type, which this pair does not allow!").ConfigureAwait(false);
             return false;
         }
-
-        if (moodlesToApply.Any(m => m.Type == StatusType.Special && !pairPerms.AllowSpecialStatusTypes))
-        {
+        else if (moodlesToApply.Any(m => m.Type is StatusType.Special && !pairPerms.MoodlePerms.HasAny(MoodlePerms.SpecialStatusTypes))) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses have a special type, which this pair does not allow!").ConfigureAwait(false);
             return false;
         }
-
-        if (moodlesToApply.Any(m => m.NoExpire && !pairPerms.AllowPermanentMoodles))
-        {
+        else if (moodlesToApply.Any(m => m.NoExpire && !pairPerms.MoodlePerms.HasAny(MoodlePerms.PermanentMoodles))) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses is permanent, which this pair does not allow!").ConfigureAwait(false);
             return false;
         }
-
-        // ensure to only check this condition as one to be flagged if it exceeds the time and is NOT marked as permanent.
-        if (moodlesToApply.Any(m => new TimeSpan(m.Days, m.Hours, m.Minutes, m.Seconds) > pairPerms.MaxMoodleTime && m.NoExpire == false))
-        {
+        else if (moodlesToApply.Any(m => new TimeSpan(m.Days, m.Hours, m.Minutes, m.Seconds) > pairPerms.MaxMoodleTime && m.NoExpire == false)) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "One of the Statuses exceeds the max allowed time!").ConfigureAwait(false);
             return false;
         }
 
         // construct a new dto with the client caller as the user.
-        var newDto = new ApplyMoodlesByStatusDto(User: UserUID.ToUserDataFromUID(), Statuses: moodlesToApply, Type: dto.Type);
-
+        var newDto = new ApplyMoodlesByStatusDto(UserUID.ToUserDataFromUID(), moodlesToApply, dto.Type);
         // notify the recipient pair to apply the moodles.
         await Clients.User(dto.User.UID).Client_UserApplyMoodlesByStatus(newDto).ConfigureAwait(false);
-
-        // increment the metrics.
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpc);
-        _metrics.IncCounter(MetricsAPI.CounterUserPushDataIpcTo);
         return true;
     }
 
@@ -130,50 +112,40 @@ public partial class GagspeakHub
     public async Task<bool> UserRemoveMoodles(RemoveMoodlesDto dto)
     {
         // simply validate that they are an existing pair.
-        var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms is null)
-        {
+        GagspeakShared.Models.ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPerms is null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
             return false;
         }
-
-        if (!pairPerms.AllowRemovingMoodles)
-        {
+        else if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.RemovingMoodles)) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Permission to remove Moodles from this pair was not given!").ConfigureAwait(false);
             return false;
         }
 
         // construct a new dto with the client caller as the user.
-        var newDto = new RemoveMoodlesDto(User: UserUID.ToUserDataFromUID(), Statuses: dto.Statuses);
-
+        var newDto = new RemoveMoodlesDto(UserUID.ToUserDataFromUID(), dto.Statuses);
         // notify the recipient pair to apply the moodles.
         await Clients.User(dto.User.UID).Client_UserRemoveMoodles(newDto).ConfigureAwait(false);
         return true;
     }
 
-    /// <summary>
-    /// Notifies the user to clear all active moodles from their status manager.
-    /// </summary>
+    /// <summary> Notifies the user to clear all active moodles from their status manager. </summary>
     [Authorize(Policy = "Identified")]
     public async Task<bool> UserClearMoodles(UserDto dto)
     {
         // simply validate that they are an existing pair.
-        var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairPerms is null)
-        {
+        GagspeakShared.Models.ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (pairPerms is null) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
             return false;
         }
 
-        if (!pairPerms.AllowRemovingMoodles)
-        {
+        if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.RemovingMoodles)) {
             await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Permission to remove Moodles from this pair was not given!").ConfigureAwait(false);
             return false;
         }
 
-        // construct a new dto with the client caller as the user.
-        var newDto = new UserDto(User: UserUID.ToUserDataFromUID());
-
+        var newDto = new UserDto(UserUID.ToUserDataFromUID());
         // notify the recipient pair to apply the moodles.
         await Clients.User(dto.User.UID).Client_UserClearMoodles(newDto).ConfigureAwait(false);
         return true;
