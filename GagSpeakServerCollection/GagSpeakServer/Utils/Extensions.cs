@@ -51,6 +51,78 @@ public static class Extensions
         };
     }
 
+    public static void UpdateInfoFromDto(this UserProfileData storedData, KinkPlateContent dtoContent)
+    {
+        // update all other values from the Info in the dto.
+        storedData.ProfileIsPublic = dtoContent.PublicPlate;
+        storedData.UserDescription = dtoContent.Description;
+        storedData.CompletedAchievementsTotal = dtoContent.CompletedAchievementsTotal;
+        storedData.ChosenTitleId = dtoContent.ChosenTitleId;
+
+        storedData.PlateBackground = dtoContent.PlateBackground;
+        storedData.PlateBorder = dtoContent.PlateBorder;
+
+        storedData.ProfilePictureBorder = dtoContent.ProfilePictureBorder;
+        storedData.ProfilePictureOverlay = dtoContent.ProfilePictureOverlay;
+
+        storedData.DescriptionBackground = dtoContent.DescriptionBackground;
+        storedData.DescriptionBorder = dtoContent.DescriptionBorder;
+        storedData.DescriptionOverlay = dtoContent.DescriptionOverlay;
+
+        storedData.GagSlotBackground = dtoContent.GagSlotBackground;
+        storedData.GagSlotBorder = dtoContent.GagSlotBorder;
+        storedData.GagSlotOverlay = dtoContent.GagSlotOverlay;
+
+        storedData.PadlockBackground = dtoContent.PadlockBackground;
+        storedData.PadlockBorder = dtoContent.PadlockBorder;
+        storedData.PadlockOverlay = dtoContent.PadlockOverlay;
+
+        storedData.BlockedSlotsBackground = dtoContent.BlockedSlotsBackground;
+        storedData.BlockedSlotsBorder = dtoContent.BlockedSlotsBorder;
+        storedData.BlockedSlotsOverlay = dtoContent.BlockedSlotsOverlay;
+
+        storedData.BlockedSlotBorder = dtoContent.BlockedSlotBorder;
+        storedData.BlockedSlotOverlay = dtoContent.BlockedSlotOverlay;
+    }
+
+    public static KinkPlateContent FromProfileData(this UserProfileData data)
+    {
+        return new KinkPlateContent()
+        {
+            PublicPlate = data.ProfileIsPublic,
+            Flagged = data.FlaggedForReport,
+            Disabled = data.ProfileDisabled,
+            Description = data.UserDescription,
+            CompletedAchievementsTotal = data.CompletedAchievementsTotal,
+            ChosenTitleId = data.ChosenTitleId,
+
+            PlateBackground = data.PlateBackground,
+            PlateBorder = data.PlateBorder,
+
+            ProfilePictureBorder = data.ProfilePictureBorder,
+            ProfilePictureOverlay = data.ProfilePictureOverlay,
+
+            DescriptionBackground = data.DescriptionBackground,
+            DescriptionBorder = data.DescriptionBorder,
+            DescriptionOverlay = data.DescriptionOverlay,
+
+            GagSlotBackground = data.GagSlotBackground,
+            GagSlotBorder = data.GagSlotBorder,
+            GagSlotOverlay = data.GagSlotOverlay,
+
+            PadlockBackground = data.PadlockBackground,
+            PadlockBorder = data.PadlockBorder,
+            PadlockOverlay = data.PadlockOverlay,
+
+            BlockedSlotsBackground = data.BlockedSlotsBackground,
+            BlockedSlotsBorder = data.BlockedSlotsBorder,
+            BlockedSlotsOverlay = data.BlockedSlotsOverlay,
+
+            BlockedSlotBorder = data.BlockedSlotBorder,
+            BlockedSlotOverlay = data.BlockedSlotOverlay
+        };
+    }
+
 
     // an extension method for the userData 
     public static UserData ToUserData(this User user)

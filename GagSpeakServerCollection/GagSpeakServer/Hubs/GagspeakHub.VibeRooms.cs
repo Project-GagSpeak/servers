@@ -1,3 +1,6 @@
+using GagspeakAPI.Dto.User;
+using GagspeakAPI.Dto.VibeRoom;
+using GagspeakAPI;
 using GagspeakAPI.Enums;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
@@ -9,567 +12,91 @@ namespace GagspeakServer.Hubs;
 /// <summary> handles the hardcore adult immersive content. </summary>
 public partial class GagspeakHub
 {
-    /// <summary> 
-    /// Create a new room. 
-    /// (potentially rework this to throw exceptions instead of returning 
-    /// false, as its better for catching errors.)
-    /// </summary>
-    public async Task<bool> PrivateRoomCreate(RoomCreateDto dto)
+    /// <summary> Attempts to create a room with the specified room name. </summary>
+    /// <remarks> Will return false if the room name already exists or if it failed to create. </remarks>
+    public async Task<GsApiVibeErrorCodes> RoomCreate(string roomName, string password)
     {
-        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-
-        // if the user is already a host of any room, we must inform them they have to close it first.
-        var existingRoomsMadeByHost = await DbContext.PrivateRooms.AnyAsync(r => r.HostUID == UserUID).ConfigureAwait(false);
-        if (existingRoomsMadeByHost)
-        {
-            _logger.LogWarning("User is already a host of another room.");
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
-                $"Already a Host of another Room. Close it before creating a new one!").ConfigureAwait(false);
-            return false;
-        }
-
-        // see if we are InRoom for any other room.
-        var isActivelyInRoom = await DbContext.PrivateRoomPairs
-            .AnyAsync(pru => pru.PrivateRoomUserUID == UserUID && pru.InRoom).ConfigureAwait(false);
-
-        if (isActivelyInRoom)
-        {
-            _logger.LogWarning("User is already in a room.");
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
-                $"Already in a Room. Leave it before creating a new one!").ConfigureAwait(false);
-            return false;
-        }
-
-        // Check if the room name already exists in the database
-        bool roomExists = DbContext.PrivateRooms.Any(r => r.NameID == dto.NewRoomName);
-        if (roomExists)
-        {
-            _logger.LogWarning("Room already exists.");
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Room already in use.").ConfigureAwait(false);
-            return false;
-        }
-
-        // At this point we are valid and can create a new room. So begin.
-        var user = await DbContext.Users.FirstOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-
-        // Create new Private Room, set creation time, & add to database
-        PrivateRoom newRoom = new PrivateRoom
-        {
-            NameID = dto.NewRoomName,
-            HostUID = UserUID,
-            Host = user,
-            TimeMade = DateTime.UtcNow
-        };
-        DbContext.PrivateRooms.Add(newRoom);
-
-        // Make new PrivateRoomPair, with the Client Caller as the first user in the room.
-        PrivateRoomPair newRoomUser = new PrivateRoomPair
-        {
-            PrivateRoomNameID = dto.NewRoomName,
-            PrivateRoom = newRoom,
-            PrivateRoomUserUID = UserUID,
-            PrivateRoomUser = user,
-            ChatAlias = dto.HostChatAlias,
-            InRoom = false,
-            AllowingVibe = false
-        };
-        DbContext.PrivateRoomPairs.Add(newRoomUser);
-
-        // Save changes to the database
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // add the user as a host of the room in the concurrent dictionary
-        RoomHosts.TryAdd(dto.NewRoomName, UserUID);
-
-        // Notify client caller in notifications that room has been created.
-        await Clients.Caller.Client_ReceiveServerMessage
-            (MessageSeverity.Information, $"Room {dto.NewRoomName} created.").ConfigureAwait(false);
-
-        // Collect and map the list of PrivateRoomPairs in the room to PrivateRoomUsers
-        var privateRoomUsers = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == dto.NewRoomName)
-            .Select(pru => new PrivateRoomUser
-            {
-                UserUID = pru.PrivateRoomUserUID,
-                ChatAlias = pru.ChatAlias,
-                ActiveInRoom = pru.InRoom,
-                VibeAccess = pru.AllowingVibe
-            })
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        // Compile RoomInfoDto for the client caller.
-        var roomInfo = new RoomInfoDto
-        {
-            NewRoomName = dto.NewRoomName,
-            RoomHost = new PrivateRoomUser
-            {
-                UserUID = UserUID,
-                ChatAlias = newRoomUser.ChatAlias,
-                ActiveInRoom = newRoomUser.InRoom,
-                VibeAccess = newRoomUser.AllowingVibe
-            },
-            ConnectedUsers = privateRoomUsers
-        };
-        await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
-        return true;
+        // Was bool
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomCreate - Method not yet Implemented"
+            + $"\nUnable to Create room [{roomName}] with password [{password}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
 
-    /// <summary> Recieve a room invite from an added userpair. </summary>
-    public async Task<bool> PrivateRoomInviteUser(RoomInviteDto dto)
+    /// <summary> Sends an invite to a user to join a room. </summary>
+    public async Task<GsApiVibeErrorCodes> SendRoomInvite(VibeRoomInviteDto dto)
     {
-        // ensure the client caller inviting the user is the host of the room they are inviting.
-        var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == dto.RoomName).ConfigureAwait(false);
-        // if not valid, return.
-        if (room is null || !string.Equals(room.HostUID, UserUID, StringComparison.Ordinal)) return false;
-
-        // grab the caller from the db
-        var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null) return false;
-
-        // send the invite to the user.
-        await Clients.User(dto.UserInvited.UID).Client_UserReceiveRoomInvite
-            (new RoomInviteDto(user.ToUserData(), dto.RoomName)).ConfigureAwait(false);
-        // return successful.
-        return true;
+        // Was bool
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "SendRoomInvite - Method not yet Implemented"
+            + $"\nUnable to invite user [{dto.User.UID}] to room [{dto.RoomName}] with password [{dto.RoomPassword}] with message [{dto.AttachedMessage}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
 
-    /// <summary> A User attempting to join a room. </summary>
-    public async Task PrivateRoomJoin(RoomParticipantDto userJoining)
+    /// <summary> Changes the password of an existing room. </summary>
+    public async Task<GsApiVibeErrorCodes> ChangeRoomPassword(string roomName, string newPassword)
     {
-        // check to see if the client caller is currently active in any other rooms.
-        var isActivelyInRoom = await DbContext.PrivateRoomPairs
-            .AnyAsync(pru => pru.PrivateRoomUserUID == UserUID && pru.InRoom).ConfigureAwait(false);
-
-        if (isActivelyInRoom)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
-                $"Already in a Room. Leave it before creating a new one!").ConfigureAwait(false);
-            throw new Exception($"You are already in a Private Room. You must leave the current Room to join a new one!");
-        }
-
-        // Ensure the room exists.
-        var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == userJoining.RoomName).ConfigureAwait(false);
-        if (room is null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage
-                (MessageSeverity.Error, $"Room {userJoining.RoomName} does not exist, aborting join.").ConfigureAwait(false);
-            throw new Exception($"Room {userJoining.RoomName} does not exist, aborting join.");
-        }
-
-        // grab the caller from the db
-        var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null) return;
-
-
-        // if the user joining already has a pair for the privateroompairs of this room, simply set InRoom to true
-        var existingRoomUser = await DbContext.PrivateRoomPairs
-            .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == userJoining.RoomName && pru.PrivateRoomUserUID == UserUID)
-            .ConfigureAwait(false);
-
-        PrivateRoomPair currentRoomUser;
-        if (existingRoomUser != null)
-        {
-            existingRoomUser.InRoom = true;
-            DbContext.PrivateRoomPairs.Update(existingRoomUser);
-            currentRoomUser = existingRoomUser;
-        }
-        else
-        {
-            // they did not exist, so make a new pair for them.
-            PrivateRoomPair newRoomUser = new PrivateRoomPair
-            {
-                PrivateRoomNameID = userJoining.RoomName,
-                PrivateRoom = room,
-                PrivateRoomUserUID = user.UID,
-                PrivateRoomUser = user,
-                ChatAlias = userJoining.User.ChatAlias,
-                InRoom = true,
-                AllowingVibe = false
-            };
-            DbContext.PrivateRoomPairs.Add(newRoomUser);
-            currentRoomUser = newRoomUser;
-        }
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // fetch the list of all others users currently in the room (active or not)
-        var RoomParticipants = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == userJoining.RoomName)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        // fetch the list of all active users currently in the same  room we just fetched above
-        var ActiveParticipants = RoomParticipants
-            .Where(pru => pru.InRoom)
-            .Select(pru => new PrivateRoomUser
-            {
-                UserUID = pru.PrivateRoomUserUID,
-                ChatAlias = pru.ChatAlias,
-                ActiveInRoom = pru.InRoom,
-                VibeAccess = pru.AllowingVibe
-            })
-            .ToList();
-
-        // find the host of the room that is in the private room pairs.
-        var roomHost = RoomParticipants.FirstOrDefault(pru => string.Equals(pru.PrivateRoomUserUID, room.HostUID, StringComparison.Ordinal));
-        if (roomHost is null) return;
-
-
-        // Send a notification to the active users in the room that a new user has joined
-        await Clients.Users(ActiveParticipants.Select(u => u.UserUID).ToList()).Client_ReceiveServerMessage
-            (MessageSeverity.Information, $"{currentRoomUser.ChatAlias} has joined the room.").ConfigureAwait(false);
-
-        // send a OtherUserJoinedRoom update to all room participants, so their room information is updated.
-        var newJoinedUser = new PrivateRoomUser
-        {
-            UserUID = currentRoomUser.PrivateRoomUserUID,
-            ChatAlias = currentRoomUser.ChatAlias,
-            ActiveInRoom = currentRoomUser.InRoom,
-            VibeAccess = currentRoomUser.AllowingVibe
-        };
-        // extact our client caller (current room user) from the list of room participants.
-        RoomParticipants.Remove(currentRoomUser);
-        // here.
-        await Clients.Users(RoomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
-            .Client_PrivateRoomOtherUserJoined(new RoomParticipantDto(newJoinedUser, userJoining.RoomName)).ConfigureAwait(false);
-
-        // compile RoomInfoDto to send to the client caller.
-        var roomInfo = new RoomInfoDto
-        {
-            NewRoomName = userJoining.RoomName,
-            RoomHost = new PrivateRoomUser
-            {
-                UserUID = roomHost.PrivateRoomUserUID,
-                ChatAlias = roomHost.ChatAlias,
-                ActiveInRoom = roomHost.InRoom,
-                VibeAccess = roomHost.AllowingVibe
-            },
-            ConnectedUsers = RoomParticipants.Select(pru => new PrivateRoomUser
-            {
-                UserUID = pru.PrivateRoomUserUID,
-                ChatAlias = pru.ChatAlias,
-                ActiveInRoom = pru.InRoom,
-                VibeAccess = pru.AllowingVibe
-            }).ToList()
-        };
-        // send the room info to the client caller.
-        await Clients.Caller.Client_PrivateRoomJoined(roomInfo).ConfigureAwait(false);
+        // Was bool
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "ChangeRoomPassword - Method not yet Implemented"
+            + $"\nUnable to change password for room [{roomName}] to [{newPassword}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
+    }
+    /// <summary> Allows a user to join the room. </summary>
+    public async Task<List<VibeRoomKinksterFullDto>> RoomJoin(string roomName, string password, VibeRoomKinkster dto)
+    {
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomJoin - Method not yet Implemented"
+            + $"\nUnable to join room [{roomName}] with password [{password}].").ConfigureAwait(false);
+        return new List<VibeRoomKinksterFullDto>();
     }
 
-    /// <summary> Send a message to the users in the room you are in. </summary>
-    public async Task PrivateRoomSendMessage(RoomMessageDto dto)
+    /// <summary> Allows a user to leave the room. </summary>
+    public async Task<GsApiVibeErrorCodes> RoomLeave()
     {
-        // Ensure the user is in the room they are trying to send a message to, and that they are active in it.
-        var isActivelyInRoom = await IsActiveInRoom(dto.RoomName).ConfigureAwait(false);
-
-        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
-
-        // grab the list of active participants in the room.
-        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == dto.RoomName && pru.InRoom)
-            .Select(u => u.PrivateRoomUserUID)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        // Send the message to active participants in the private room
-        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomMessage(dto).ConfigureAwait(false);
+        // Was bool
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomLeave - Method not yet Implemented"
+            + $"\nUnable to leave room.").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
 
-    /// <summary> Push new device info to the participants in the room. </summary>
-    public async Task PrivateRoomPushDevice(UserCharaDeviceInfoMessageDto dto)
+    /// <summary> Grants access to a user in the room. </summary>
+    public async Task<GsApiVibeErrorCodes> RoomGrantAccess(UserDto allowedUser)
     {
-        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-
-        // ensure we are actively in the room we are trying to send the device info to.
-        var isActivelyInRoom = await IsActiveInRoom(dto.RoomName).ConfigureAwait(false);
-
-        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
-
-        // if valid, send the updated device info to the users active in the room
-        // grab the list of active participants in the room.
-        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == dto.RoomName && pru.InRoom)
-            .Select(u => u.PrivateRoomUserUID)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        // Send the message to active participants in the private room
-        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomReceiveUserDevice(dto).ConfigureAwait(false);
+        // Was bool
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomGrantAccess - Method not yet Implemented"
+            + $"\nUnable to grant access to user [{allowedUser.User.UID}] in room [{allowedUser.User.UID}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
 
-    /// <summary> Adds client caller to the rooms group. </summary>
-    public async Task PrivateRoomAllowVibes(string roomName)
+    /// <summary> Revokes access from a user in the room. </summary>
+    public async Task<GsApiVibeErrorCodes> RoomRevokeAccess(UserDto allowedUser)
     {
-        _logger.LogCallInfo();
-        // verify the user is active in a room.
-        bool isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
-
-        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
-
-        // add the user to the group for the room.
-        await Groups.AddToGroupAsync(Context.ConnectionId, roomName).ConfigureAwait(false);
-        // add the user to the RoomContextGroupVibeUsers for the RoomName 
-        RoomContextGroupVibeUsers[roomName].Add(UserUID);
-
-        // grab the privateroompair that just allowed this
-        var roomPair = await DbContext.PrivateRoomPairs
-            .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == roomName && pru.PrivateRoomUserUID == UserUID)
-            .ConfigureAwait(false);
-        if (roomPair is null) return;
-
-        // update the pair to allow vibes & save the changes.
-        roomPair.AllowingVibe = true;
-
-        DbContext.PrivateRoomPairs.Update(roomPair);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // export the update.
-        var roomuser = new PrivateRoomUser
-        {
-            UserUID = roomPair.PrivateRoomUserUID,
-            ChatAlias = roomPair.ChatAlias,
-            ActiveInRoom = roomPair.InRoom,
-            VibeAccess = roomPair.AllowingVibe
-        };
-
-        // send the update to the user that they have been added to the group.
-        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == roomName && pru.InRoom)
-            .Select(u => u.PrivateRoomUserUID)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        // Send the message to active participants in the private room
-        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomUpdateUser
-            (new RoomParticipantDto(roomuser, roomName)).ConfigureAwait(false);
+        // Was bool
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomRevokeAccess - Method not yet Implemented"
+            + $"\nUnable to revoke access from user [{allowedUser.User.UID}] in room [{allowedUser.User.UID}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
 
-    /// <summary> Adds client caller to the rooms group. </summary>
-    public async Task PrivateRoomDenyVibes(string roomName)
+    /// <summary> Pushes device update (e.g., for battery level, motor settings) to the room. </summary>
+    public async Task<GsApiVibeErrorCodes> RoomPushDeviceUpdate(DeviceInfo deviceInfo)
     {
-        _logger.LogCallInfo();
-        // verify the user is active in a room.
-        bool isActivelyInRoom = await IsActiveInRoom(roomName).ConfigureAwait(false);
-
-        if (!isActivelyInRoom) throw new Exception("Failed to locate your user as an active participant in the room you sent the update to.");
-
-        // add the user to the group for the room.
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomName).ConfigureAwait(false);
-        // add the user to the RoomContextGroupVibeUsers for the RoomName 
-        RoomContextGroupVibeUsers[roomName].Remove(UserUID);
-
-        // grab the privateroompair that just allowed this
-        var roomPair = await DbContext.PrivateRoomPairs
-            .FirstOrDefaultAsync(pru => pru.PrivateRoomNameID == roomName && pru.PrivateRoomUserUID == UserUID)
-            .ConfigureAwait(false);
-        if (roomPair is null) return;
-
-        // update the pair to allow vibes & save the changes.
-        roomPair.AllowingVibe = false;
-
-        DbContext.PrivateRoomPairs.Update(roomPair);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // export the update.
-        var roomuser = new PrivateRoomUser
-        {
-            UserUID = roomPair.PrivateRoomUserUID,
-            ChatAlias = roomPair.ChatAlias,
-            ActiveInRoom = roomPair.InRoom,
-            VibeAccess = roomPair.AllowingVibe
-        };
-
-        // send the update to the user that they have been added to the group.
-        var activeRoomParticipantsUID = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == roomName && pru.InRoom)
-            .Select(u => u.PrivateRoomUserUID)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        // Send the message to active participants in the private room
-        await Clients.Users(activeRoomParticipantsUID).Client_PrivateRoomUpdateUser
-            (new RoomParticipantDto(roomuser, roomName)).ConfigureAwait(false);
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomPushDeviceUpdate - Method not yet Implemented"
+            + $"\nUnable to push device update for device [{deviceInfo.DeviceName}] in room [{deviceInfo.DeviceIndex}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
 
-
-    /// <summary> 
-    /// This call spesifically is called in a streamlined mannor, meaning processing time for it
-    /// should be very minimal.
-    /// 
-    /// To account for this, interactions for this only occur for connected users in a hub context group.
-    /// Updates can only be called by the host of the room. 
-    /// </summary>
-    public async Task PrivateRoomUpdateUserDevice(UpdateDeviceDto dto)
+    /// <summary> Sends a data stream (vibration/rotation data) to users in the room. </summary>
+    public async Task<GsApiVibeErrorCodes> RoomSendDataStream(SexToyDataStreamDto dataStream)
     {
-        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-        // make sure we are the host of the room we are sending the update to.
-        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || !string.Equals(roomHost, UserUID, StringComparison.Ordinal))
-        {
-            throw new Exception("Not host of room, cannot send");
-        }
-
-        // we are the host, so ensure that the UserUID we are sending it to is in RoomContextGroupVibeUsers
-        if (!RoomContextGroupVibeUsers.TryGetValue(dto.RoomName, out var roomContextGroupVibeUsers))
-        {
-            throw new Exception("Room does not exist in the RoomContextGroupVibeUsers.");
-        }
-
-        // send the update to the user.
-        await Clients.Users(dto.User).Client_PrivateRoomDeviceUpdate(dto).ConfigureAwait(false);
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomSendDataStream - Method not yet Implemented"
+            + $"\nUnable to send data stream to room [{dataStream.DataStream}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
 
-
-
-    /// <summary> 
-    /// Sends a vibe update to all connected vibe users except the host.
-    /// </summary>
-    public async Task PrivateRoomUpdateAllUserDevices(UpdateDeviceDto dto)
+    /// <summary> Sends a chat message to the room. </summary>
+    public async Task<GsApiVibeErrorCodes> RoomSendChat(string roomName, string message)
     {
-        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-        // make sure we are the host of the room we are sending the update to.
-        if (!RoomHosts.TryGetValue(dto.RoomName, out var roomHost) || !string.Equals(roomHost, UserUID, StringComparison.Ordinal))
-        {
-            throw new Exception("Not host of room, cannot send");
-        }
-
-        // Use GroupExcept to send the update
-        await Clients.OthersInGroup(dto.RoomName).Client_PrivateRoomDeviceUpdate(dto).ConfigureAwait(false);
+        await Client_ReceiveServerMessage(MessageSeverity.Error, "RoomSendChat - Method not yet Implemented"
+            + $"\nUnable to send chat message to room [{roomName}] with message [{message}].").ConfigureAwait(false);
+        return GsApiVibeErrorCodes.MethodNotImplemented;
     }
-
-    // Leaving a room simply marks our user as false for inroom and updates the roomparticipants.
-    public async Task PrivateRoomLeave(RoomParticipantDto dto)
-    {
-        _logger.LogCallInfo(ToyboxHubLogger.Args(dto));
-
-        // find the room the user is in that matches the room name of the dto room they are wishing to leave.
-        var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync
-            (pru => pru.PrivateRoomUserUID == UserUID && pru.PrivateRoomNameID == dto.RoomName && pru.InRoom).ConfigureAwait(false);
-        if (roomUser is null) throw new Exception("User is not in a room.");
-
-
-        // find the list of room participants associated with the same PrivateRoomNameID
-        var roomParticipants = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == dto.RoomName)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-        // mark us as false for InRoom & vibe access
-        roomUser.InRoom = false;
-        roomUser.AllowingVibe = false;
-        // update our table
-        DbContext.PrivateRoomPairs.Update(roomUser);
-        // save changes
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // remove themselves from the vibe group
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, dto.RoomName).ConfigureAwait(false);
-        // if the user existed in the concurrent dictionary of contextgroupvibeusers, remove them.
-        if (RoomContextGroupVibeUsers.TryGetValue(dto.RoomName, out var roomContextGroupVibeUsers))
-        {
-            roomContextGroupVibeUsers.Remove(UserUID);
-        }
-
-        // inform other room participants that we have become inactive in the room.
-        var updatedPrivateRoomUser = new PrivateRoomUser
-        {
-            UserUID = dto.User.UserUID,
-            ChatAlias = dto.User.ChatAlias,
-            ActiveInRoom = false,
-            VibeAccess = false
-        };
-
-        // push update to users
-        await Clients.Users(roomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
-            .Client_PrivateRoomOtherUserLeft(new RoomParticipantDto(updatedPrivateRoomUser, dto.RoomName)).ConfigureAwait(false);
-    }
-
-    // Completely removes a room from existence. If you are the host calling this, it will remove the room.
-    public async Task PrivateRoomRemove(string roomToRemove)
-    {
-        _logger.LogCallInfo();
-
-        // Find the room the user is in
-        var roomUser = await DbContext.PrivateRoomPairs.FirstOrDefaultAsync
-            (pru => pru.PrivateRoomUserUID == UserUID && pru.PrivateRoomNameID == roomToRemove).ConfigureAwait(false);
-
-        if (roomUser is null) return;
-
-        // check if the user is the host of the room they are calling this on
-        var isHost = RoomHosts.TryGetValue(roomToRemove, out var hostUID) && string.Equals(hostUID, UserUID, StringComparison.Ordinal);
-
-        // grab all participants in the room
-        var roomParticipants = await DbContext.PrivateRoomPairs
-            .Where(pru => pru.PrivateRoomNameID == roomToRemove)
-            .ToListAsync()
-            .ConfigureAwait(false);
-
-
-        // if the user is NOT THE HOST, simply remove them from the PrivateRoom and respective Pair listing.
-        if (!isHost)
-        {
-            _logger.LogDebug("User is not the host, removing user from room.");
-            // remove the privateRoomPair from the database associated with this room
-            DbContext.PrivateRoomPairs.Remove(roomUser);
-            // save changes
-            await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-            // remove the user from the vibe group if they were in it.
-            if (RoomContextGroupVibeUsers.TryGetValue(roomToRemove, out var roomContextGroupVibeUsers))
-            {
-                roomContextGroupVibeUsers.Remove(UserUID);
-            }
-            // get the respective connection id from the user
-            if (_toyboxUserConnections.TryGetValue(UserUID, out var connectionId))
-            {
-                // attempt removing the user from the vibe group for the particular room.
-                await Groups.RemoveFromGroupAsync(connectionId, roomToRemove).ConfigureAwait(false);
-            }
-
-            // Notify other participants that the user has been removed
-            var updatedPrivateRoomUser = new PrivateRoomUser
-            {
-                UserUID = roomUser.PrivateRoomUserUID,
-                ChatAlias = roomUser.ChatAlias,
-                ActiveInRoom = false,
-                VibeAccess = false
-            };
-
-            await Clients.Users(roomParticipants.Select(u => u.PrivateRoomUserUID).ToList())
-                .Client_PrivateRoomRemovedUser(new RoomParticipantDto(updatedPrivateRoomUser, roomToRemove)).ConfigureAwait(false);
-            // perform an early return.
-            return;
-        }
-        else
-        {
-            // IF WE REACH HERE, THE HOST OF THE ROOM HAS CALLED THIS, SO WE MUST DESTROY THE ROOM
-            _logger.LogDebug("User is the host, removing room.");
-            // Inform all users that the room is closing
-            var userUIDs = roomParticipants.Select(pru => pru.PrivateRoomUserUID).ToList();
-            await Clients.Users(userUIDs).Client_PrivateRoomClosed(roomToRemove).ConfigureAwait(false);
-
-            // Batch remove all users from the group in the serverEndconnections.
-            var tasks = userUIDs.Select(userUID => _toyboxUserConnections.TryGetValue(userUID, out var connectionId)
-                    ? Groups.RemoveFromGroupAsync(connectionId, roomToRemove) : Task.CompletedTask).ToArray();
-            await Task.WhenAll(tasks).ConfigureAwait(false);
-
-            // remove the roomhost from the roomhost dictionary
-            RoomHosts.TryRemove(UserUID, out _);
-
-            // remove all PrivateRoomPairs associated with the room
-            DbContext.PrivateRoomPairs.RemoveRange(roomParticipants);
-
-            // remove the room itself
-            var room = await DbContext.PrivateRooms.FirstOrDefaultAsync(r => r.NameID == roomToRemove).ConfigureAwait(false);
-            if (room != null)
-            {
-                DbContext.PrivateRooms.Remove(room);
-            }
-
-            // Save changes to the database
-            await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        }
-    }
-
 
 
     // Helper function that determines if the user is active in the room they are trying to communicate with.

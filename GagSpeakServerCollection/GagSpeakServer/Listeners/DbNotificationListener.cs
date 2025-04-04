@@ -5,6 +5,7 @@ using GagspeakShared.Models;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using System.Text.Json;
 #nullable disable
 
 namespace GagspeakServer.Listeners;
@@ -95,18 +96,29 @@ public class DbNotificationListener : IHostedService
 
     public AccountClaimAuth ParsePayloadToAccountClaimAuth(string jsonPayload)
     {
-        var jObject = JObject.Parse(jsonPayload);
-
-        AccountClaimAuth accountClaimAuth = new AccountClaimAuth
+        try
         {
-            DiscordId = (ulong)jObject["discord_id"],
-            InitialGeneratedKey = (string)jObject["initial_generated_key"] ?? null,
-            VerificationCode = (string)jObject["verification_code"] ?? null,
-            User = jObject["user_uid"].ToObject<User>() ?? null,
-            StartedAt = jObject["started_at"]?.ToObject<DateTime?>() ?? null,
-        };
+            using JsonDocument doc = JsonDocument.Parse(jsonPayload);
+            JsonElement root = doc.RootElement;
 
-        return accountClaimAuth;
+            return new AccountClaimAuth
+            {
+                DiscordId = root.GetProperty("discord_id").GetUInt64(),
+                InitialGeneratedKey = root.GetProperty("initial_generated_key").GetString(),
+                VerificationCode = root.TryGetProperty("verification_code", out var codeProp) ? codeProp.GetString() : null,
+                User = root.TryGetProperty("user_uid", out var userProp)
+                    ? JsonSerializer.Deserialize<User>(userProp.GetRawText())
+                    : null,
+                StartedAt = root.TryGetProperty("started_at", out var dateProp)
+                    ? dateProp.Deserialize<DateTime?>()
+                    : null
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "[[Json Parsing Error]] Failed to parse payload: {Payload}", jsonPayload);
+            throw;
+        }
     }
 
 

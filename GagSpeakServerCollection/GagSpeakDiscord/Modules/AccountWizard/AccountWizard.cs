@@ -51,7 +51,7 @@ public partial class AccountWizard : InteractionModuleBase
         using var gagspeakDb = GetDbContext();
         // the user has an account of they have an accountClaimAuth in the database matching their discord ID.
         // Additionally, it checks to see if the time started at is null, meaning the claiming process has finished.
-        bool hasAccount = await gagspeakDb.AccountClaimAuth.AnyAsync(u => u.DiscordId == Context.User.Id && u.StartedAt is null).ConfigureAwait(false);
+        bool hasAccount = await gagspeakDb.AccountClaimAuth.AnyAsync(u => u.DiscordId == Context.User.Id && u.StartedAt == null).ConfigureAwait(false);
 
         EmbedBuilder eb = new();
         eb.WithTitle("Welcome to CK's GagSpeak Account Management. How may I help you today?");
@@ -220,7 +220,7 @@ public partial class AccountWizard : InteractionModuleBase
                 .Include(u => u.User)                             // the Auth object contains a user (they are associated)                           
                 .Where(u => u.UserUID == existingAuth.User.UID    // where the user's UID in the Auth is the same as the primary user ID in the AccountClaimAuth.
                     || u.PrimaryUserUID == existingAuth.User.UID) // or where the primary user UID of the Auth object is the same as the user ID in the AccountClaimAuth.
-                .OrderByDescending(u => u.PrimaryUser is null)    // order these entrys by the primary user being null, so primary is at the top.
+                .OrderByDescending(u => u.PrimaryUser == null)    // order these entrys by the primary user being null, so primary is at the top.
                 .ToListAsync().ConfigureAwait(false);             // put them into a list.
 
             // for each of our profiles, we will display their UID's in the list.
