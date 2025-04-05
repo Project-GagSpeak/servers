@@ -54,10 +54,10 @@ public class ClientPairPermissions
     public string      TriggerPhrase             { get; set; } = "";    // the end char that is the right enclosing bracket character for commands.
     public char        StartChar                 { get; set; } = '(';   // the start char that is the left enclosing bracket character for commands.
     public char        EndChar                   { get; set; } = ')';   // the end char that is the right enclosing bracket character for commands.
-    public PuppetPerms PuppetPerms               { get; set; } = 0;
+    public PuppetPerms PuppetPerms               { get; set; } = PuppetPerms.None;
 
     // unique Moodles permissions
-    public MoodlePerms MoodlePerms               { get; set; } = 0;     // Various Moodle Permissions configured through a flag enum.
+    public MoodlePerms MoodlePerms               { get; set; } = MoodlePerms.None;     // Various Moodle Permissions configured through a flag enum.
     public TimeSpan    MaxMoodleTime             { get; set; } = TimeSpan.Zero;
 
     // unique permissions for the toybox

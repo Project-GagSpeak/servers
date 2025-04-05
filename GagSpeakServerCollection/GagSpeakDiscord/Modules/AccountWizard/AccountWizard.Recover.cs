@@ -4,6 +4,7 @@ using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -19,7 +20,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentRecover), Context.Interaction.User.Id);
 
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Magenta);
         eb.WithTitle("Recover");
@@ -42,7 +43,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionRecovery), Context.Interaction.User.Id, uid);
 
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Green);
         await HandleRecovery(gagspeakDb, eb, uid).ConfigureAwait(false);
@@ -61,7 +62,7 @@ public partial class AccountWizard
             db.Auth.Remove(previousAuth);
         }
 
-        computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
         auth = new Auth()
         {
             HashedKey = StringUtils.Sha256String(computedHash),

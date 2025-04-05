@@ -18,7 +18,7 @@ internal record SecretKeyFailedAuthorization
     /// <summary>
     /// This property holds a Task that can be used to reset the failed attempts
     /// </summary>
-    public Task ResetTask { get; set; }
+    public Task? ResetTask { get; set; }
 
     /// <summary>
     /// This method increases the number of failed attempts in a thread-safe manner

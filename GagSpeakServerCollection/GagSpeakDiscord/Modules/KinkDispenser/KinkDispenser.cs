@@ -387,7 +387,7 @@ public partial class KinkDispenser : InteractionModuleBase
 
 #region ParseResultsAndPages
  // store everything from our results into the dataservice object
-    private async Task ParseGifUrls(string htmlResponse, SelectionDataService service)
+    private void ParseGifUrls(string htmlResponse, SelectionDataService service)
     {
         // we wont know the context of the message ID in here so we will have to pass it in
         // load up the html document
@@ -446,7 +446,7 @@ public partial class KinkDispenser : InteractionModuleBase
     }
 
     // if you want comments to help you understand this method more, see the pic version of this
-    private async Task ParsePicUrls(string htmlResponse, SelectionDataService service)
+    private void ParsePicUrls(string htmlResponse, SelectionDataService service)
     {
         var htmlDoc = new HtmlDocument();
         htmlDoc.LoadHtml(htmlResponse);

@@ -5,6 +5,7 @@ using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -36,7 +37,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentRelinkStart), Context.Interaction.User.Id);
 
-        using var db = GetDbContext();
+        using var db = await GetDbContext().ConfigureAwait(false);
         db.AccountClaimAuth.RemoveRange(db.AccountClaimAuth.Where(u => u.DiscordId == Context.User.Id));
         _botServices.DiscordVerifiedUsers.TryRemove(Context.User.Id, out _);
         _botServices.DiscordRelinkInitialKeyMapping.TryRemove(Context.User.Id, out _);
@@ -118,7 +119,7 @@ public partial class AccountWizard
             if (verified)
             {
                 eb.WithColor(Color.Green);
-                using var db = _services.CreateScope().ServiceProvider.GetRequiredService<GagspeakDbContext>();
+                using var db = await GetDbContext().ConfigureAwait(false);
                 var (_, key) = await HandleRelinkUser(db, uid).ConfigureAwait(false);
                 eb.WithTitle($"Relink successful, your UID is again: {uid}");
                 eb.WithDescription("This is your private secret key. Do not share this private secret key with anyone. **If you lose it, it is irrevocably lost.**"
@@ -146,78 +147,17 @@ public partial class AccountWizard
         await ModifyInteraction(eb, cb).ConfigureAwait(false);
     }
 
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
     private async Task<(bool Success, string LodestoneAuth, string UID)> HandleRelinkModalAsync(EmbedBuilder embed, InitialKeyModal arg)
     {
         ulong userId = Context.User.Id;
-        await Task.Run(() => Console.WriteLine("Hello World"));
-        // dont care about it right now
-        /*     var lodestoneId = ParseCharacterIdFromLodestoneUrl(arg.LodestoneUrl);
-             if (lodestoneId is null)
-             {
-                 embed.WithTitle("Invalid Lodestone URL");
-                 embed.WithDescription("The lodestone URL was not valid. It should have following format:" + Environment.NewLine
-                     + "https://eu.finalfantasyxiv.com/lodestone/character/YOUR_LODESTONE_ID/");
-                 return (false, string.Empty, string.Empty);
-             }
-             // check if userid is already in db
-             using var scope = _services.CreateScope();
-
-             var hashedLodestoneId = StringUtils.Sha256String(lodestoneId.ToString());
-
-             using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
-
-             if (!db.AccountClaimAuth.Any(a => a.HashedLodestoneId == hashedLodestoneId))
-             {
-                 // character already in db
-                 embed.WithTitle("Impossible operation");
-                 embed.WithDescription("This lodestone character does not exist in the database.");
-                 return (false, string.Empty, string.Empty);
-             }
-
-             var expectedUser = await db.AccountClaimAuth.Include(u => u.User).SingleAsync(u => u.HashedLodestoneId == hashedLodestoneId).ConfigureAwait(false);
-
-             string lodestoneAuth = await GenerateLodestoneAuth(Context.User.Id, hashedLodestoneId, db).ConfigureAwait(false);
-             // check if lodestone id is already in db
-             embed.WithTitle("Authorize your character for relinking");
-             embed.WithDescription("Add following key to your character profile at https://na.finalfantasyxiv.com/lodestone/my/setting/profile/"
-                                   + Environment.NewLine + Environment.NewLine
-                                   + $"**{lodestoneAuth}**"
-                                   + Environment.NewLine + Environment.NewLine
-                                   + $"**! THIS IS NOT THE KEY YOU HAVE TO ENTER IN GAGSPEAK !**"
-                                   + Environment.NewLine
-                                   + "__You can delete the entry from your profile after verification.__"
-                                   + Environment.NewLine + Environment.NewLine
-                                   + "The verification will expire in approximately 15 minutes. If you fail to verify the relink will be invalidated and you have to relink again.");
-             _botServices.DiscordRelinkInitialKeyMapping[Context.User.Id] = lodestoneId.ToString();
-
-             return (true, lodestoneAuth, expectedUser.User.UID);*/
         return (false, null, null);
     }
 
     private async Task HandleVerifyRelinkAsync(ulong userid, string authString, DiscordBotServices services)
     {
-        await Task.Run(() => Console.WriteLine("Hello World"));
-        /*      DONT CARE ABOUT IT RIGHT NOW
-                services.DiscordVerifiedUsers.Remove(userid, out _);
-                if (services.DiscordRelinkInitialKeyMapping.ContainsKey(userid))
-                {
-                    var randomServer = services.LodestoneServers[random.Next(services.LodestoneServers.Length)];
-                    var response = await req.GetAsync($"https://{randomServer}.finalfantasyxiv.com/lodestone/character/{services.DiscordRelinkInitialKeyMapping[userid]}").ConfigureAwait(false);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        if (content.Contains(authString))
-                        {
-                            services.DiscordVerifiedUsers[userid] = true;
-                            services.DiscordRelinkInitialKeyMapping.TryRemove(userid, out _);
-                        }
-                        else
-                        {
-                            services.DiscordVerifiedUsers[userid] = false;
-                        }
-                    }
-                }*/
     }
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
     private async Task<(string, string)> HandleRelinkUser(GagspeakDbContext db, string uid)
     {
@@ -226,7 +166,7 @@ public partial class AccountWizard
 
         var user = oldLodestoneAuth.User;
 
-        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
         var auth = new Auth()
         {
             HashedKey = StringUtils.Sha256String(computedHash),

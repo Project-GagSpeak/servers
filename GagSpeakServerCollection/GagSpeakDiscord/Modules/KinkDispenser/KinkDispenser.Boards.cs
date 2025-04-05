@@ -19,7 +19,7 @@ public partial class KinkDispenser : InteractionModuleBase
         var user = Context.User as SocketGuildUser;
 
         // Check if the user has a specific role
-        if (!user.Roles.Any(r => r.Name == "Family/Social Role") && user.Id != Context.Guild.OwnerId)
+        if (!user.Roles.Any(r => string.Equals(r.Name, "Family/Social Role", StringComparison.OrdinalIgnoreCase)) && user.Id != Context.Guild.OwnerId)
         {
             await ReplyAsync("You don't have permission to use this command.");
             return;
@@ -48,7 +48,7 @@ public partial class KinkDispenser : InteractionModuleBase
 
             _logger.LogDebug("Searching under URL {searchUrl}", searchUrl);
             // send the get request for the search results page to the sex.com server, and retrieve the responce.
-            var response = await newService.Board_HttpClient.GetAsync(searchUrl);
+            using var response = await newService.Board_HttpClient.GetAsync(searchUrl);
             var htmlResponse = await response.Content.ReadAsStringAsync();
 
             // queue the initial message responce
@@ -236,7 +236,7 @@ public partial class KinkDispenser : InteractionModuleBase
             // lets redirect our httpclient to the uri of the boardpage
             service.UpdateRequestHeaderReferer(service.CurBoard.ResultsPageReferer);
             // now that we have the new page, lets get that pages information
-            var response = await service.Board_HttpClient.GetAsync(service.CurBoard.ResultsPageReferer);
+            using var response = await service.Board_HttpClient.GetAsync(service.CurBoard.ResultsPageReferer);
             var htmlResponse = await response.Content.ReadAsStringAsync();
 
             // queue the initial message responce

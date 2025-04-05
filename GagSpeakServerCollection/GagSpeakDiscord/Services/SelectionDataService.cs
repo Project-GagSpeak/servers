@@ -4,7 +4,7 @@ namespace GagspeakDiscord.Services;
 public class SelectionDataService : ResultsPageInfo
 {
     /// <summary> The http client for making requests to sex.com </summary>
-    public HttpClient Img_HttpClient { get; set; } = new HttpClient();
+    public HttpClient Img_HttpClient { get; set; }
 
     /// <summary> The list of images in the results </summary>
     public MediaCollection ResultImgs { get; set; } = new MediaCollection();

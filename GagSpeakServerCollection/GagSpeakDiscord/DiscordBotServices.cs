@@ -12,6 +12,7 @@ using Microsoft.EntityFrameworkCore;
 
 // namespace dedicated to the discord bot.
 namespace GagspeakDiscord;
+#nullable enable
 
 // the class overviewing the bots services.
 public class DiscordBotServices
@@ -41,7 +42,9 @@ public class DiscordBotServices
     private readonly IServiceProvider _services;
     public RestGuild? KinkporiumGuildCached; // The cached Guild for Ck Discord Guild
     public ConcurrentQueue<KeyValuePair<ulong, Func<DiscordBotServices, Task>>> VerificationQueue { get; } = new(); // the verification queue
-    private CancellationTokenSource verificationTaskCts;                                 // the verification task cancellation tokens
+#pragma warning disable IDISP006 // Implement IDisposable, We already do this in start & stop.
+    private CancellationTokenSource _verificationTaskCts = new();
+#pragma warning restore IDISP006 // Implement IDisposable, We already do this in start & stop.
 
     public DiscordBotServices(ILogger<DiscordBotServices> logger, IServiceProvider services,
         IConfigurationService<DiscordConfiguration> config)
@@ -61,8 +64,8 @@ public class DiscordBotServices
     /// <summary> Stops the verification process </summary>
     public Task Stop()
     {
-        verificationTaskCts?.Cancel();
-        verificationTaskCts?.Dispose();
+        _verificationTaskCts?.Cancel();
+        _verificationTaskCts?.Dispose();
         return Task.CompletedTask;
     }
 
@@ -72,9 +75,11 @@ public class DiscordBotServices
     private async Task ProcessVerificationQueue()
     {
         // create a new cts for the verification task
-        verificationTaskCts = new CancellationTokenSource();
+        _verificationTaskCts?.Cancel();
+        _verificationTaskCts?.Dispose();
+        _verificationTaskCts = new CancellationTokenSource();
         // while the cancellation token is not requested
-        while (!verificationTaskCts.IsCancellationRequested)
+        while (!_verificationTaskCts.IsCancellationRequested)
         {
             // log the debug message that we are processing the verification queue
             Logger.LogTrace("Processing Verification Queue, Entries: {entr}", VerificationQueue.Count);
@@ -102,7 +107,7 @@ public class DiscordBotServices
             }
 
             // await a delay of 2 seconds
-            await Task.Delay(TimeSpan.FromSeconds(2), verificationTaskCts.Token).ConfigureAwait(false);
+            await Task.Delay(TimeSpan.FromSeconds(2), _verificationTaskCts.Token).ConfigureAwait(false);
         }
     }
 
@@ -128,7 +133,7 @@ public class DiscordBotServices
 
         var restChannel = await KinkporiumGuildCached.GetTextChannelAsync(reportChannelId.Value).ConfigureAwait(false);
         // Filter messages to only delete profile report messages sent by the bot
-        var messages = await restChannel.GetMessagesAsync().FlattenAsync();
+        var messages = await restChannel.GetMessagesAsync().FlattenAsync().ConfigureAwait(false);
         var profileReportMessages = messages.Where(m => m.Author.Id == discordUser.Id);
 
         // Further filter messages to exclude those that contain an embed with a header labeled "Resolution"
@@ -140,7 +145,7 @@ public class DiscordBotServices
         // Delete messages
         if (messagesToDelete.Any())
         {
-            await restChannel.DeleteMessagesAsync(messagesToDelete);
+            await restChannel.DeleteMessagesAsync(messagesToDelete).ConfigureAwait(false);
         }
 
         try
@@ -165,11 +170,11 @@ public class DiscordBotServices
                     Logger.LogDebug("Displaying Report for {reportedUserUID} by {reportingUserUID}", report.ReportedUserUID, report.ReportingUserUID);
                     // get the user who reported
                     var reportedUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportedUserUID).ConfigureAwait(false);
-                    var reportedUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportedUserUID).ConfigureAwait(false);
+                    var reportedUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u!.User!.UID == report.ReportedUserUID).ConfigureAwait(false);
 
                     // get the user who was reported
                     var reportingUser = await dbContext.Users.SingleAsync(u => u.UID == report.ReportingUserUID).ConfigureAwait(false);
-                    var reportingUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == report.ReportingUserUID).ConfigureAwait(false);
+                    var reportingUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u!.User!.UID == report.ReportingUserUID).ConfigureAwait(false);
 
                     // get the profile data of the reported user.
                     var reportedUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
@@ -262,3 +267,5 @@ public class DiscordBotServices
         KinkporiumGuildCached = guild;
     }
 }
+
+#nullable disable

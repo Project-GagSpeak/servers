@@ -18,16 +18,16 @@ public partial class KinkDispenser : InteractionModuleBase
         var user = Context.User as SocketGuildUser;
 
         // Check if the sort parameter is valid
-        if (sort != "popular-all" && sort != "latest" && sort != "relevance" && sort != "")
+        string[] validSorts = { "popular-all", "relevance", "latest", "" };
+        if (!validSorts.Contains(sort, StringComparer.Ordinal))
         {
-            await ReplyAsync("Invalid sort parameter. It can only be 'popular-all', 'relevance', or 'latest'.");
+            await ReplyAsync("Invalid sort parameter. It can only be 'popular-all', 'relevance', or 'latest'.").ConfigureAwait(false);
             return;
         }
-
         // Check if the user has a specific role
-        if (!user.Roles.Any(r => r.Name == "Family/Social Role") && user.Id != Context.Guild.OwnerId)
+        if (!user.Roles.Any(r => string.Equals(r.Name, "Family/Social Role") && user.Id != Context.Guild.OwnerId))
         {
-            await ReplyAsync("You don't have permission to use this command.");
+            await ReplyAsync("You don't have permission to use this command.").ConfigureAwait(false);
             return;
         }
         // if they do have access::
@@ -44,7 +44,7 @@ public partial class KinkDispenser : InteractionModuleBase
             if (sort != "") searchUrl += "&sort=" + sort;
 
             // Immediately respond with a deferred message
-            await Context.Interaction.DeferAsync();
+            await Context.Interaction.DeferAsync().ConfigureAwait(false);
             newService.Img_HttpClient = new HttpClient();
             newService.Img_HttpClient.Timeout = TimeSpan.FromSeconds(10); // set the timeout to 10 seconds
             newService.Img_HttpClient.DefaultRequestHeaders.Referrer = new Uri(searchUrl);
@@ -55,8 +55,8 @@ public partial class KinkDispenser : InteractionModuleBase
 
             _logger.LogDebug("Searching under URL {searchUrl}", searchUrl);
             // send the get request for the search results page to the sex.com server, and retrieve the responce.
-            var response = await newService.Img_HttpClient.GetAsync(searchUrl);
-            var htmlResponse = await response.Content.ReadAsStringAsync();
+            using var response = await newService.Img_HttpClient.GetAsync(searchUrl).ConfigureAwait(false);
+            var htmlResponse = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
 
             // queue the initial message responce
             EmbedBuilder eb = new();
@@ -74,7 +74,7 @@ public partial class KinkDispenser : InteractionModuleBase
             _logger.LogDebug("Dictionary now has {picDataService.Count} entries", _botServices.PicData.Count);
 
             // Parse the HTML response to get the GIF URLs, store results into the data newService
-            await ParsePicUrls(htmlResponse, newService);
+            ParsePicUrls(htmlResponse, newService);
 
             _logger.LogInformation("Found {imageListCount} PICs!!!", newService.ResultImgs.ImageList.Count);
 
@@ -95,7 +95,7 @@ public partial class KinkDispenser : InteractionModuleBase
                  .FetchFullResURL(_logger, newService);
 
             // Wait for both tasks to complete
-            await Task.WhenAll(picUrlTask, fetchFullResURLTask);
+            await Task.WhenAll(picUrlTask, fetchFullResURLTask).ConfigureAwait(false);
             _logger.LogInformation("pic url is now {picUrl}", picUrlTask.Result);
 
             // After both tasks have completed, you can get the results
@@ -117,9 +117,9 @@ public partial class KinkDispenser : InteractionModuleBase
             ComponentBuilder cb = new();
             var resp = await Context.Interaction.FollowupAsync(embed: eb.Build(), components: cb.Build(), ephemeral: true).ConfigureAwait(false);
             // wait 3 seconds then delete the message. 
-            await Task.Delay(3000);
-            await Context.Interaction.DeleteOriginalResponseAsync(); // remove original
-            await resp.DeleteAsync(); // remove the followup
+            await Task.Delay(3000).ConfigureAwait(false);
+            await Context.Interaction.DeleteOriginalResponseAsync().ConfigureAwait(false); // remove original
+            await resp.DeleteAsync().ConfigureAwait(false); // remove the followup
             return; // Stop the execution of the current method
         }
     }
@@ -213,7 +213,7 @@ public partial class KinkDispenser : InteractionModuleBase
                  .FetchFullResURL(_logger, service);
 
             // Wait for both tasks to complete
-            await Task.WhenAll(picUrlTask, fetchFullResURLTask);
+            await Task.WhenAll(picUrlTask, fetchFullResURLTask).ConfigureAwait(false);
 
             // After both tasks have completed, you can get the results
             var picUrl = picUrlTask.Result;
@@ -242,7 +242,7 @@ public partial class KinkDispenser : InteractionModuleBase
         if (_botServices.PicData.TryGetValue(msgId, out var service))
         {
             // Defer the reply first
-            await Context.Interaction.DeferAsync();
+            await Context.Interaction.DeferAsync().ConfigureAwait(false);
             // now that we have the full res URL lets start tossing in our path and url and updating this
             string url = service.ResultImgs.ImageList[service.ResultImgs.CurIdx].FullResURL;
 

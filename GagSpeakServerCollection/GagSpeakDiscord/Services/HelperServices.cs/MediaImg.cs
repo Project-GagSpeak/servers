@@ -34,12 +34,12 @@ public class MediaImg : PreviewImg
         try
         {
             // Fetch the full resolution page
-            var fullResPageResponse = await dataService.Img_HttpClient.GetAsync(this.FullresReferer);
+            using var fullResPageResponse = await dataService.Img_HttpClient.GetAsync(this.FullresReferer).ConfigureAwait(false);
 
             // if the request was successful, parse the html for the full resolution image URL
             if (fullResPageResponse.IsSuccessStatusCode)
             {
-                var fullResPageHtml = await fullResPageResponse.Content.ReadAsStringAsync();
+                var fullResPageHtml = await fullResPageResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var fullResPageHtmlDoc = new HtmlDocument();
                 // load the html
                 fullResPageHtmlDoc.LoadHtml(fullResPageHtml);
@@ -80,12 +80,12 @@ public class MediaImg : PreviewImg
         try
         {
             // Fetch the full resolution page
-            var fullResPageResponse = await dataService.Board_HttpClient.GetAsync(this.FullresReferer);
+            using var fullResPageResponse = await dataService.Board_HttpClient.GetAsync(this.FullresReferer).ConfigureAwait(false);
 
             // if the request was successful, parse the html for the full resolution image URL
             if (fullResPageResponse.IsSuccessStatusCode)
             {
-                var fullResPageHtml = await fullResPageResponse.Content.ReadAsStringAsync();
+                var fullResPageHtml = await fullResPageResponse.Content.ReadAsStringAsync().ConfigureAwait(false);
                 var fullResPageHtmlDoc = new HtmlDocument();
                 // load the html
                 fullResPageHtmlDoc.LoadHtml(fullResPageHtml);

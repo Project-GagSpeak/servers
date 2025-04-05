@@ -7,6 +7,7 @@ using GagspeakShared.Services;
 using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Internal;
 using StackExchange.Redis;
 using System.Text.RegularExpressions;
 
@@ -14,25 +15,27 @@ namespace GagspeakDiscord.Modules.AccountWizard;
 
 public partial class AccountWizard : InteractionModuleBase
 {
-    private ILogger<AccountWizard> _logger;                                            // Logger for GagspeakCommands's interactions
-    private IServiceProvider _services;                                                 // Service provider for GagspeakCommands's interactions
-    private DiscordBotServices _botServices;                                            // Discord bot services
-    private IConfigurationService<ServerConfiguration> _gagspeakClientConfigurationService;           // Configuration service for Gagspeak client
-    private IConfigurationService<DiscordConfiguration> _discordConfigService;                 // Configuration service for Discord
-    private IConnectionMultiplexer _connectionMultiplexer;                              // the connection multiplexer for the discord bot.
-    private Random random = new();                                                      // RANDOM WHOA
+    private ILogger<AccountWizard> _logger;
+    private IServiceProvider _services;
+    private DiscordBotServices _botServices;
+    private IConfigurationService<ServerConfiguration> _gagspeakClientConfigService;
+    private IConfigurationService<DiscordConfiguration> _discordConfigService;
+    private IConnectionMultiplexer _connectionMultiplexer;
+    private IDbContextFactory<GagspeakDbContext> _dbContextFactory;
+    private Random random = new();
 
     public AccountWizard(ILogger<AccountWizard> logger, IServiceProvider services, DiscordBotServices botServices,
-        IConfigurationService<ServerConfiguration> gagspeakClientConfigurationService,
-        IConfigurationService<DiscordConfiguration> discordConfigService,
-        IConnectionMultiplexer connectionMultiplexer)
+        IConfigurationService<ServerConfiguration> gagspeakClientConfigService,
+        IConfigurationService<DiscordConfiguration> discordConfigService, IConnectionMultiplexer connectionMultiplexer,
+        IDbContextFactory<GagspeakDbContext> dbContextFactory)
     {
         _logger = logger;
         _services = services;
         _botServices = botServices;
-        _gagspeakClientConfigurationService = gagspeakClientConfigurationService;
+        _gagspeakClientConfigService = gagspeakClientConfigService;
         _discordConfigService = discordConfigService;
         _connectionMultiplexer = connectionMultiplexer;
+        _dbContextFactory = dbContextFactory;
     }
 
 
@@ -48,7 +51,7 @@ public partial class AccountWizard : InteractionModuleBase
         _logger.LogInformation("{method}:{userId}", nameof(StartAccountManagementWizard), Context.Interaction.User.Id);
 
         // fetch the database context to see if they already have a claimed account.
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         // the user has an account of they have an accountClaimAuth in the database matching their discord ID.
         // Additionally, it checks to see if the time started at is null, meaning the claiming process has finished.
         bool hasAccount = await gagspeakDb.AccountClaimAuth.AnyAsync(u => u.DiscordId == Context.User.Id && u.StartedAt == null).ConfigureAwait(false);
@@ -139,8 +142,8 @@ public partial class AccountWizard : InteractionModuleBase
 
 
     /// <summary> Helper function for grabbing the database context from the GagSpeak VM host. </summary>
-    private GagspeakDbContext GetDbContext() => _services.CreateScope().ServiceProvider.GetService<GagspeakDbContext>();
-
+    private async Task<GagspeakDbContext> GetDbContext()
+        => await _dbContextFactory.CreateDbContextAsync().ConfigureAwait(false);
 
     /// <summary> Helper function used to validate the interaction being made with the discord bot </summary>
     private async Task<bool> ValidateInteraction()
@@ -261,7 +264,7 @@ public partial class AccountWizard : InteractionModuleBase
         };
 
         // Add the new accountclaimauth object to the database context and save the changes, then return the auth string as the secret key we have generated.
-        await dbContext.AddAsync(accountClaimAuthToAdd);
+        await dbContext.AddAsync(accountClaimAuthToAdd).ConfigureAwait(false);
 
         // Save the changes to the database context
         await dbContext.SaveChangesAsync().ConfigureAwait(false);

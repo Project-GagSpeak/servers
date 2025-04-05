@@ -1,7 +1,5 @@
 using Discord;
 using Discord.Interactions;
-using Discord.Rest;
-using Discord.WebSocket;
 using GagspeakAPI.Enums;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
@@ -10,6 +8,7 @@ using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -75,7 +74,7 @@ public class GagspeakCommands : InteractionModuleBase
     {
         try
         {
-            var embed = await HandleUserUnban(desiredUid);
+            Embed embed = await HandleUserUnban(desiredUid);
 
             await RespondAsync(embeds: new[] { embed }, ephemeral: true).ConfigureAwait(false);
         }
@@ -99,7 +98,7 @@ public class GagspeakCommands : InteractionModuleBase
         {
             _logger.LogInformation("Processing Reports Queue! " + Context.Guild.Name);
             // Create a new CTS for the manual process
-            using (var manualCts = new CancellationTokenSource())
+            using (CancellationTokenSource manualCts = new CancellationTokenSource())
             {
                 // Call the process reports queue with the manual token
                 await _botServices.ProcessReports(Context.User, manualCts.Token);
@@ -124,8 +123,8 @@ public class GagspeakCommands : InteractionModuleBase
         _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}:{uid}", Context.Interaction.User.Id, nameof(SendMessageToClients), message, messageType, uid);
 
         // get the database scope
-        using var scope = _services.CreateScope();
-        using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
+        using IServiceScope scope = _services.CreateScope();
+        using GagspeakDbContext? db = scope.ServiceProvider.GetService<GagspeakDbContext>();
 
         // if the spesified uid doesnt exist then tell the user and return
         if (!string.IsNullOrEmpty(uid) && !await db.Users.AnyAsync(u => u.UID == uid))
@@ -141,22 +140,20 @@ public class GagspeakCommands : InteractionModuleBase
             using HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
 
-            var payload = new ClientMessage(messageType, message, uid ?? string.Empty);
+            ClientMessage payload = new ClientMessage(messageType, message, uid ?? string.Empty);
             string jsonPayload = JsonSerializer.Serialize(payload);
             _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), jsonPayload);
 
-            var response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), payload).ConfigureAwait(false);
-
-
+            using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), payload).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
+                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
                 if (uid is null && discordChannelForMessages != null)
                 {
-                    var discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
+                    IMessageChannel? discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
                     if (discordChannel != null)
                     {
-                        var embedColor = messageType switch
+                        Color embedColor = messageType switch
                         {
                             MessageSeverity.Information => Color.Blue,
                             MessageSeverity.Warning => new Color(255, 255, 0),
@@ -203,12 +200,12 @@ public class GagspeakCommands : InteractionModuleBase
         }
         else if (timeFrame.EndsWith("d", StringComparison.OrdinalIgnoreCase))
         {
-            int days = int.Parse(timeFrame.TrimEnd('d', 'D'));
+            int days = int.Parse(timeFrame.TrimEnd('d', 'D'), CultureInfo.InvariantCulture);
             purgeTimeSpan = TimeSpan.FromDays(days);
         }
         else if (timeFrame.EndsWith("h", StringComparison.OrdinalIgnoreCase))
         {
-            int hours = int.Parse(timeFrame.TrimEnd('h', 'H'));
+            int hours = int.Parse(timeFrame.TrimEnd('h', 'H'), CultureInfo.InvariantCulture);
             purgeTimeSpan = TimeSpan.FromHours(hours);
         }
         else
@@ -218,12 +215,13 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // Assuming you have a way to get the dbContext and call the PurgeUnusedAccounts method
-        using var db = _services.CreateScope().ServiceProvider.GetService<GagspeakDbContext>();
+        using IServiceScope scope = _services.CreateScope();
+        GagspeakDbContext? db = scope.ServiceProvider.GetService<GagspeakDbContext>();
         // create a list of all users from the users table whose LastLoggedIn time was greater than time current time - timespan
-        var users = await db.Users.Where(u => u.LastLoggedIn < DateTime.UtcNow - purgeTimeSpan).ToListAsync();
+        List<User> users = await db.Users.Where(u => u.LastLoggedIn < DateTime.UtcNow - purgeTimeSpan).ToListAsync();
 
         // purge the users from the database
-        foreach(var user in users)
+        foreach(User? user in users)
         {
             await SharedDbFunctions.PurgeUser(_logger, user, db);
         }
@@ -238,11 +236,11 @@ public class GagspeakCommands : InteractionModuleBase
     {
         _logger.LogInformation("SlashCommand:{userId}:{Method}:{message}:{type}:{uid}", Context.Interaction.User.Id, nameof(ForceReconnectOnlineUsers), message, messageType, uid);
 
-        var user = await Context.Guild.GetUserAsync(Context.User.Id);
-        var isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
+        IGuildUser user = await Context.Guild.GetUserAsync(Context.User.Id);
+        bool isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
 
-        using var scope = _services.CreateScope();
-        using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
+        using IServiceScope scope = _services.CreateScope();
+        using GagspeakDbContext? db = scope.ServiceProvider.GetService<GagspeakDbContext>();
 
         if (!isAdminOrOwner)
         {
@@ -255,24 +253,21 @@ public class GagspeakCommands : InteractionModuleBase
             using HttpClient client = new HttpClient();
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _serverTokenGenerator.Token);
 
-            var payload = new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect, uid);
+            HardReconnectMessage payload = new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect, uid);
             string jsonPayload = JsonSerializer.Serialize(payload);
             _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", 
                 new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), jsonPayload);
 
-            var response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)),
-                "/msgc/forceHardReconnect"), payload).ConfigureAwait(false);
-
-
+            using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), payload).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                var discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
+                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
                 if (discordChannelForMessages != null)
                 {
-                    var discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
+                    IMessageChannel? discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
                     if (discordChannel != null)
                     {
-                        var embedColor = messageType switch
+                        Color embedColor = messageType switch
                         {
                             MessageSeverity.Information => Color.Blue,
                             MessageSeverity.Warning => new Color(255, 255, 0),
@@ -310,9 +305,9 @@ public class GagspeakCommands : InteractionModuleBase
         // log the used slash command
         _logger.LogInformation("SlashCommand:{userId}:{Method}", Context.Interaction.User.Id, nameof(UpdateRoles));
         // Check if the user has the "Assistant Role" or is an admin or owner
-        var user = await Context.Guild.GetUserAsync(Context.User.Id);
-        var assistantRole = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Assistant", StringComparison.Ordinal));
-        var isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
+        IGuildUser user = await Context.Guild.GetUserAsync(Context.User.Id);
+        IRole? assistantRole = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Assistant", StringComparison.Ordinal));
+        bool isAdminOrOwner = user.GuildPermissions.Administrator || user.GuildPermissions.ManageGuild;
         if ((assistantRole is null || !user.RoleIds.Contains(assistantRole.Id)) && !isAdminOrOwner)
         {
             await RespondAsync("You do not have permission to use this command.", ephemeral: true).ConfigureAwait(false);
@@ -320,14 +315,12 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // Get the roles to check for
-        var distinguishedConnoisseurRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Distinguished Connoisseur");
-        var esteemedPatreonRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Esteemed Patron");
-        var illustriousSupporterRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Illustrious Supporter");
-        var serverBoosterRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Server Booster");
-        var contributorRole = Context.Guild.Roles.FirstOrDefault(r => r.Name == "Contributor");
-
-        if (distinguishedConnoisseurRole is null || serverBoosterRole is null
-        || esteemedPatreonRole is null || illustriousSupporterRole is null || contributorRole is null)
+        IRole? tier3 = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Distinguished Connoisseur", StringComparison.Ordinal));
+        IRole? tier2 = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Esteemed Patron", StringComparison.Ordinal));
+        IRole? tier1 = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Illustrious Supporter", StringComparison.Ordinal));
+        IRole? booster = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Server Booster", StringComparison.Ordinal));
+        IRole? contributor = Context.Guild.Roles.FirstOrDefault(r => string.Equals(r.Name, "Contributor", StringComparison.Ordinal));
+        if (tier3 is null || tier2 is null || tier1 is null || booster is null || contributor is null)
         {
             await RespondAsync("One or more roles do not exist.", ephemeral: true).ConfigureAwait(false);
             return;
@@ -343,7 +336,7 @@ public class GagspeakCommands : InteractionModuleBase
         eb.WithColor(Color.Magenta);
         // respond to the message with an embed letting us know that we are updating the roles
         await FollowupAsync(embed: eb.Build(), ephemeral: true).ConfigureAwait(false);
-        var resp = await GetOriginalResponseAsync().ConfigureAwait(false);
+        IUserMessage resp = await GetOriginalResponseAsync().ConfigureAwait(false);
 
         // get the list of users.
         IEnumerable<IGuildUser> users = await Context.Guild.GetUsersAsync();
@@ -352,28 +345,26 @@ public class GagspeakCommands : InteractionModuleBase
         List<(string, string)> userRoles = new List<(string, string)>();
 
         // Iterate over the guild users
-        foreach (var guildUser in users)
+        foreach (IGuildUser guildUser in users)
         {
             // If the user has one of the roles and does not have the Contributor role, add the Contributor role
-            if ((guildUser.RoleIds.Contains(distinguishedConnoisseurRole.Id) || guildUser.RoleIds.Contains(esteemedPatreonRole.Id)
-                || guildUser.RoleIds.Contains(illustriousSupporterRole.Id) || guildUser.RoleIds.Contains(serverBoosterRole.Id))
-                && !guildUser.RoleIds.Contains(contributorRole.Id))
+            if ((guildUser.RoleIds.Contains(tier3.Id) || guildUser.RoleIds.Contains(tier2.Id) || guildUser.RoleIds.Contains(tier1.Id) 
+                || guildUser.RoleIds.Contains(booster.Id)) && !guildUser.RoleIds.Contains(contributor.Id))
             {
                 // Increment the counter
                 rolesUpdated++;
-                await guildUser.AddRoleAsync(contributorRole);
+                await guildUser.AddRoleAsync(contributor);
                 // Update the message
                 eb.WithTitle($"Updating {rolesUpdated} roles...");
                 // Store the user's name and the role they had that gave them the contributor role in the list
-                var roleNames = guildUser.RoleIds.Select(roleId => Context.Guild.GetRole(roleId).Name)
-                    .FirstOrDefault(roleName =>
-                        roleName.Contains(distinguishedConnoisseurRole.Name) ||
-                        roleName.Contains(esteemedPatreonRole.Name) ||
-                        roleName.Contains(illustriousSupporterRole.Name) ||
-                        roleName.Contains(serverBoosterRole.Name));
+                string? roleNames = guildUser.RoleIds.Select(roleId => Context.Guild.GetRole(roleId).Name)
+                    .FirstOrDefault(roleName => roleName.Contains(tier3.Name) || roleName.Contains(tier2.Name) || roleName.Contains(tier1.Name) || roleName.Contains(booster.Name));
+                // if role name is null, do not add.
+                if (roleNames is null)
+                    continue;
 
                 // Use the Nickname if it's not null, otherwise use the Username
-                var displayName = guildUser.DisplayName ?? guildUser.Username;
+                string displayName = guildUser.DisplayName ?? guildUser.Username;
                 userRoles.Add((displayName, roleNames));
 
                 await ModifyMessageAsync(eb, resp).ConfigureAwait(false);
@@ -383,7 +374,7 @@ public class GagspeakCommands : InteractionModuleBase
         if (rolesUpdated > 0)
         {
             eb.WithDescription("Summary of Added Users:");
-            foreach (var (username, roleName) in userRoles)
+            foreach ((string username, string roleName) in userRoles)
                 eb.AddField($"{username}", $"Role for Contributor: __{roleName}__");
         }
 
@@ -401,13 +392,13 @@ public class GagspeakCommands : InteractionModuleBase
     public async Task<Embed> HandleUserUnban(string desiredUid)
     {
         // An EmbedBuilder is created to build the embed message
-        var embed = new EmbedBuilder();
+        EmbedBuilder embed = new EmbedBuilder();
 
-        using var scope = _services.CreateScope();
-        using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
+        using IServiceScope scope = _services.CreateScope();
+        using GagspeakDbContext? db = scope.ServiceProvider.GetService<GagspeakDbContext>();
 
         // locate the auth first, as it is linked to registered and unregistered players.
-        var auth = await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == desiredUid).ConfigureAwait(false);
+        Auth? auth = await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == desiredUid).ConfigureAwait(false);
         if (auth is null)
         {
             // The embed message is updated to indicate that the user already exists in the database
@@ -418,7 +409,7 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // grab the banned user associated with this.
-        var bannedUser = await db.BannedUsers.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
+        Banned? bannedUser = await db.BannedUsers.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
         if(bannedUser is not null)
         {
             // remove the banned user from the database
@@ -426,11 +417,11 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // grab the account auth claim, if one exists.
-        var accountClaim = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == auth.UserUID).ConfigureAwait(false);
+        AccountClaimAuth? accountClaim = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == auth.UserUID).ConfigureAwait(false);
         // if it exists, we should also grab the banned registration row, then delete both of these.
         if(accountClaim is not null)
         {
-            var bannedRegistration = await db.BannedRegistrations.SingleOrDefaultAsync(u => u.DiscordId == accountClaim.DiscordId.ToString()).ConfigureAwait(false);
+            BannedRegistrations? bannedRegistration = await db.BannedRegistrations.SingleOrDefaultAsync(u => u.DiscordId == accountClaim.DiscordId.ToString()).ConfigureAwait(false);
             if(bannedRegistration is not null)
             {
                 db.BannedRegistrations.Remove(bannedRegistration);
@@ -438,7 +429,7 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // update the disabled to false.
-        var profile = await db.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
+        UserProfileData? profile = await db.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
         if (profile is not null)
         {
             profile.ProfileDisabled = false;
@@ -467,13 +458,13 @@ public class GagspeakCommands : InteractionModuleBase
         bool showForSecondaryUser = secondaryUserUid != null;
 
         // Create a new scope for the service provider.
-        using var scope = _services.CreateScope();
+        using IServiceScope scope = _services.CreateScope();
 
         // Get the required service from the service provider.
-        await using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
+        await using GagspeakDbContext db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
 
         // Fetch the primary user from the database.
-        var primaryUser = await db.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == id).ConfigureAwait(false);
+        AccountClaimAuth? primaryUser = await db.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == id).ConfigureAwait(false);
 
         // Set the user to check for Discord ID as the provided ID.
         ulong userToCheckForDiscordId = id;
@@ -496,7 +487,7 @@ public class GagspeakCommands : InteractionModuleBase
         // If an optional user or UID was provided and the primary user is an admin or moderator, fetch the user from the database.
         else if ((optionalUser != null || uid != null))
         {
-            AccountClaimAuth userInDb = null;
+            AccountClaimAuth? userInDb = null;
             if (optionalUser != null)
             {
                 userInDb = await db.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == optionalUser).ConfigureAwait(false);
@@ -519,8 +510,8 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // Fetch the lodestone user from the database.
-        var lodestoneUser = await db.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == userToCheckForDiscordId).ConfigureAwait(false);
-        var dbUser = lodestoneUser.User;
+        AccountClaimAuth? lodestoneUser = await db.AccountClaimAuth.Include(u => u.User).SingleOrDefaultAsync(u => u.DiscordId == userToCheckForDiscordId).ConfigureAwait(false);
+        User? dbUser = lodestoneUser.User;
 
         // If a secondary user UID was provided, fetch the user from the database.
         if (showForSecondaryUser)
@@ -535,10 +526,10 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // Fetch the auth from the database.
-        var auth = await db.Auth.Include(u => u.PrimaryUser).SingleOrDefaultAsync(u => u.UserUID == dbUser.UID).ConfigureAwait(false);
+        Auth? auth = await db.Auth.Include(u => u.PrimaryUser).SingleOrDefaultAsync(u => u.UserUID == dbUser.UID).ConfigureAwait(false);
 
         // Fetch the identity from the database.
-        var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("GagspeakHub:UID:" + dbUser.UID).ConfigureAwait(false);
+        RedisValue identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("GagspeakHub:UID:" + dbUser.UID).ConfigureAwait(false);
 
         // Set the title and description of the embed builder.
         eb.WithTitle("User Information");
@@ -562,7 +553,7 @@ public class GagspeakCommands : InteractionModuleBase
         else
         {
             // Retrieve a list of secondary UIDs where the primary UID is the user's UID
-            var secondaryUIDs = await db.Auth.Where(p => p.PrimaryUserUID == dbUser.UID).Select(p => p.UserUID).ToListAsync();
+            List<string?> secondaryUIDs = await db.Auth.Where(p => p.PrimaryUserUID == dbUser.UID).Select(p => p.UserUID).ToListAsync();
 
             // If there are any secondary UIDs
             if (secondaryUIDs.Any())
@@ -573,7 +564,7 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // Add a field to the embed builder with the title "Last Online (UTC)" and the value of the user's last login time in UTC
-        eb.AddField("Last Online (UTC)", dbUser.LastLoggedIn.ToString("U"));
+        eb.AddField("Last Online (UTC)", dbUser.LastLoggedIn.ToString("U", CultureInfo.InvariantCulture));
 
         // Add a field to the embed builder with the title "Currently online" and the value of whether the user is currently online
         eb.AddField("Currently online ", !string.IsNullOrEmpty(identity));

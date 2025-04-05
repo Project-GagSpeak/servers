@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using GagspeakShared.Utils;
 using GagspeakShared.Models;
 using GagSpeakDiscord.Modules.Popups;
+using System.Globalization;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -50,7 +51,7 @@ public partial class AccountWizard
         _logger.LogInformation("{method}:{userId}", nameof(ComponentRegisterStart), Context.Interaction.User.Id);
 
         // grab the database context
-        using var db = GetDbContext();
+        using var db = await GetDbContext().ConfigureAwait(false);
         // if we enter this menu at all, for whatever reason, we should remove the user from the claimauth table, and the initial key mapping.
         var entry = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false);
         if (entry != null)
@@ -80,7 +81,7 @@ public partial class AccountWizard
         EmbedBuilder eb = new();
         eb.WithColor(Color.Magenta);
         // provide the registration modal and await the response, returns if the registration was successful or not, and the verification code.
-        bool success = await HandleRegisterModalAsync(eb, initialKeyModal).ConfigureAwait(false);
+        bool success = HandleRegisterModalAsync(eb, initialKeyModal);
         // while we handle the registration for the modal, construct the component builder allowing the user to cancel, verify, or try again.
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-claim", ButtonStyle.Secondary, emote: new Emoji("❌"));
@@ -167,7 +168,7 @@ public partial class AccountWizard
     /// <param name="embed"> the embed builder for the message </param>
     /// <param name="arg"> the initial key modal as an argument passed in. </param>
     /// <returns> if it was sucessful or not, and the verification code string. </returns>
-    private async Task<bool> HandleRegisterModalAsync(EmbedBuilder embed, InitialKeyModal arg)
+    private bool HandleRegisterModalAsync(EmbedBuilder embed, InitialKeyModal arg)
     {
         // at this point in time, remember that we have no accountClaimAuth object, only a user and auth object.
         using var scope = _services.CreateScope();
@@ -224,7 +225,7 @@ public partial class AccountWizard
         }
 
         // check to see if the answers match
-        if (verificationModal.VerificationCodeStr != verificationCode)
+        if (!string.Equals(verificationModal.VerificationCodeStr, verificationCode, StringComparison.Ordinal))
         {
             _logger.LogInformation("Verification code {code} did not match the one generated for {userid}", verificationModal.VerificationCodeStr, Context.User.Id);
             eb.WithTitle("The verification code you entered does not match the one generated for you, try registration again.");
@@ -236,13 +237,13 @@ public partial class AccountWizard
         _logger.LogInformation("Verification code {code} matched the one generated for {userid}", verificationModal.VerificationCodeStr, Context.User.Id);
         _botServices.DiscordVerifiedUsers[Context.User.Id] = true;
         // handle adding this user to the database
-        using var db = GetDbContext();
-        var accountClaimAuth = db.AccountClaimAuth.SingleOrDefault(u => u.DiscordId == Context.User.Id);
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
+        var accountClaimAuth = gagspeakDb.AccountClaimAuth.SingleOrDefault(u => u.DiscordId == Context.User.Id);
 
         _logger.LogInformation("User {userid} has key {key}", Context.User.Id, initialKey);
         // to grab the user, fetch the associated auth object from the db
-        var auth = await db.Auth.SingleOrDefaultAsync(u => u.HashedKey == initialKey).ConfigureAwait(false);
-        User user = await db.Users.SingleOrDefaultAsync(u => u.UID == auth.UserUID).ConfigureAwait(false);
+        var auth = await gagspeakDb.Auth.SingleOrDefaultAsync(u => u.HashedKey == initialKey).ConfigureAwait(false);
+        User user = await gagspeakDb.Users.SingleOrDefaultAsync(u => u.UID == auth.UserUID).ConfigureAwait(false);
 
         accountClaimAuth.InitialGeneratedKey = null; // for security reasons
         accountClaimAuth.StartedAt = null; // clear time started, meaning verification worked.
@@ -252,7 +253,7 @@ public partial class AccountWizard
         // set last logged in time for the user to right now
         accountClaimAuth.User.LastLoggedIn = DateTime.UtcNow;
 
-        await db.SaveChangesAsync().ConfigureAwait(false);
+        await gagspeakDb.SaveChangesAsync().ConfigureAwait(false);
 
         // return sucess with the user's UID
         return (true, user.UID, initialKey);
@@ -280,7 +281,7 @@ public partial class AccountWizard
 
         user.LastLoggedIn = DateTime.UtcNow;
 
-        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
         var auth = new Auth()
         {
             HashedKey = StringUtils.Sha256String(computedHash),

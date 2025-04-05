@@ -17,7 +17,6 @@ using System.Text;
 
 namespace GagspeakAuthentication.Controllers;
 
-[AllowAnonymous]
 [Route(GagspeakAuth.Auth)]
 public class JwtController : Controller
 {
@@ -90,7 +89,7 @@ public class JwtController : Controller
     /// </summary>
     /// <returns> A task that represents the asynchronous operation. The task result contains an IActionResult. </returns>
     [Authorize(Policy = "Authenticated")]
-    [HttpGet("renewToken")]
+    [HttpGet(GagspeakAuth.Auth_RenewToken)]
     public async Task<IActionResult> RenewToken()
     {
         try

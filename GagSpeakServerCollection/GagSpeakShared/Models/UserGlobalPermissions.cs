@@ -20,7 +20,7 @@ public class UserGlobalPermissions
     // global puppeteer modifiable permissions.
     public bool        PuppeteerEnabled            { get; set; } = false; // PROFILE VIEWABLE OPT-IN || If the user's puppeteer component is active
     public string      TriggerPhrase               { get; set; } = string.Empty; // PROFILE VIEWABLE OPT-IN || Global trigger phrase for the user
-    public PuppetPerms PuppetPerms                 { get; set; } = 0;
+    public PuppetPerms PuppetPerms                 { get; set; } = PuppetPerms.None;
 
     // global toybox modifiable permissions
     public bool        ToyboxEnabled               { get; set; } = false; // PROFILE VIEWABLE OPT-IN || If the user's toybox component is active

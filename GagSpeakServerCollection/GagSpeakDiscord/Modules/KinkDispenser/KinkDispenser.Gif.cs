@@ -39,14 +39,15 @@ public partial class KinkDispenser : InteractionModuleBase
         var user = Context.User as SocketGuildUser;
 
         // Check if the sort parameter is valid
-        if (sort != "popular-all" && sort != "latest" && sort != "relevance" && sort != "")
+        string[] validSorts = { "popular-all", "relevance", "latest" };
+        if (!validSorts.Any(validSort => string.Equals(sort, validSort)))
         {
             await ReplyAsync("Invalid sort parameter. It can only be 'popular-all', 'relevance', or 'latest'.");
             return;
         }
 
         // Check if the user has a specific role
-        if (!user.Roles.Any(r => r.Name == "Family/Social Role") && user.Id != Context.Guild.OwnerId)
+        if (!user.Roles.Any(r => string.Equals(r.Name, "Family/Social Role") && user.Id != Context.Guild.OwnerId))
         {
             await ReplyAsync("You don't have permission to use this command.");
             return;
@@ -77,7 +78,7 @@ public partial class KinkDispenser : InteractionModuleBase
             newService.UpdateSearchTerms(searchTerms);
 
             // await the gif links
-            var response = await newService.Img_HttpClient.GetAsync(searchUrl);
+            using var response = await newService.Img_HttpClient.GetAsync(searchUrl);
             var htmlResponse = await response.Content.ReadAsStringAsync();
 
             // queue the initial message responce
@@ -96,7 +97,7 @@ public partial class KinkDispenser : InteractionModuleBase
             _logger.LogDebug("Dictionary now has {gifDataService.Count} entries", _botServices.GifData.Count);
 
             // Parse the HTML response to get the GIF URLs, store results into the data service
-            await ParseGifUrls(htmlResponse, newService);
+            ParseGifUrls(htmlResponse, newService);
 
             _logger.LogInformation("Found {ResultImgs.ImageListCount} GIFs!!!", newService.ResultImgs.ImageList.Count);
 

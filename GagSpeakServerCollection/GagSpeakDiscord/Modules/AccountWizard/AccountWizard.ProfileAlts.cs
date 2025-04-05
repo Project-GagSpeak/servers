@@ -5,6 +5,7 @@ using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -17,7 +18,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentAltProfile), Context.Interaction.User.Id);
 
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         // fetch the primary account UID associated with the UID we are wanting to create.
         var primaryUID = (await gagspeakDb.AccountClaimAuth.Include(u => u.User).SingleAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false)).User.UID;
         var secondaryUids = await gagspeakDb.Auth.CountAsync(p => p.PrimaryUserUID == primaryUID).ConfigureAwait(false);
@@ -43,7 +44,7 @@ public partial class AccountWizard
         _logger.LogInformation("{method}:{userId}:{primary}", nameof(ComponentNewAltCharProfileCreate), Context.Interaction.User.Id, primaryUid);
 
         // fetch the db context.
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         // log the title for the creation of a new alt character profile
         eb.WithTitle("Alt Character Profile Created!");
@@ -78,7 +79,7 @@ public partial class AccountWizard
         }
 
         // compute the secret key for the user, and initialize the auth as an alt character profile, linking it to the primary account.
-        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
         var auth = new Auth()
         {
             HashedKey = computedHash,

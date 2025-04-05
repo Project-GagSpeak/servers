@@ -8,7 +8,6 @@ public class DiscordConfiguration : GagspeakConfigurationBase
     public ulong? DiscordChannelForMessages { get; set; } = null;   // the discord channel for messages
     public ulong? DiscordChannelForReports { get; set; } = null;    // the discord channel for reports
     public ulong? DiscordChannelForCommands { get; set; } = null;   // the discord channel for commands
-    public Uri MainServerAddress { get; set; } = null;              // the main server address
     public Dictionary<ulong, string> VanityRoles { get; set; } = new Dictionary<ulong, string>(); // the vanity roles
 
     /// <summary>

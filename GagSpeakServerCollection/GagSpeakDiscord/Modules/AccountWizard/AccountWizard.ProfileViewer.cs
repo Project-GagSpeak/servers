@@ -16,7 +16,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentProfiles), Context.Interaction.User.Id);
 
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithTitle("Your Account Profiles");
         eb.WithColor(Color.Magenta);
@@ -37,10 +37,10 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionProfiles), Context.Interaction.User.Id, uid);
 
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         var dbUser = await gagspeakDb.Auth.SingleOrDefaultAsync(u => u.UserUID == uid).ConfigureAwait(false);
         EmbedBuilder eb = new();
-        string title = (dbUser.UserUID == dbUser.PrimaryUserUID) ? "Primary Account Profile" : "Alt Character Profile";
+        string title = string.Equals(dbUser.UserUID, dbUser.PrimaryUserUID, StringComparison.Ordinal) ? "Primary Account Profile" : "Alt Character Profile";
         eb.WithTitle($"{title} - {uid}");
         await HandleProfiles(eb, gagspeakDb, uid).ConfigureAwait(false);
         eb.WithColor(Color.Magenta);

@@ -29,11 +29,10 @@ public class Startup
         // first, get the config service
         var config = app.ApplicationServices.GetRequiredService<IConfigurationService<GagspeakConfigurationBase>>();
 
+        // TODO: Do Metrics right someday, but that day is not today.
         // next, set up the metrics server at the port specified in the config located in the appsettings.json file. Otherwise, use port 4982.
-        var metricServer = new KestrelMetricServer(
-                config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 4982));
-        // start the metrics server
-        metricServer.Start();
+/*        using var metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 4982));
+        metricServer.Start();*/
 
         // configure gagspeak's discord servers to use routing
         app.UseRouting();
@@ -72,7 +71,7 @@ public class Startup
         var options = ConfigurationOptions.Parse(redis);
         // set the client name to gagspeak, and the channel prefix to UserData
         options.ClientName = "GagSpeak";
-        options.ChannelPrefix = "UserData";
+        options.ChannelPrefix = new RedisChannel("UserData", RedisChannel.PatternMode.Literal);
         // configure the connection multiplexer for the redi's connection
         ConnectionMultiplexer connectionMultiplexer = ConnectionMultiplexer.Connect(options);
         // add it as a service so it gets registered

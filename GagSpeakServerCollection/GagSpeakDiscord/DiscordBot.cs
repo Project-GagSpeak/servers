@@ -3,7 +3,6 @@ using Discord;
 using Discord.Interactions;
 using Discord.Rest;
 using Discord.WebSocket;
-using GagspeakAPI.Dto.User;
 using GagspeakAPI.Enums;
 using GagspeakDiscord.Commands;
 using GagspeakDiscord.Modules.AccountWizard;
@@ -16,30 +15,29 @@ using GagspeakShared.Utils.Configuration;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-using System.Globalization;
-using System.Text;
 
 namespace GagspeakDiscord;
+#nullable enable
 
 internal partial class DiscordBot : IHostedService
 {
     private readonly DiscordBotServices _botServices;
-    private readonly IConfigurationService<DiscordConfiguration> _discordConfigService;    // The configuration service for the discord bot
+    private readonly IConfigurationService<DiscordConfiguration> _discordConfig;    // The configuration service for the discord bot
     private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
     private readonly DiscordSocketClient _discordClient;                            // the discord client socket
     private readonly ILogger<DiscordBot> _logger;                                   // the logger for the discord bot
     private readonly IHubContext<GagspeakHub> _gagspeakHubContext;                  // the hub context for the gagspeak hub
     private readonly IServiceProvider _services;                                    // the service provider for the discord bot
     private InteractionService _interactionModule;                                  // the interaction module for the discord bot
-    private CancellationTokenSource? _processReportQueueCts;
-    private CancellationTokenSource? _updateStatusCts;
+    private CancellationTokenSource _processReportQueueCts = new();
+    private CancellationTokenSource _updateStatusCts = new();
 
     public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<DiscordConfiguration> configuration,
         IHubContext<GagspeakHub> gagspeakHubContext, ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer)
     {
         _botServices = botServices;
         _services = services;
-        _discordConfigService = configuration;
+        _discordConfig = configuration;
         _gagspeakHubContext = gagspeakHubContext;
         _logger = logger;
         _connectionMultiplexer = connectionMultiplexer;
@@ -49,6 +47,7 @@ internal partial class DiscordBot : IHostedService
             DefaultRetryMode = RetryMode.AlwaysRetry
         });
 
+        _interactionModule = new InteractionService(_discordClient);
         // subscribe to the log event from discord.
         _discordClient.Log += Log;
     }
@@ -57,7 +56,7 @@ internal partial class DiscordBot : IHostedService
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         // get the discord bot token from the configuration
-        var token = _discordConfigService.GetValueOrDefault(nameof(DiscordConfiguration.DiscordBotToken), string.Empty);
+        string token = _discordConfig.GetValueOrDefault(nameof(DiscordConfiguration.DiscordBotToken), string.Empty);
         // if the token is not empty
         if (!string.IsNullOrEmpty(token))
         {
@@ -85,7 +84,7 @@ internal partial class DiscordBot : IHostedService
             // (occurs when player interacts with its posted events.)
             _discordClient.InteractionCreated += async (x) =>
             {
-                var ctx = new SocketInteractionContext(_discordClient, x);
+                SocketInteractionContext ctx = new SocketInteractionContext(_discordClient, x);
                 await _interactionModule.ExecuteCommandAsync(ctx, _services).ConfigureAwait(false);
             };
 
@@ -99,7 +98,7 @@ internal partial class DiscordBot : IHostedService
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         // if the discord bot token is not empty
-        if (!string.IsNullOrEmpty(_discordConfigService.GetValueOrDefault(nameof(DiscordConfiguration.DiscordBotToken), string.Empty)))
+        if (!string.IsNullOrEmpty(_discordConfig.GetValueOrDefault(nameof(DiscordConfiguration.DiscordBotToken), string.Empty)))
         {
             // await for all bot services to stop
             await _botServices.Stop().ConfigureAwait(false);
@@ -108,6 +107,11 @@ internal partial class DiscordBot : IHostedService
 
             await _discordClient.LogoutAsync().ConfigureAwait(false);
             await _discordClient.StopAsync().ConfigureAwait(false);
+
+            // dispose of the discord client
+            _discordClient.Dispose();
+            _interactionModule?.Dispose();
+            _logger.LogInformation("DiscordBot Stopped");
         }
     }
 
@@ -117,7 +121,7 @@ internal partial class DiscordBot : IHostedService
     private async Task DiscordClient_Ready()
     {
         // only obtain the guild for Cordy's Kinkporium.
-        var ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
+        RestGuild ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
         // Register the commands for it.
         await _interactionModule.RegisterCommandsToGuildAsync(ckGuild.Id, true).ConfigureAwait(false);
         // cancel and dispose the previous update status.
@@ -144,7 +148,7 @@ internal partial class DiscordBot : IHostedService
         _logger.LogDebug("Account Management Wizard: Getting Channel");
 
         // fetch the channel for the account management system message
-        var discordChannelForCommands = _discordConfigService.GetValue<ulong?>(nameof(DiscordConfiguration.DiscordChannelForCommands));
+        ulong? discordChannelForCommands = _discordConfig.GetValue<ulong?>(nameof(DiscordConfiguration.DiscordChannelForCommands));
         if (discordChannelForCommands is null)
         {
             _logger.LogWarning("Account Management Wizard: No channel configured");
@@ -153,12 +157,14 @@ internal partial class DiscordBot : IHostedService
 
         // create the message
         IUserMessage? message = null;
-        var socketchannel = await _discordClient.GetChannelAsync(discordChannelForCommands.Value).ConfigureAwait(false) as SocketTextChannel;
-        var pinnedMessages = await socketchannel.GetPinnedMessagesAsync().ConfigureAwait(false);
+        SocketTextChannel socketchannel = await _discordClient.GetChannelAsync(discordChannelForCommands.Value).ConfigureAwait(false) as SocketTextChannel 
+            ?? throw new Exception("Channel not found");
+
+        IReadOnlyCollection<RestMessage> pinnedMessages = await socketchannel.GetPinnedMessagesAsync().ConfigureAwait(false);
+        
         // check if the message is already pinned
-        foreach (var msg in pinnedMessages)
+        foreach (RestMessage msg in pinnedMessages)
         {
-            // log the information that we are checking the message id
             _logger.LogDebug("Account Management Wizard: Checking message id {id}, author is: {author}, hasEmbeds: {embeds}", msg.Id, msg.Author.Id, msg.Embeds.Any());
             // if the author of the post is the bot, and the message has embeds
             if (msg.Author.Id == _discordClient.CurrentUser.Id && msg.Embeds.Any())
@@ -186,7 +192,7 @@ internal partial class DiscordBot : IHostedService
             + "You can handle all of your GagSpeak account needs in this server.\nJust follow the instructions!");
         eb.WithThumbnailUrl("https://raw.githubusercontent.com/CordeliaMist/GagSpeak-Client/main/images/iconUI.png");
         // construct the buttons
-        var cb = new ComponentBuilder();
+        ComponentBuilder cb = new ComponentBuilder();
         // this claim your account button will trigger the customid of wizard-home:true, letting the bot deliever a personalized reply
         // that will display the account information.
         cb.WithButton("Start GagSpeak Account Management", style: ButtonStyle.Primary, customId: "wizard-home:true", emote: Emoji.Parse("🎀"));
@@ -194,7 +200,7 @@ internal partial class DiscordBot : IHostedService
         if (prevMessage is null)
         {
             // send the message to the channel
-            var msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+            RestUserMessage msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
             try
             {
                 // pin the message
@@ -240,7 +246,7 @@ internal partial class DiscordBot : IHostedService
         _processReportQueueCts?.Cancel();
         _processReportQueueCts?.Dispose();
         _processReportQueueCts = new();
-        var reportsToken = _processReportQueueCts.Token;
+        CancellationToken reportsToken = _processReportQueueCts.Token;
 
         // while the token is not cancelled,
         while (!reportsToken.IsCancellationRequested)
@@ -265,18 +271,18 @@ internal partial class DiscordBot : IHostedService
                 // begin to update the vanity roles. 
                 _logger.LogInformation("Updating Vanity Roles From Config File");
                 // fetch the roles from the configuration list.
-                Dictionary<ulong, string> vanityRoles = _discordConfigService.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
+                Dictionary<ulong, string> vanityRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
                 // if the vanity roles are not the same as the list fetched from the bot service,
                 if (vanityRoles.Keys.Count != _botServices.VanityRoles.Count)
                 {
                     // clear the roles in the bot service, and create a new list
                     _botServices.VanityRoles.Clear();
                     // for each role in the list of roles
-                    foreach (var role in vanityRoles)
+                    foreach (KeyValuePair<ulong, string> role in vanityRoles)
                     {
                         _logger.LogDebug("Adding Role: {id} => {desc}", role.Key, role.Value);
                         // add the ID and the name of the role to the bot service.
-                        var restrole = guild.GetRole(role.Key);
+                        RestRole restrole = guild.GetRole(role.Key);
                         if (restrole != null) _botServices.VanityRoles.Add(restrole, role.Value);
                     }
                 }
@@ -304,15 +310,15 @@ internal partial class DiscordBot : IHostedService
                 _logger.LogInformation("Adding VanityRoles to Active Supporters of CK");
 
                 // get the list of allowed roles that should have vanity UID's from the Vanity Roles in the discord configuration.
-                Dictionary<ulong, string> allowedRoleIds = _discordConfigService.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
+                Dictionary<ulong, string> allowedRoleIds = _discordConfig.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
 
                 // await the creation of a scope for this service
-                await using var scope = _services.CreateAsyncScope();
+                using AsyncServiceScope scope = _services.CreateAsyncScope();
                 // fetch the gagspeakDatabaseConext from the database
-                await using (var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>())
+                using (GagspeakDbContext db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>())
                 {
                     // Create a dictionary to map role names to CkSupporterTier values
-                    var roleNameToTier = new Dictionary<string, CkSupporterTier>
+                    Dictionary<string, CkSupporterTier> roleNameToTier = new Dictionary<string, CkSupporterTier>(StringComparer.Ordinal)
                     {
                         { "Kinkporium Mistress", CkSupporterTier.KinkporiumMistress },
                         { "Distinguished Connoisseur", CkSupporterTier.DistinguishedConnoisseur },
@@ -322,23 +328,23 @@ internal partial class DiscordBot : IHostedService
                     };
 
                     // narrow the list down to only the users with valid accounts with no active role.
-                    var validClaimedAccounts = await db.AccountClaimAuth.Include("User")
+                    List<AccountClaimAuth> validClaimedAccounts = await db.AccountClaimAuth.Include("User")
                         .Where(c => c.StartedAt != DateTime.MinValue && c.User != null && c.User.VanityTier == CkSupporterTier.NoRole)
                         .ToListAsync().ConfigureAwait(false);
 
                     // Check to see if any valid accounts currently have any discord roles.
-                    foreach (var validAccount in validClaimedAccounts)
+                    foreach (AccountClaimAuth validAccount in validClaimedAccounts)
                     {
                         // grab the discord user.
-                        var discordUser = await CKrestGuild.GetUserAsync(validAccount.DiscordId).ConfigureAwait(false);
+                        RestGuildUser discordUser = await CKrestGuild.GetUserAsync(validAccount.DiscordId).ConfigureAwait(false);
 
                         // check to see if the user has any of the roles.
                         if (discordUser != null && discordUser.RoleIds.Any(u => allowedRoleIds.Keys.Contains(u)))
                         {
                             // fetch the roles they have, and output them.
-                            _logger.LogInformation($"User {validAccount.User.UID} has roles: {string.Join(", ", discordUser.RoleIds)}");
+                            _logger.LogInformation($"User {validAccount!.User!.UID} has roles: {string.Join(", ", discordUser.RoleIds)}");
                             // Determine the highest priority role
-                            var highestRole = discordUser.RoleIds
+                            CkSupporterTier highestRole = discordUser.RoleIds
                                 .Where(roleId => allowedRoleIds.ContainsKey(roleId))
                                 .Select(roleId => roleNameToTier[allowedRoleIds[roleId]])
                                 .OrderByDescending(tier => tier)
@@ -352,10 +358,10 @@ internal partial class DiscordBot : IHostedService
                             db.Update(validAccount.User);
 
                             // Locate any secondary users of the primary user this account belongs to, and clear the perks from these as well.
-                            var secondaryUsers = await db.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == validAccount.User.UID).ToListAsync().ConfigureAwait(false);
-                            foreach (var secondaryUser in secondaryUsers)
+                            List<Auth> secondaryUsers = await db.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == validAccount.User.UID).ToListAsync().ConfigureAwait(false);
+                            foreach (Auth secondaryUser in secondaryUsers)
                             {
-                                _logger.LogDebug($"Secondary User {secondaryUser.User.UID} assigned to tier {highestRole} (highest role)");
+                                _logger.LogDebug($"Secondary User {secondaryUser!.User!.UID} assigned to tier {highestRole} (highest role)");
                                 secondaryUser.User.VanityTier = highestRole;
                                 // Update the secondary user in the database
                                 db.Update(secondaryUser.User);
@@ -386,9 +392,9 @@ internal partial class DiscordBot : IHostedService
     private async Task RemovePerksFromUsersNotInVanityRole(CancellationToken token)
     {
         // set the guild to the guild ID of Cordy's Kinkporium
-        var ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
+        RestGuild ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
         // set the application ID to the application ID of the bot
-        var appId = await _discordClient.GetApplicationInfoAsync().ConfigureAwait(false);
+        RestApplication appId = await _discordClient.GetApplicationInfoAsync().ConfigureAwait(false);
 
         // while the cancellation token is not requested
         while (!token.IsCancellationRequested)
@@ -399,7 +405,7 @@ internal partial class DiscordBot : IHostedService
                 _logger.LogInformation("Cleaning up Vanity UIDs from guild {guildName}", ckGuild.Name);
 
                 // get the list of allowed roles that should have vanity UID's from the Vanity Roles in the discord configuration.
-                Dictionary<ulong, string> allowedRoleIds = _discordConfigService.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
+                Dictionary<ulong, string> allowedRoleIds = _discordConfig.GetValueOrDefault(nameof(DiscordConfiguration.VanityRoles), new Dictionary<ulong, string>());
                 // display the list of allowed role ID's
                 _logger.LogDebug($"Allowed role ids: {string.Join(", ", allowedRoleIds)}");
 
@@ -412,23 +418,23 @@ internal partial class DiscordBot : IHostedService
                 else
                 {
                     // await the creation of a scope for this service
-                    await using var scope = _services.CreateAsyncScope();
+                    using AsyncServiceScope scope = _services.CreateAsyncScope();
                     // fetch the gagspeakDatabaseConext from the database
-                    await using (var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>())
+                    using (GagspeakDbContext db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>())
                     {
                         // search the database under the AccountClaimAuth table where a user is included...
-                        var aliasedUsers = await db.AccountClaimAuth.Include("User")
+                        List<AccountClaimAuth> aliasedUsers = await db.AccountClaimAuth.Include("User")
                             // where the user is not null and the alias is not null (they have an alias)
                             .Where(c => c.User != null && !string.IsNullOrEmpty(c.User.Alias))
                             // arranged into a list
                             .ToListAsync().ConfigureAwait(false);
 
                         // then, for each of the aliased users in the list...
-                        foreach (var accountClaimAuth in aliasedUsers)
+                        foreach (AccountClaimAuth accountClaimAuth in aliasedUsers)
                         {
                             // fetch the discord user they belong to by grabbing the discord ID from the accountClaimAuth
-                            var discordUser = await ckGuild.GetUserAsync(accountClaimAuth.DiscordId).ConfigureAwait(false);
-                            _logger.LogInformation($"Checking User: {accountClaimAuth.DiscordId}, {accountClaimAuth.User.UID} " +
+                            RestGuildUser discordUser = await ckGuild.GetUserAsync(accountClaimAuth.DiscordId).ConfigureAwait(false);
+                            _logger.LogInformation($"Checking User: {accountClaimAuth.DiscordId}, {accountClaimAuth!.User!.UID} " +
                             $"({accountClaimAuth.User.Alias}), User in Roles: {string.Join(", ", discordUser?.RoleIds ?? new List<ulong>())}");
 
                             // if the discord user no longer exists, or no longer has any of the allowed role ID's for these benifits....
@@ -440,10 +446,10 @@ internal partial class DiscordBot : IHostedService
                                 accountClaimAuth.User.VanityTier = CkSupporterTier.NoRole;
 
                                 // locate any secondary user's of the primary user this account belongs to, and clear the perks from these as well.
-                                var secondaryUsers = await db.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == accountClaimAuth.User.UID).ToListAsync().ConfigureAwait(false);
-                                foreach (var secondaryUser in secondaryUsers)
+                                List<Auth> secondaryUsers = await db.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == accountClaimAuth.User.UID).ToListAsync().ConfigureAwait(false);
+                                foreach (Auth secondaryUser in secondaryUsers)
                                 {
-                                    _logger.LogDebug($"Secondary User {secondaryUser.User.UID} not in allowed roles, deleting alias & resetting supporter tier");
+                                    _logger.LogDebug($"Secondary User {secondaryUser!.User!.UID} not in allowed roles, deleting alias & resetting supporter tier");
                                     secondaryUser.User.Alias = string.Empty;
                                     secondaryUser.User.VanityTier = CkSupporterTier.NoRole;
                                     // update the secondary user in the database
@@ -478,10 +484,10 @@ internal partial class DiscordBot : IHostedService
         while (!token.IsCancellationRequested)
         {
             // grab the endpoint from the connection multiplexer
-            var endPoint = _connectionMultiplexer.GetEndPoints().First();
+            System.Net.EndPoint endPoint = _connectionMultiplexer.GetEndPoints().First();
             // fetch the total number of online users connected to the redis server
-            var onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "GagspeakHub:UID:*").CountAsync();
-            var toyboxUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "ToyboxHub:UID:*").CountAsync();
+            int onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "GagspeakHub:UID:*").CountAsync().ConfigureAwait(false);
+            int toyboxUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "ToyboxHub:UID:*").CountAsync().ConfigureAwait(false);
 
             // log the status
             _logger.LogTrace("Kinksters online: {onlineUsers}", onlineUsers);
@@ -492,3 +498,4 @@ internal partial class DiscordBot : IHostedService
         }
     }
 }
+#nullable disable

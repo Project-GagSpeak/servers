@@ -51,7 +51,7 @@ public partial class AccountWizard
         AddHome(cb);
         if (userIsInVanityRole)
         {
-            using var db = GetDbContext();
+            using var db = await GetDbContext().ConfigureAwait(false);
             await AddUserSelection(db, cb, "wizard-vanity-uid").ConfigureAwait(false);
         }
 
@@ -65,7 +65,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionVanityUid), Context.Interaction.User.Id, uid);
 
-        using var db = GetDbContext();
+        using var db = await GetDbContext().ConfigureAwait(false);
         var user = db.Users.Single(u => u.UID == uid);
         EmbedBuilder eb = new();
         eb.WithColor(Color.Red);
@@ -99,10 +99,10 @@ public partial class AccountWizard
         EmbedBuilder eb = new();
         ComponentBuilder cb = new();
         var desiredVanityUid = modal.DesiredVanityUID;
-        using var db = GetDbContext();
+        using var db = await GetDbContext().ConfigureAwait(false);
         bool canAddVanityId = !db.Users.Any(u => u.UID == modal.DesiredVanityUID || u.Alias == modal.DesiredVanityUID);
 
-        Regex rgx = new(@"^[_\-a-zA-Z0-9]{5,15}$", RegexOptions.ECMAScript);
+        Regex rgx = new Regex(@"^[_\-a-zA-Z0-9]{5,15}$", RegexOptions.ECMAScript | RegexOptions.Compiled, TimeSpan.FromSeconds(2));
         if (!rgx.Match(desiredVanityUid).Success)
         {
             eb.WithColor(Color.Red);

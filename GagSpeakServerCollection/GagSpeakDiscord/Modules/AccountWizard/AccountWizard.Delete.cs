@@ -13,7 +13,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}", nameof(ComponentDelete), Context.Interaction.User.Id);
 
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
         eb.WithTitle("Delete Account");
         eb.WithDescription("You can delete your primary or secondary UIDs here." + Environment.NewLine + Environment.NewLine
@@ -36,7 +36,7 @@ public partial class AccountWizard
 
         _logger.LogInformation("{method}:{userId}:{uid}", nameof(SelectionDeleteAccount), Context.Interaction.User.Id, uid);
 
-        using var gagspeakDb = GetDbContext();
+        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         bool isPrimary = gagspeakDb.Auth.Single(u => u.UserUID == uid).PrimaryUserUID is null;
         EmbedBuilder eb = new();
         eb.WithTitle($"Are you sure you want to delete {uid}?");
@@ -84,7 +84,7 @@ public partial class AccountWizard
             else
             {
 
-                using var db = GetDbContext();
+                using var db = await GetDbContext().ConfigureAwait(false);
                 var user = db.Users.Single(u => u.UID == uid);
                 await SharedDbFunctions.PurgeUser(_logger, user, db).ConfigureAwait(false);
 
