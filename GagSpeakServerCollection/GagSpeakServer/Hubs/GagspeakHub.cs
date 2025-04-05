@@ -113,6 +113,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
         dbUser.LastLoggedIn = DateTime.UtcNow;
 
+        bool isVerified = await DbContext.AccountClaimAuth.AnyAsync(f => f.User.UID == UserUID).ConfigureAwait(false);
+
         // collect the list of auths for this user.
         List<string> accountProfileUids = await DbContext.Auth
             .Include(u => u.User)
@@ -190,7 +192,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // now we can create the connectionDto object and return it to the client caller.
-        return new ConnectionDto(dbUser.ToUserData())
+        return new ConnectionDto(dbUser.ToUserData(), isVerified)
         {
             CurrentClientVersion = _expectedClientVersion,
             ServerVersion = IGagspeakHub.ApiVersion,
@@ -338,7 +340,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// Note that we dont require the authenticated policy for disconnect because the temp access could be using it as well.
     /// </para>
     /// </summary>
-    public override async Task OnDisconnectedAsync(Exception? exception)
+    public override async Task OnDisconnectedAsync(Exception exception)
     {
         /* -------------------- Temporary Connection -------------------- */
         // if its a temp connection disconnecting, simply call the base and exit

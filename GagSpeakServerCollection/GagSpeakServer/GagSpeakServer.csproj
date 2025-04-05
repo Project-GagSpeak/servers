@@ -3,6 +3,8 @@
 	<PropertyGroup>
 		<TargetFramework>net9.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<Deterministic>true</Deterministic>
+		<CopyLocalLockfileAssemblies>true</CopyLocalLockfileAssemblies>
 		<NoWarn>MA0051</NoWarn>
 	</PropertyGroup>
 

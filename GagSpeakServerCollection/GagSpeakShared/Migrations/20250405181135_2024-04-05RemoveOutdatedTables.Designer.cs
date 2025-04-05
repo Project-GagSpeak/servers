@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250405181135_2024-04-05RemoveOutdatedTables")]
+    partial class _20240405RemoveOutdatedTables
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -972,55 +975,6 @@ namespace GagSpeakShared.Migrations
                     b.ToTable("user_achievement_data", (string)null);
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserGagData", b =>
-                {
-                    b.Property<string>("UserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("user_uid")
-                        .HasColumnOrder(0);
-
-                    b.Property<byte>("Layer")
-                        .HasColumnType("smallint")
-                        .HasColumnName("layer")
-                        .HasColumnOrder(1);
-
-                    b.Property<string>("Enabler")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("enabler");
-
-                    b.Property<int>("Gag")
-                        .HasColumnType("integer")
-                        .HasColumnName("gag");
-
-                    b.Property<int>("Padlock")
-                        .HasColumnType("integer")
-                        .HasColumnName("padlock");
-
-                    b.Property<string>("PadlockAssigner")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("padlock_assigner");
-
-                    b.Property<string>("Password")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("password");
-
-                    b.Property<DateTimeOffset>("Timer")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("timer");
-
-                    b.HasKey("UserUID", "Layer")
-                        .HasName("pk_user_gag_data");
-
-                    b.HasIndex("UserUID", "Layer")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_gag_data_user_uid_layer");
-
-                    b.ToTable("user_gag_data", (string)null);
-                });
-
             modelBuilder.Entity("GagspeakShared.Models.UserGlobalPermissions", b =>
                 {
                     b.Property<string>("UserUID")
@@ -1309,101 +1263,6 @@ namespace GagSpeakShared.Migrations
                     b.ToTable("user_profile_data_reports", (string)null);
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserRestraintData", b =>
-                {
-                    b.Property<string>("UserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("user_uid");
-
-                    b.Property<string>("Enabler")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("enabler");
-
-                    b.Property<Guid>("Identifier")
-                        .HasColumnType("uuid")
-                        .HasColumnName("identifier");
-
-                    b.Property<byte>("LayersBitfield")
-                        .HasColumnType("smallint")
-                        .HasColumnName("layers_bitfield");
-
-                    b.Property<int>("Padlock")
-                        .HasColumnType("integer")
-                        .HasColumnName("padlock");
-
-                    b.Property<string>("PadlockAssigner")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("padlock_assigner");
-
-                    b.Property<string>("Password")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("password");
-
-                    b.Property<DateTimeOffset>("Timer")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("timer");
-
-                    b.HasKey("UserUID")
-                        .HasName("pk_user_restraintset_data");
-
-                    b.HasIndex("UserUID")
-                        .HasDatabaseName("ix_user_restraintset_data_user_uid");
-
-                    b.ToTable("user_restraintset_data", (string)null);
-                });
-
-            modelBuilder.Entity("GagspeakShared.Models.UserRestrictionData", b =>
-                {
-                    b.Property<string>("UserUID")
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("user_uid")
-                        .HasColumnOrder(0);
-
-                    b.Property<byte>("Layer")
-                        .HasColumnType("smallint")
-                        .HasColumnName("layer")
-                        .HasColumnOrder(1);
-
-                    b.Property<string>("Enabler")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("enabler");
-
-                    b.Property<Guid>("Identifier")
-                        .HasColumnType("uuid")
-                        .HasColumnName("identifier");
-
-                    b.Property<int>("Padlock")
-                        .HasColumnType("integer")
-                        .HasColumnName("padlock");
-
-                    b.Property<string>("PadlockAssigner")
-                        .HasMaxLength(10)
-                        .HasColumnType("character varying(10)")
-                        .HasColumnName("padlock_assigner");
-
-                    b.Property<string>("Password")
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("password");
-
-                    b.Property<DateTimeOffset>("Timer")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("timer");
-
-                    b.HasKey("UserUID", "Layer")
-                        .HasName("pk_user_restriction_data");
-
-                    b.HasIndex("UserUID", "Layer")
-                        .IsUnique()
-                        .HasDatabaseName("ix_user_restriction_data_user_uid_layer");
-
-                    b.ToTable("user_restriction_data", (string)null);
-                });
-
             modelBuilder.Entity("GagspeakShared.Models.AccountClaimAuth", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "User")
@@ -1642,18 +1501,6 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserGagData", b =>
-                {
-                    b.HasOne("GagspeakShared.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserUID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_gag_data_users_user_uid");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("GagspeakShared.Models.UserGlobalPermissions", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "User")
@@ -1693,30 +1540,6 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("ReportedUser");
 
                     b.Navigation("ReportingUser");
-                });
-
-            modelBuilder.Entity("GagspeakShared.Models.UserRestraintData", b =>
-                {
-                    b.HasOne("GagspeakShared.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserUID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_restraintset_data_users_user_uid");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("GagspeakShared.Models.UserRestrictionData", b =>
-                {
-                    b.HasOne("GagspeakShared.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserUID")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_restriction_data_users_user_uid");
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.Keyword", b =>

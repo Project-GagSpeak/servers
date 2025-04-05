@@ -27,8 +27,8 @@ public static class SharedDbFunctions
         var pairAccessData = await dbContext.ClientPairPermissionAccess.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var pairKinksterRequests = await dbContext.KinksterPairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var globalPerms = await dbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var appearanceData = await dbContext.UserGagData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var activeStateData = await dbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+/*        var appearanceData = await dbContext.UserGagData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var activeStateData = await dbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);*/
         var likedPatterns = await dbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var likedMoodles = await dbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var achievementData = await dbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
@@ -40,8 +40,8 @@ public static class SharedDbFunctions
         dbContext.RemoveRange(pairAccessData);
         dbContext.RemoveRange(pairKinksterRequests);
         if(globalPerms is not null) dbContext.Remove(globalPerms);
-        if(appearanceData is not null) dbContext.Remove(appearanceData);
-        if(activeStateData is not null) dbContext.Remove(activeStateData);
+/*        if(appearanceData is not null) dbContext.Remove(appearanceData);
+        if(activeStateData is not null) dbContext.Remove(activeStateData);*/
         dbContext.RemoveRange(likedPatterns);
         dbContext.RemoveRange(likedMoodles);
         if(achievementData is not null) dbContext.Remove(achievementData);

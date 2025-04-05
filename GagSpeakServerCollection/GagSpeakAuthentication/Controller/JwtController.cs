@@ -117,7 +117,7 @@ public class JwtController : Controller
 
             // they are not banned, so log the sucess and await the creation of a jwt from an ID.
             _logger.LogInformation("RenewToken:SUCCESS:{id}:{ident}", uid, ident);
-            return await CreateJwtFromId(uid, ident, alias);
+            return CreateJwtFromId(uid, ident, alias);
         }
         catch (Exception ex)
         {
@@ -155,7 +155,7 @@ public class JwtController : Controller
                 }
 
                 // assuming the local coneent ID is valid, create a token with the TemporaryAccess claim
-                return await CreateTempAccessJwtFromId(contentID, charaIdent);                                       // WE CREATE THE JWT HERE
+                return CreateTempAccessJwtFromId(contentID, charaIdent);                                       // WE CREATE THE JWT HERE
             }
             else
             {
@@ -228,7 +228,7 @@ public class JwtController : Controller
             _logger.LogInformation("Authenticate:SUCCESS:{id}:{ident}", authResult.Uid, charaIdent);
 
             // finally, create a jwt from the user's ID and character identity.
-            return await CreateJwtFromId(authResult.Uid, charaIdent, authResult.Alias ?? string.Empty);     // we create the jwt here
+            return CreateJwtFromId(authResult.Uid, charaIdent, authResult.Alias ?? string.Empty);     // we create the jwt here
         }
         catch (Exception ex)
         {
@@ -238,7 +238,7 @@ public class JwtController : Controller
     }
 
     /// <summary> Method to create a JWT token from a provided user ID, character identity, and alias. </summary>
-    private async Task<IActionResult> CreateTempAccessJwtFromId(string charaIdent, string localConentId)
+    private IActionResult CreateTempAccessJwtFromId(string charaIdent, string localConentId)
     {
         var token = CreateJwt(new List<Claim>
         {
@@ -251,7 +251,7 @@ public class JwtController : Controller
     }
 
     /// <summary> Method to create a JWT token from a provided user ID, character identity, and alias. </summary>
-    private async Task<IActionResult> CreateJwtFromId(string uid, string charaIdent, string alias)
+    private IActionResult CreateJwtFromId(string uid, string charaIdent, string alias)
     {
         // create a new token from the provided claims.
         var token = CreateJwt(new List<Claim>()
@@ -316,7 +316,7 @@ public class JwtController : Controller
         var toBanUid = primaryUser is null ? uid : primaryUser.UserUID;
 
         // fetch the accountClaimAuth used to claim ownership over the account, if one exists.
-        var accountClaimAuth = await _gagspeakDbContext.AccountClaimAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User.UID == toBanUid);
+        var accountClaimAuth = await _gagspeakDbContext.AccountClaimAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == toBanUid);
 
         // if it does exist
         if (accountClaimAuth != null)

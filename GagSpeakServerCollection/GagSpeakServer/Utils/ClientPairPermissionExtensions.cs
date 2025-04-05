@@ -2,10 +2,9 @@
 using GagspeakShared.Models;
 
 namespace GagspeakServer.Utils;
-/// <summary>
-/// Extension helper method for converting ClientPairPermissions to UserPermissionsComposite. for DTO's
-/// </summary>
+
 #pragma warning disable MA0051 // Method is too long
+#nullable enable
 public static class ClientPairPermissionExtensions
 {
     #region CacheDataMigrations
@@ -366,3 +365,4 @@ public static class ClientPairPermissionExtensions
     }
 }
 #pragma warning restore MA0051
+#nullable disable

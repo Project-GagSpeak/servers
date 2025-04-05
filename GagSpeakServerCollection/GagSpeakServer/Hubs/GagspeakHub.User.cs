@@ -15,6 +15,7 @@ using SixLabors.ImageSharp.PixelFormats;
 using System.Data;
 
 namespace GagspeakServer.Hubs;
+#nullable enable
 
 /// <summary> 
 /// This partial class of the GagSpeakHub contains all the user related methods 
@@ -638,10 +639,10 @@ public partial class GagspeakHub
             return false;
 
         // The achievement data can be null, or contain data. If it contains data, we should update it.
-        UserAchievementData userSaveData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        UserAchievementData? userSaveData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (userSaveData is not null)
         {
-            if (!dto.AchievementDataBase64.NullOrEmpty())
+            if (!string.IsNullOrEmpty(dto.AchievementDataBase64))
                 userSaveData.Base64AchievementData = dto.AchievementDataBase64;
             else
                 return false;
@@ -830,3 +831,5 @@ public partial class GagspeakHub
         await Clients.Caller.Client_UserUpdateProfile(new(dto.User)).ConfigureAwait(false);
     }
 }
+
+#nullable disable

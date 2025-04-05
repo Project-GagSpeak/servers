@@ -138,7 +138,7 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserRestrictionData>().HasKey(u => new { u.UserUID, u.Layer });
         modelBuilder.Entity<UserRestrictionData>().HasIndex(u => new { u.UserUID, u.Layer }).IsUnique(); // Ensures no duplicates for UserUID + Layer
 
-        modelBuilder.Entity<UserRestraintData>().ToTable("user_restraint_data");
+        modelBuilder.Entity<UserRestraintData>().ToTable("user_restraintset_data");
         modelBuilder.Entity<UserRestraintData>().HasIndex(u => u.UserUID);
 
         modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");
