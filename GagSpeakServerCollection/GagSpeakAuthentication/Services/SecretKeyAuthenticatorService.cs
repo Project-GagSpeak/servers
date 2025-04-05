@@ -76,7 +76,7 @@ public class SecretKeyAuthenticatorService
             // get the primary user from the context, where the user UID is the primary user UID from the auth reply.
             var primaryUser = await context.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == authReply.PrimaryUserUID).ConfigureAwait(false);
             // see if the primary user is banned, and set the isbanned variable to true if they are.
-            isBanned = isBanned || primaryUser.IsBanned;
+            isBanned = isBanned || (primaryUser?.IsBanned ?? false);
         }
 
         // create a new secret key auth replace object, 

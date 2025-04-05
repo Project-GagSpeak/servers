@@ -338,7 +338,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// Note that we dont require the authenticated policy for disconnect because the temp access could be using it as well.
     /// </para>
     /// </summary>
-    public override async Task OnDisconnectedAsync(Exception? exception)
+    public override async Task OnDisconnectedAsync(Exception exception)
     {
         /* -------------------- Temporary Connection -------------------- */
         // if its a temp connection disconnecting, simply call the base and exit

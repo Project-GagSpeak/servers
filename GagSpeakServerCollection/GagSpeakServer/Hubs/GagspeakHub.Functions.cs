@@ -8,9 +8,8 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace GagspeakServer.Hubs;
 #pragma warning disable MA0016
-/// <summary>
-/// This partial class of the GagspeakHub handles helper functions used in the servers function responses to make them cleaner.
-/// </summary>
+#nullable enable
+
 public partial class GagspeakHub
 {
     public string UserCharaIdent => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, GagspeakClaimTypes.CharaIdent, StringComparison.Ordinal))?.Value ?? throw new Exception("No Chara Ident in Claims");
@@ -182,7 +181,7 @@ public partial class GagspeakHub
             var userUID = matchingUserAuth.UserUID;
 
             // see if that user UID is in the list of user connections
-            if (_userConnections.ContainsKey(userUID))
+            if (userUID is not null && _userConnections.ContainsKey(userUID))
             {
                 // if it is, send the verification code to the user
                 await Clients.User(userUID).Client_DisplayVerificationPopup(new() { VerificationCode = auth.VerificationCode ?? "" }).ConfigureAwait(false);
@@ -513,3 +512,4 @@ public partial class GagspeakHub
         );
 }
 #pragma warning restore MA0016
+#nullable disable
