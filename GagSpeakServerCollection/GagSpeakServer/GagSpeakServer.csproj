@@ -7,12 +7,7 @@
 		<CopyLocalLockfileAssemblies>true</CopyLocalLockfileAssemblies>
 		<NoWarn>MA0051</NoWarn>
 	</PropertyGroup>
-
-	<ItemGroup>
-		<Content Remove="appsettings.Development.json" />
-		<Content Remove="appsettings.json" />
-	</ItemGroup>
-
+	
 	<ItemGroup>
 		<None Include="appsettings.Development.json" />
 		<None Include="appsettings.json">

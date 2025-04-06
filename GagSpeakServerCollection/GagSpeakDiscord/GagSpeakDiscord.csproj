@@ -11,9 +11,6 @@
 
 	<ItemGroup>
 		<None Include="appsettings.Development.json" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<None Include="appsettings.json">
 			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
 		</None>
