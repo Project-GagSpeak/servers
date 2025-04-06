@@ -22,23 +22,26 @@ namespace GagspeakDiscord;
 internal partial class DiscordBot : IHostedService
 {
     private readonly DiscordBotServices _botServices;
-    private readonly IConfigurationService<DiscordConfiguration> _discordConfig;    // The configuration service for the discord bot
-    private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
-    private readonly DiscordSocketClient _discordClient;                            // the discord client socket
-    private readonly ILogger<DiscordBot> _logger;                                   // the logger for the discord bot
-    private readonly IHubContext<GagspeakHub> _gagspeakHubContext;                  // the hub context for the gagspeak hub
-    private readonly IServiceProvider _services;                                    // the service provider for the discord bot
-    private InteractionService _interactionModule;                                  // the interaction module for the discord bot
+    private readonly IConfigurationService<DiscordConfiguration> _discordConfig;
+    private readonly IConnectionMultiplexer _connectionMultiplexer;
+    private readonly DiscordSocketClient _discordClient;
+    private readonly ILogger<DiscordBot> _logger;
+    private readonly IDbContextFactory<GagspeakDbContext> _dbContextFactory;
+    private readonly IHubContext<GagspeakHub> _gagspeakHubContext;
+    private readonly IServiceProvider _services;
+    private InteractionService _interactionModule;
     private CancellationTokenSource _processReportQueueCts = new();
     private CancellationTokenSource _updateStatusCts = new();
 
-    public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<DiscordConfiguration> configuration,
-        IHubContext<GagspeakHub> gagspeakHubContext, ILogger<DiscordBot> logger, IConnectionMultiplexer connectionMultiplexer)
+    public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<DiscordConfiguration> config,
+        IDbContextFactory<GagspeakDbContext> dbContext, IHubContext<GagspeakHub> hubContext, ILogger<DiscordBot> logger, 
+        IConnectionMultiplexer connectionMultiplexer)
     {
         _botServices = botServices;
         _services = services;
-        _discordConfig = configuration;
-        _gagspeakHubContext = gagspeakHubContext;
+        _discordConfig = config;
+        _dbContextFactory = dbContext;
+        _gagspeakHubContext = hubContext;
         _logger = logger;
         _connectionMultiplexer = connectionMultiplexer;
         // Create a new discord client with the default retry mode

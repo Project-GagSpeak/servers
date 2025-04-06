@@ -7,9 +7,7 @@ using GagspeakShared.Services;
 using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Internal;
 using StackExchange.Redis;
-using System.Text.RegularExpressions;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -18,21 +16,21 @@ public partial class AccountWizard : InteractionModuleBase
     private ILogger<AccountWizard> _logger;
     private IServiceProvider _services;
     private DiscordBotServices _botServices;
-    private IConfigurationService<ServerConfiguration> _gagspeakClientConfigService;
+    private IConfigurationService<ServerConfiguration> _gagspeakConfigService;
     private IConfigurationService<DiscordConfiguration> _discordConfigService;
     private IConnectionMultiplexer _connectionMultiplexer;
     private IDbContextFactory<GagspeakDbContext> _dbContextFactory;
     private Random random = new();
 
     public AccountWizard(ILogger<AccountWizard> logger, IServiceProvider services, DiscordBotServices botServices,
-        IConfigurationService<ServerConfiguration> gagspeakClientConfigService,
+        IConfigurationService<ServerConfiguration> gagspeakConfigService,
         IConfigurationService<DiscordConfiguration> discordConfigService, IConnectionMultiplexer connectionMultiplexer,
         IDbContextFactory<GagspeakDbContext> dbContextFactory)
     {
         _logger = logger;
         _services = services;
         _botServices = botServices;
-        _gagspeakClientConfigService = gagspeakClientConfigService;
+        _gagspeakConfigService = gagspeakConfigService;
         _discordConfigService = discordConfigService;
         _connectionMultiplexer = connectionMultiplexer;
         _dbContextFactory = dbContextFactory;
@@ -51,7 +49,7 @@ public partial class AccountWizard : InteractionModuleBase
         _logger.LogInformation("{method}:{userId}", nameof(StartAccountManagementWizard), Context.Interaction.User.Id);
 
         // fetch the database context to see if they already have a claimed account.
-        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
+        using GagspeakDbContext gagspeakDb = await GetDbContext().ConfigureAwait(false);
         // the user has an account of they have an accountClaimAuth in the database matching their discord ID.
         // Additionally, it checks to see if the time started at is null, meaning the claiming process has finished.
         bool hasAccount = await gagspeakDb.AccountClaimAuth.AnyAsync(u => u.DiscordId == Context.User.Id && u.StartedAt == null).ConfigureAwait(false);
@@ -104,7 +102,7 @@ public partial class AccountWizard : InteractionModuleBase
             }
 
             await RespondAsync(embed: eb.Build(), components: cb.Build(), ephemeral: true).ConfigureAwait(false);
-            var resp = await GetOriginalResponseAsync().ConfigureAwait(false);
+            IUserMessage resp = await GetOriginalResponseAsync().ConfigureAwait(false);
             // store the content message of the original responce with the user's ID as the key in the concurrent dictionary of valid interactions.
             _botServices.ValidInteractions[Context.User.Id] = resp.Id;
             _logger.LogInformation("Init Msg: {id}", resp.Id);
@@ -204,9 +202,9 @@ public partial class AccountWizard : InteractionModuleBase
     /// </summary>
     private async Task AddUserSelection(GagspeakDbContext gagspeakDb, ComponentBuilder cb, string customId)
     {
-        var discordId = Context.User.Id;                                                // Get the Discord ID of the current user
+        ulong discordId = Context.User.Id;                                                // Get the Discord ID of the current user
 
-        var existingAuth = await gagspeakDb.AccountClaimAuth.Include(u => u.User)       // then fetch the existing auth for the primary user
+        AccountClaimAuth existingAuth = await gagspeakDb.AccountClaimAuth.Include(u => u.User)       // then fetch the existing auth for the primary user
             .SingleOrDefaultAsync(e => e.DiscordId == discordId).ConfigureAwait(false); // where accountClaimAuth's discord ID matches interacting discord user ID
 
         // If there is an existing authorization, we have found a primary user to generate secondary users for.
@@ -219,7 +217,7 @@ public partial class AccountWizard : InteractionModuleBase
             sb.WithCustomId(customId);
 
             // now fetch a List of Auth objects which satisfies:
-            var existingUids = await gagspeakDb.Auth
+            List<Auth> existingUids = await gagspeakDb.Auth
                 .Include(u => u.User)                             // the Auth object contains a user (they are associated)                           
                 .Where(u => u.UserUID == existingAuth.User.UID    // where the user's UID in the Auth is the same as the primary user ID in the AccountClaimAuth.
                     || u.PrimaryUserUID == existingAuth.User.UID) // or where the primary user UID of the Auth object is the same as the user ID in the AccountClaimAuth.
@@ -227,7 +225,7 @@ public partial class AccountWizard : InteractionModuleBase
                 .ToListAsync().ConfigureAwait(false);             // put them into a list.
 
             // for each of our profiles, we will display their UID's in the list.
-            foreach (var entry in existingUids)
+            foreach (Auth entry in existingUids)
             {
                 // add the option to the menu, displaying the Alias over the UID if one exists.
                 sb.AddOption(
@@ -252,7 +250,7 @@ public partial class AccountWizard : InteractionModuleBase
     private async Task<string> GenerateAccountClaimAuth(ulong discordid, string initialGeneratedKey, GagspeakDbContext dbContext)
     {
         // generate a verification code for this particular AccountClaimAuth object.
-        var verificationCode = StringUtils.GenerateRandomString(32);
+        string verificationCode = StringUtils.GenerateRandomString(32);
 
         // Create the AccountClaimAuth object
         AccountClaimAuth accountClaimAuthToAdd = new AccountClaimAuth()

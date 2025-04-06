@@ -6,6 +6,7 @@ using GagspeakShared.Utils.Configuration;
 using MessagePack;
 using MessagePack.Resolvers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Prometheus;
 using StackExchange.Redis;
 
@@ -61,6 +62,17 @@ public class Startup
             }).UseSnakeCaseNamingConvention();
             options.EnableThreadSafetyChecks(false); // do not include thread safety checks
         }, _config.GetValue(nameof(GagspeakConfigurationBase.DbContextPoolSize), 1024)); // set the pool size to the value in the configBase, or 1024
+        
+        services.AddDbContextFactory<GagspeakDbContext>(options =>
+        {
+            options.UseNpgsql(_config.GetConnectionString("DefaultConnection"), builder =>
+            {
+                builder.MigrationsHistoryTable("_efmigrationshistory", "public");
+                builder.MigrationsAssembly("GagSpeakShared");
+            }).UseSnakeCaseNamingConvention();
+            options.EnableThreadSafetyChecks(false);
+        });
+
 
         // add the gagspeak metrics to the services, this is pulled from the shared service library.
         services.AddSingleton(m => new GagspeakMetrics(m.GetService<ILogger<GagspeakMetrics>>(), new List<string> { }, new List<string> { }));
