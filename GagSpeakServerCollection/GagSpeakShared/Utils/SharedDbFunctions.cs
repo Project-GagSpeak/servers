@@ -26,22 +26,27 @@ public static class SharedDbFunctions
         var pairPermData = await dbContext.ClientPairPermissions.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var pairAccessData = await dbContext.ClientPairPermissionAccess.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var pairKinksterRequests = await dbContext.KinksterPairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        
         var globalPerms = await dbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-/*        var appearanceData = await dbContext.UserGagData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var activeStateData = await dbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);*/
+        
+        var gagData = await dbContext.UserGagData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var restrictionData = await dbContext.UserRestrictionData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var restraintSetData = await dbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+
         var likedPatterns = await dbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var likedMoodles = await dbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         var achievementData = await dbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         var userProfileData = await dbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
 
-        if(accountClaim is not null) dbContext.Remove(accountClaim);
+        if (accountClaim is not null) dbContext.Remove(accountClaim);
         dbContext.RemoveRange(ownPairData);
         dbContext.RemoveRange(pairPermData);
         dbContext.RemoveRange(pairAccessData);
         dbContext.RemoveRange(pairKinksterRequests);
-        if(globalPerms is not null) dbContext.Remove(globalPerms);
-/*        if(appearanceData is not null) dbContext.Remove(appearanceData);
-        if(activeStateData is not null) dbContext.Remove(activeStateData);*/
+        if (globalPerms is not null) dbContext.Remove(globalPerms);
+        if (gagData is not null) dbContext.RemoveRange(gagData);
+        if (restrictionData is not null) dbContext.RemoveRange(restrictionData);
+        if (restraintSetData is not null) dbContext.Remove(restraintSetData);
         dbContext.RemoveRange(likedPatterns);
         dbContext.RemoveRange(likedMoodles);
         if(achievementData is not null) dbContext.Remove(achievementData);

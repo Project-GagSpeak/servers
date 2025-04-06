@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    [Migration("20250405200143_2024-04-05UserBondageDataAdded")]
-    partial class _20240405UserBondageDataAdded
+    [Migration("20250405225810_2025-04-05NewPermissionsAndData")]
+    partial class _20250405NewPermissionsAndData
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

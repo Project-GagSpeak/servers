@@ -63,6 +63,7 @@ public class GagspeakDbContext : DbContext
     public DbSet<UserGagData> UserGagData { get; set; } // Gag Item State Cache
     public DbSet<UserRestrictionData> UserRestrictionData { get; set; } // Restriction Item State Cache
     public DbSet<UserRestraintData> UserRestraintData { get; set; } // Restraint Item State Cache
+
     public DbSet<UserAchievementData> UserAchievementData { get; set; } // tracks the achievements a user has unlocked.
     public DbSet<UserProfileData> UserProfileData { get; set; } // every user has a profile associated with them, this contains information unique to the profile.
     public DbSet<UserProfileDataReport> UserProfileReports { get; set; } // Holds info about reported profiles for assistants to overview.

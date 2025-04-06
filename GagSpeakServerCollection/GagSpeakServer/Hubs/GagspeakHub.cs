@@ -94,117 +94,123 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // log the caller who requested this method
         _logger.LogCallInfo();
 
-        // increase the counter for initialized connections
-        _metrics.IncCounter(MetricsAPI.CounterInitializedConnections);
-
-        // a failsafe to make sure that any logged in account that is no longer in the DB cannot reconnect.
-        bool userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
-        if (!userExists)
+        try
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error,
-                $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
+            // a failsafe to make sure that any logged in account that is no longer in the DB cannot reconnect.
+            bool userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
+            if (!userExists)
+            {
+                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error,
+                    $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
+                return null!;
+            }
+
+            // Send a client callback to the client caller with the systeminfo Dto.
+            await Clients.Caller.Client_UpdateSystemInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
+
+            // Grab the user from the database whose UID reflects the UID of the client callers claims, and update last login time.
+            User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
+            dbUser.LastLoggedIn = DateTime.UtcNow;
+
+            bool isVerified = await DbContext.AccountClaimAuth.AnyAsync(f => f.User.UID == UserUID).ConfigureAwait(false);
+
+            // collect the list of auths for this user.
+            List<string> accountProfileUids = await DbContext.Auth
+                .Include(u => u.User)
+                .Where(u => (u.UserUID != null && u.UserUID == UserUID) || (u.PrimaryUserUID != null && u.PrimaryUserUID == UserUID))
+                .Select(u => u.UserUID!)
+                .ToListAsync().ConfigureAwait(false);
+
+
+            // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
+            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
+                "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
+                " Kinksters are online.\nWe hope you enjoy your fun~").ConfigureAwait(false);
+
+            // Ensure GlobalPerms.
+            UserGlobalPermissions clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+            if (clientCallerGlobalPerms is null)
+            {
+                clientCallerGlobalPerms = new UserGlobalPermissions() { UserUID = UserUID };
+                DbContext.UserGlobalPermissions.Add(clientCallerGlobalPerms);
+            }
+
+            // Handle retrieving all GagData entries for the user, and correcting any invalid ones.
+            List<UserGagData> gagStateCache = await DbContext.UserGagData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            for (byte layer = 0; layer < gagStateCache.Count; layer++)
+            {
+                if (gagStateCache[layer] is null)
+                {
+                    gagStateCache[layer] = new UserGagData() { UserUID = UserUID, Layer = layer };
+                    DbContext.UserGagData.Add(gagStateCache[layer]);
+                }
+            }
+            // Compile the API output.
+            var gagDataApi = gagStateCache.Select(g => g.ToApiGagSlot()).ToArray();
+            CharaActiveGags clientGags = new CharaActiveGags(gagDataApi);
+
+            // Handle retrieving all RestrictionData entries for the user, and correcting any invalid ones.
+            List<UserRestrictionData> restrictionStateCache = await DbContext.UserRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            for (byte layer = 0; layer < restrictionStateCache.Count; layer++)
+            {
+                if (restrictionStateCache[layer] is null)
+                {
+                    restrictionStateCache[layer] = new UserRestrictionData() { UserUID = UserUID, Layer = layer };
+                    DbContext.UserRestrictionData.Add(restrictionStateCache[layer]);
+                }
+            }
+            // Compile the API output.
+            var restrictionDataApi = restrictionStateCache.Select(r => r.ToApiRestrictionSlot()).ToArray();
+            CharaActiveRestrictions clientRestrictions = new CharaActiveRestrictions(restrictionDataApi);
+
+            // Handle retrieving the RestraintSetData entry for the user, and correcting it if invalid.
+            UserRestraintData restraintSetData = await DbContext.UserRestraintData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+            if (restraintSetData is null)
+            {
+                restraintSetData = new UserRestraintData() { UserUID = UserUID };
+                DbContext.UserRestraintData.Add(restraintSetData);
+            }
+
+            // grab the achievement data.
+            UserAchievementData clientCallerAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+            if (clientCallerAchievementData is null)
+            {
+                clientCallerAchievementData = new UserAchievementData() { UserUID = UserUID, Base64AchievementData = null };
+                DbContext.UserAchievementData.Add(clientCallerAchievementData);
+            }
+
+            // we will need to grab all of our published patterns and append them as PublishedPattern object to the connectionDto
+            List<PatternEntry> callerPatternPublications = await DbContext.Patterns.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
+            List<PublishedPattern> publishedPatterns = callerPatternPublications.Select(p => p.ToPublishedPattern()).ToList();
+
+            // grab all the published moodles and append them as the published pattern object to the connectionDto
+            List<MoodleStatus> callerMoodlePublications = await DbContext.Moodles.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
+            List<PublishedMoodle> publishedMoodles = callerMoodlePublications.Select(m => m.ToPublishedMoodle()).ToList();
+
+            // Save the DbContext (never know if it was added or not so always good to be safe.
+            await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+            // now we can create the connectionDto object and return it to the client caller.
+            return new ConnectionDto(dbUser.ToUserData(), isVerified)
+            {
+                CurrentClientVersion = _expectedClientVersion,
+                ServerVersion = IGagspeakHub.ApiVersion,
+                GlobalPerms = clientCallerGlobalPerms.ToApiGlobalPerms(),
+                SyncedGagData = clientGags,
+                SyncedRestrictionsData = clientRestrictions,
+                SyncedRestraintSetData = restraintSetData.ToApiRestraintData(),
+                PublishedPatterns = publishedPatterns,
+                PublishedMoodles = publishedMoodles,
+                ActiveAccountUidList = accountProfileUids,
+                UserAchievements = clientCallerAchievementData.Base64AchievementData,
+            };
+        }
+        catch (Exception ex)
+        {
+            // if we catch an error, log it and return null.
+            _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "GetConnectionDto", ex.Message, ex.StackTrace ?? string.Empty));
             return null!;
         }
-
-        // Send a client callback to the client caller with the systeminfo Dto.
-        await Clients.Caller.Client_UpdateSystemInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
-
-        // Grab the user from the database whose UID reflects the UID of the client callers claims, and update last login time.
-        User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
-        dbUser.LastLoggedIn = DateTime.UtcNow;
-
-        bool isVerified = await DbContext.AccountClaimAuth.AnyAsync(f => f.User.UID == UserUID).ConfigureAwait(false);
-
-        // collect the list of auths for this user.
-        List<string> accountProfileUids = await DbContext.Auth
-            .Include(u => u.User)
-            .Where(u => (u.UserUID != null && u.UserUID == UserUID) || (u.PrimaryUserUID != null && u.PrimaryUserUID == UserUID))
-            .Select(u => u.UserUID!)
-            .ToListAsync().ConfigureAwait(false);
-
-
-        // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
-        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
-            "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
-            " Kinksters are online.\nWe hope you enjoy your fun~").ConfigureAwait(false);
-
-        // Ensure GlobalPerms.
-        UserGlobalPermissions clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if (clientCallerGlobalPerms is null)
-        {
-            clientCallerGlobalPerms = new UserGlobalPermissions() { UserUID = UserUID };
-            DbContext.UserGlobalPermissions.Add(clientCallerGlobalPerms);
-        }
-
-        // Handle retrieving all GagData entries for the user, and correcting any invalid ones.
-        List<UserGagData> gagStateCache = await DbContext.UserGagData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
-        for (byte layer = 0; layer < gagStateCache.Count; layer++)
-        {
-            if (gagStateCache[layer] is null)
-            {
-                gagStateCache[layer] = new UserGagData() { UserUID = UserUID, Layer = layer };
-                DbContext.UserGagData.Add(gagStateCache[layer]);
-            }
-        }
-        // Compile the API output.
-        var gagDataApi = gagStateCache.Select(g => g.ToApiGagSlot()).ToArray();
-        CharaActiveGags clientGags = new CharaActiveGags(gagDataApi);
-
-        // Handle retrieving all RestrictionData entries for the user, and correcting any invalid ones.
-        List<UserRestrictionData> restrictionStateCache = await DbContext.UserRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
-        for (byte layer = 0; layer < restrictionStateCache.Count; layer++)
-        {
-            if (restrictionStateCache[layer] is null)
-            {
-                restrictionStateCache[layer] = new UserRestrictionData() { UserUID = UserUID, Layer = layer };
-                DbContext.UserRestrictionData.Add(restrictionStateCache[layer]);
-            }
-        }
-        // Compile the API output.
-        var restrictionDataApi = restrictionStateCache.Select(r => r.ToApiRestrictionSlot()).ToArray();
-        CharaActiveRestrictions clientRestrictions = new CharaActiveRestrictions(restrictionDataApi);
-
-        // Handle retrieving the RestraintSetData entry for the user, and correcting it if invalid.
-        UserRestraintData restraintSetData = await DbContext.UserRestraintData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if (restraintSetData is null)
-        {
-            restraintSetData = new UserRestraintData() { UserUID = UserUID };
-            DbContext.UserRestraintData.Add(restraintSetData);
-        }
-
-        // grab the achievement data.
-        UserAchievementData clientCallerAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-        if (clientCallerAchievementData is null)
-        {
-            clientCallerAchievementData = new UserAchievementData() { UserUID = UserUID, Base64AchievementData = null };
-            DbContext.UserAchievementData.Add(clientCallerAchievementData);
-        }
-
-        // we will need to grab all of our published patterns and append them as PublishedPattern object to the connectionDto
-        List<PatternEntry> callerPatternPublications = await DbContext.Patterns.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
-        List<PublishedPattern> publishedPatterns = callerPatternPublications.Select(p => p.ToPublishedPattern()).ToList();
-
-        // grab all the published moodles and append them as the published pattern object to the connectionDto
-        List<MoodleStatus> callerMoodlePublications = await DbContext.Moodles.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
-        List<PublishedMoodle> publishedMoodles = callerMoodlePublications.Select(m => m.ToPublishedMoodle()).ToList();
-
-        // Save the DbContext (never know if it was added or not so always good to be safe.
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // now we can create the connectionDto object and return it to the client caller.
-        return new ConnectionDto(dbUser.ToUserData(), isVerified)
-        {
-            CurrentClientVersion = _expectedClientVersion,
-            ServerVersion = IGagspeakHub.ApiVersion,
-            GlobalPerms = clientCallerGlobalPerms.ToApiGlobalPerms(),
-            SyncedGagData = clientGags,
-            SyncedRestrictionsData = clientRestrictions,
-            SyncedRestraintSetData = restraintSetData.ToApiRestraintData(),
-            PublishedPatterns = publishedPatterns,
-            PublishedMoodles = publishedMoodles,
-            ActiveAccountUidList = accountProfileUids,
-            UserAchievements = clientCallerAchievementData.Base64AchievementData,
-        };
     }
 
     /// <summary> 
