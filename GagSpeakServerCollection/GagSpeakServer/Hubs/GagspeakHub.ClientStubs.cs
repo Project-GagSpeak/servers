@@ -38,10 +38,9 @@ namespace GagspeakServer.Hubs
         public Task Client_UserUpdateAllPerms(BulkUpdatePermsAllDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
         public Task Client_UserUpdateAllGlobalPerms(BulkUpdatePermsGlobalDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
         public Task Client_UserUpdateAllUniquePerms(BulkUpdatePermsUniqueDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdatePairPermsGlobal(UserGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdatePairPerms(UserPairPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        public Task Client_UserUpdatePairPermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdateGlobalPerm(UserGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdateUniquePerm(UserPairPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
+        public Task Client_UserUpdatePermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
 
         /// <summary> Callbacks to update own or pair data. </summary>
         public Task Client_UserReceiveDataComposite(OnlineUserCompositeDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");

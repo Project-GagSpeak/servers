@@ -122,9 +122,9 @@ public partial class GagspeakHub
         Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
 
 		// callback to the client caller's pairs, letting them know that our permission was updated.
-		await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdatePairPermsGlobal(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
+		await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdateGlobalPerm(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
 		// callback to the client caller to let them know that their permissions have been updated.
-		await Clients.Caller.Client_UserUpdatePairPermsGlobal(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
+		await Clients.Caller.Client_UserUpdateGlobalPerm(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
 	}
 
 
@@ -167,14 +167,10 @@ public partial class GagspeakHub
 		List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
         Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
 
-		// debug the list of pairs of client
-		/*foreach (var pair in pairsOfClient) _logger.LogMessage($"Pair: {pair.Key}");*/
-
 		// send callback to all the paired users of the userpair we modified, informing them of the update (includes the client caller)
-		await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdatePairPermsGlobal(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
-		
+		await Clients.Users(pairsOfClient.Select(p => p.Key)).Client_UserUpdateGlobalPerm(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
 		// finally, send a callback to the client pair who just had their permissions updated.
-		await Clients.User(dto.User.UID).Client_UserUpdatePairPermsGlobal(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Client_UserUpdateGlobalPerm(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
 	}
 
 
@@ -209,9 +205,9 @@ public partial class GagspeakHub
 		await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
 		// callback the updated info to the client caller as well so it can update properly.
-		await Clients.User(UserUID).Client_UserUpdatePairPerms(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
+		await Clients.User(UserUID).Client_UserUpdateUniquePerm(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
 		// send a callback to the userpair we updated our permission for, so they get the updated info
-		await Clients.User(dto.User.UID).Client_UserUpdatePairPerms(new(new(UserUID), dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Client_UserUpdateUniquePerm(new(new(UserUID), dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
 
 		// check pause change
 		if (!(pairPerms.IsPaused != prevPauseState))
@@ -273,9 +269,9 @@ public partial class GagspeakHub
 		await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
 		// inform the userpair we modified to update their own permissions
-		await Clients.User(dto.User.UID).Client_UserUpdatePairPerms(new(new(UserUID), dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Client_UserUpdateUniquePerm(new(new(UserUID), dto.Enactor, dto.ChangedPermission, UpdateDir.Own)).ConfigureAwait(false);
 		// inform the client caller to update the modified userpairs permission
-		await Clients.Caller.Client_UserUpdatePairPerms(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
+		await Clients.Caller.Client_UserUpdateUniquePerm(new(dto.User, dto.Enactor, dto.ChangedPermission, UpdateDir.Other)).ConfigureAwait(false);
 	}
 
 	/// <summary>
@@ -299,8 +295,8 @@ public partial class GagspeakHub
 		await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
 		// send a callback to the userpair we updated our permission for, so they get the updated info (we update the user so that when the pair receives it they know who to update this for)
-		await Clients.User(dto.User.UID).Client_UserUpdatePairPermAccess(new(new(UserUID), dto.Enactor, dto.ChangedAccessPermission, UpdateDir.Other)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Client_UserUpdatePermAccess(new(new(UserUID), dto.Enactor, dto.ChangedAccessPermission, UpdateDir.Other)).ConfigureAwait(false);
 		// callback the updated info to the client caller as well so it can update properly.
-		await Clients.Caller.Client_UserUpdatePairPermAccess(new(dto.User, dto.Enactor, dto.ChangedAccessPermission, UpdateDir.Own)).ConfigureAwait(false);
+		await Clients.Caller.Client_UserUpdatePermAccess(new(dto.User, dto.Enactor, dto.ChangedAccessPermission, UpdateDir.Own)).ConfigureAwait(false);
 	}
 }
