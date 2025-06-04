@@ -1,4 +1,4 @@
-﻿using GagspeakAPI.Routes;
+﻿using GagspeakAPI.Hub;
 using GagspeakAuthentication.Services;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
@@ -75,7 +75,7 @@ public class JwtController : Controller
     [HttpPost(GagspeakAuth.Auth_CreateIdent)]
     public async Task<IActionResult> CreateToken(string charaIdent, string authKey, string ensurePrimary)
     {
-        var forceMain = string.Equals(ensurePrimary, "True", StringComparison.OrdinalIgnoreCase);
+        bool forceMain = string.Equals(ensurePrimary, "True", StringComparison.OrdinalIgnoreCase);
         // Call internal authentication method
         return await AuthenticateInternal(charaIdent, forceMain, authKey).ConfigureAwait(false);
     }
@@ -95,9 +95,9 @@ public class JwtController : Controller
         try
         {
             // Extract user claims for UID, CharaIdentity, and Alias from the HTTPContext claims.
-            var uid = HttpContext.User.Claims.Single(p => string.Equals(p.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))!.Value;
-            var ident = HttpContext.User.Claims.Single(p => string.Equals(p.Type, GagspeakClaimTypes.CharaIdent, StringComparison.Ordinal))!.Value;
-            var alias = HttpContext.User.Claims.SingleOrDefault(p => string.Equals(p.Type, GagspeakClaimTypes.Alias))?.Value ?? string.Empty;
+            string uid = HttpContext.User.Claims.Single(p => string.Equals(p.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))!.Value;
+            string ident = HttpContext.User.Claims.Single(p => string.Equals(p.Type, GagspeakClaimTypes.CharaIdent, StringComparison.Ordinal))!.Value;
+            string alias = HttpContext.User.Claims.SingleOrDefault(p => string.Equals(p.Type, GagspeakClaimTypes.Alias))?.Value ?? string.Empty;
 
             // Check if the user is banned from the gagspeak servers.
             if (await _gagspeakDbContext.Auth.Where(u => u.UserUID == uid || u.PrimaryUserUID == uid).AnyAsync(a => a.IsBanned))
@@ -169,7 +169,7 @@ public class JwtController : Controller
             }
 
             // the passed in variables had content, so fetch the IPGetIpAddress
-            var ip = _accessor.GetIpAddress();
+            string ip = _accessor.GetIpAddress();
 
             _logger.LogInformation("Attempting to authenticate secret key {auth}", auth);
             SecretKeyAuthReply authResult = await _secretKeyAuthenticatorService.AuthorizeAsync(ip, auth);
@@ -216,7 +216,7 @@ public class JwtController : Controller
             }
 
             // see if the user is already currently logged in with the same identifier.
-            var existingIdent = await _redis.GetAsync<string>("GagspeakHub:UID:" + authResult.Uid);
+            string? existingIdent = await _redis.GetAsync<string>("GagspeakHub:UID:" + authResult.Uid);
             // if they are, return an unauthorized result. (already logged in)
             if (!string.IsNullOrEmpty(existingIdent))
             {
@@ -240,7 +240,7 @@ public class JwtController : Controller
     /// <summary> Method to create a JWT token from a provided user ID, character identity, and alias. </summary>
     private IActionResult CreateTempAccessJwtFromId(string charaIdent, string localConentId)
     {
-        var token = CreateJwt(new List<Claim>
+        JwtSecurityToken token = CreateJwt(new List<Claim>
         {
             new Claim(GagspeakClaimTypes.CharaIdent, charaIdent),
             new Claim(GagspeakClaimTypes.Expires, DateTime.UtcNow.AddHours(6).Ticks.ToString(CultureInfo.InvariantCulture)), // the expiration claim
@@ -254,7 +254,7 @@ public class JwtController : Controller
     private IActionResult CreateJwtFromId(string uid, string charaIdent, string alias)
     {
         // create a new token from the provided claims.
-        var token = CreateJwt(new List<Claim>()
+        JwtSecurityToken token = CreateJwt(new List<Claim>()
         {
             new Claim(GagspeakClaimTypes.Uid, uid),                 // the UID claim
             new Claim(GagspeakClaimTypes.CharaIdent, charaIdent),   // the character identifier claim
@@ -271,10 +271,10 @@ public class JwtController : Controller
     private JwtSecurityToken CreateJwt(IEnumerable<Claim> authClaims)
     {
         // create the authentication signing key using the configuration value for the JWT.
-        var authSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(_configuration.GetValue<string>(nameof(GagspeakConfigurationBase.Jwt))));
+        SymmetricSecurityKey authSigningKey = new SymmetricSecurityKey(Encoding.ASCII.GetBytes(_configuration.GetValue<string>(nameof(GagspeakConfigurationBase.Jwt))));
 
         // generate the token via a new securityTokenDescriptor:
-        var token = new SecurityTokenDescriptor()
+        SecurityTokenDescriptor token = new SecurityTokenDescriptor()
         {
             // set the subject to the authclaims provided.
             Subject = new ClaimsIdentity(authClaims),
@@ -285,7 +285,7 @@ public class JwtController : Controller
         };
 
         // set the handler to the new JWT security token handler and create the token.
-        var handler = new JwtSecurityTokenHandler();
+        JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
         // create a new jwt securitytoken from the token generated, and return that.
         return handler.CreateJwtSecurityToken(token);
     }
@@ -311,12 +311,12 @@ public class JwtController : Controller
         }
 
         // fetch the primary user from the auth table where the primary user UID is the same as the user UID.
-        var primaryUser = await _gagspeakDbContext.Auth.Include(a => a.User).FirstOrDefaultAsync(f => f.PrimaryUserUID == uid);
+        Auth? primaryUser = await _gagspeakDbContext.Auth.Include(a => a.User).FirstOrDefaultAsync(f => f.PrimaryUserUID == uid);
         // set the toBanUID to the primary user UID if the primary user is not null, otherwise set it to the user UID.
-        var toBanUid = primaryUser is null ? uid : primaryUser.UserUID;
+        string? toBanUid = primaryUser is null ? uid : primaryUser.UserUID;
 
         // fetch the accountClaimAuth used to claim ownership over the account, if one exists.
-        var accountClaimAuth = await _gagspeakDbContext.AccountClaimAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == toBanUid);
+        AccountClaimAuth? accountClaimAuth = await _gagspeakDbContext.AccountClaimAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == toBanUid);
 
         // if it does exist
         if (accountClaimAuth != null)
@@ -342,7 +342,7 @@ public class JwtController : Controller
     private async Task<bool> IsIdentBanned(string uid, string charaIdent)
     {
         // see if user is in banned users table where the charaIdentis the same as the character identifier.
-        var isBanned = await _gagspeakDbContext.BannedUsers.AsNoTracking().AnyAsync(u => u.CharacterIdentification == charaIdent).ConfigureAwait(false);
+        bool isBanned = await _gagspeakDbContext.BannedUsers.AsNoTracking().AnyAsync(u => u.CharacterIdentification == charaIdent).ConfigureAwait(false);
 
         // if they are
         if (isBanned)

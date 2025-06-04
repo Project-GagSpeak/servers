@@ -1,4 +1,4 @@
-﻿using GagspeakAPI.SignalR;
+﻿using GagspeakAPI.Hub;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
@@ -78,7 +78,7 @@ public class DbNotificationListener : IHostedService
                     if (!string.IsNullOrEmpty(userUID))
                     {
                         // if it is, send the verification code to the user
-                        await _hubContext.Clients.User(userUID).Client_DisplayVerificationPopup(new() { VerificationCode = auth.VerificationCode ?? "" }).ConfigureAwait(false);
+                        await _hubContext.Clients.User(userUID).Callback_ShowVerification(new() { Code = auth.VerificationCode ?? "" }).ConfigureAwait(false);
                     }
                 }
             }
@@ -105,11 +105,11 @@ public class DbNotificationListener : IHostedService
             {
                 DiscordId = root.GetProperty("discord_id").GetUInt64(),
                 InitialGeneratedKey = root.GetProperty("initial_generated_key").GetString(),
-                VerificationCode = root.TryGetProperty("verification_code", out var codeProp) ? codeProp.GetString() : null,
-                User = root.TryGetProperty("user_uid", out var userProp)
+                VerificationCode = root.TryGetProperty("verification_code", out JsonElement codeProp) ? codeProp.GetString() : null,
+                User = root.TryGetProperty("user_uid", out JsonElement userProp)
                     ? JsonSerializer.Deserialize<User>(userProp.GetRawText())
                     : null,
-                StartedAt = root.TryGetProperty("started_at", out var dateProp)
+                StartedAt = root.TryGetProperty("started_at", out JsonElement dateProp)
                     ? dateProp.Deserialize<DateTime?>()
                     : null
             };

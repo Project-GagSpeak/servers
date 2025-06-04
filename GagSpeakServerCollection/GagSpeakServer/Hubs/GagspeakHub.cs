@@ -1,8 +1,8 @@
 using GagspeakAPI.Data;
-using GagspeakAPI.Data.Character;
-using GagspeakAPI.Dto.Connection;
+using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Enums;
-using GagspeakAPI.SignalR;
+using GagspeakAPI.Hub;
+using GagspeakAPI.Network;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;
@@ -89,7 +89,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// </para>
     /// </summary>
     [Authorize(Policy = "Identified")]
-    public async Task<ConnectionDto> GetConnectionDto()
+    public async Task<ConnectionResponse> GetConnectionResponse()
     {
         // log the caller who requested this method
         _logger.LogCallInfo();
@@ -100,13 +100,13 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             bool userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
             if (!userExists)
             {
-                await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Error,
+                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error,
                     $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
                 return null!;
             }
 
             // Send a client callback to the client caller with the systeminfo Dto.
-            await Clients.Caller.Client_UpdateSystemInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
+            await Clients.Caller.Callback_ServerInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
 
             // Grab the user from the database whose UID reflects the UID of the client callers claims, and update last login time.
             User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
@@ -123,16 +123,16 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
             // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information,
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information,
                 "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
                 " Kinksters are online.\nWe hope you enjoy your fun~").ConfigureAwait(false);
 
             // Ensure GlobalPerms.
-            UserGlobalPermissions clientCallerGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-            if (clientCallerGlobalPerms is null)
+            UserGlobalPermissions globalPermsModel = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
+            if (globalPermsModel is null)
             {
-                clientCallerGlobalPerms = new UserGlobalPermissions() { UserUID = UserUID };
-                DbContext.UserGlobalPermissions.Add(clientCallerGlobalPerms);
+                globalPermsModel = new UserGlobalPermissions() { UserUID = UserUID };
+                DbContext.UserGlobalPermissions.Add(globalPermsModel);
             }
 
             // Handle retrieving all GagData entries for the user, and correcting any invalid ones.
@@ -191,11 +191,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
             // now we can create the connectionDto object and return it to the client caller.
-            return new ConnectionDto(dbUser.ToUserData(), isVerified)
+            return new ConnectionResponse(dbUser.ToUserData(), isVerified)
             {
                 CurrentClientVersion = _expectedClientVersion,
                 ServerVersion = IGagspeakHub.ApiVersion,
-                GlobalPerms = clientCallerGlobalPerms.ToApiGlobalPerms(),
+                GlobalPerms = globalPermsModel.ToApiGlobalPerms(),
                 SyncedGagData = clientGags,
                 SyncedRestrictionsData = clientRestrictions,
                 SyncedRestraintSetData = restraintSetData.ToApiRestraintData(),

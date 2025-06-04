@@ -1,4 +1,4 @@
-﻿using GagspeakAPI.SignalR;
+﻿using GagspeakAPI.Hub;
 using GagspeakServer.Hubs;
 using GagspeakShared.Utils;
 using Microsoft.AspNetCore.Authorization;
@@ -44,13 +44,13 @@ public class ClientMessageController : Controller
         if (!hasUid)
         {
             _logger.LogInformation("Sending Message of severity {severity} to all online users: {message}", msg.Severity, msg.Message);
-            await _hubContextMain.Clients.All.Client_ReceiveServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
+            await _hubContextMain.Clients.All.Callback_ServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
         }
         // If there is a UID, send the message to the specific user
         else
         {
             _logger.LogInformation("Sending Message of severity {severity} to user {uid}: {message}", msg.Severity, msg.UID, msg.Message);
-            await _hubContextMain.Clients.User(msg.UID).Client_ReceiveServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
+            await _hubContextMain.Clients.User(msg.UID).Callback_ServerMessage(msg.Severity, msg.Message).ConfigureAwait(false);
         }
 
         // Return an empty result
@@ -68,7 +68,7 @@ public class ClientMessageController : Controller
             return Empty;
         }
         _logger.LogInformation("Sending Message of severity {severity} to all online users: {message}", msg.Severity, msg.Message);
-        await _hubContextMain.Clients.All.Client_ReceiveHardReconnectMessage(msg.Severity, msg.Message, msg.State).ConfigureAwait(false);
+        await _hubContextMain.Clients.All.Callback_HardReconnectMessage(msg.Severity, msg.Message, msg.State).ConfigureAwait(false);
 
         // Return an empty result
         return Empty;

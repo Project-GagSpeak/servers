@@ -1,73 +1,62 @@
 ﻿using GagspeakAPI.Data;
-using GagspeakAPI.Dto;
-using GagspeakAPI.Dto.Connection;
-using GagspeakAPI.Dto.IPC;
-using GagspeakAPI.Dto.Permissions;
-using GagspeakAPI.Dto.User;
-using GagspeakAPI.Dto.UserPair;
 using GagspeakAPI.Dto.VibeRoom;
 using GagspeakAPI.Enums;
+using GagspeakAPI.Network;
 
-namespace GagspeakServer.Hubs
+namespace GagspeakServer.Hubs;
+
+/// <summary>
+///	The parts of the IGagspeakHub intended for the client-side, not the serverside.
+///	If any of these are called on the server-side, they will throw a PlatformNotSupportedException.
+/// </summary>
+public partial class GagspeakHub
 {
-    /// <summary> This section of the partial class for GagspeakHub contains the client stubs.
-    /// <para> Client stubs are the functions that the server can call upon from its connected clients.</para>
-    /// <para>
-    /// This means that the clients should never be able to call these functions on the server.
-    /// If they do try, we will throw an exception for each of these methods.
-    /// </para>
-    /// </summary>
-    public partial class GagspeakHub
-    {
-        public Task Client_ReceiveServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_ReceiveHardReconnectMessage(MessageSeverity messageSeverity, string message, ServerState state) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UpdateSystemInfo(SystemInfoDto systemInfo) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        public Task Client_UserAddClientPair(UserPairDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserRemoveClientPair(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserAddPairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserRemovePairRequest(UserPairRequestDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        /// <summary> Callbacks to update moodles. </summary>
-        public Task Client_UserApplyMoodlesByGuid(ApplyMoodlesByGuidDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserApplyMoodlesByStatus(ApplyMoodlesByStatusDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserRemoveMoodles(RemoveMoodlesDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserClearMoodles(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        /// <summary> Callbacks to update permissions. </summary>
-        public Task Client_UserUpdateAllPerms(BulkUpdatePermsAllDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdateAllGlobalPerms(BulkUpdatePermsGlobalDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdateAllUniquePerms(BulkUpdatePermsUniqueDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdateGlobalPerm(UserGlobalPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdateUniquePerm(UserPairPermChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdatePermAccess(UserPairAccessChangeDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        /// <summary> Callbacks to update own or pair data. </summary>
-        public Task Client_UserReceiveDataComposite(OnlineUserCompositeDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataIpc(CallbackIpcDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataGags(CallbackGagDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataRestrictions(CallbackRestrictionDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataRestraint(CallbackRestraintDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataCursedLoot(CallbackCursedLootDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataOrders(CallbackOrdersDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataAlias(CallbackAliasDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveDataToybox(CallbackToyboxDataDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveLightStorage(CallbackLightStorageDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserReceiveShockInstruction(ShockCollarActionDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        public Task Client_RoomJoin(VibeRoomKinksterFullDto user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_RoomLeave(VibeRoomKinksterFullDto user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_RoomReceiveDeviceUpdate(UserData user, DeviceInfo deviceInfo) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_RoomReceiveDataStream(SexToyDataStreamCallbackDto dataStream) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_RoomUserAccessGranted(UserData user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_RoomUserAccessRevoked(UserData user) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_RoomReceiveChatMessage(UserData user, string message) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        public Task Client_GlobalChatMessage(GlobalChatMessageDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserSendOffline(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserSendOnline(OnlineUserIdentDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-        public Task Client_UserUpdateProfile(UserDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-
-        public Task Client_DisplayVerificationPopup(VerificationDto dto) => throw new PlatformNotSupportedException("Calling Client-Side method on server not supported");
-    }
+	private const string UnsupportedMessage = "Calling Client-Side method on server not supported";
+	public Task Callback_ServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_HardReconnectMessage(MessageSeverity messageSeverity, string message, ServerState state) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ServerInfo(ServerInfoResponse info) => throw new PlatformNotSupportedException(UnsupportedMessage)
+		;
+	public Task Callback_AddClientPair(KinksterPair dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RemoveClientPair(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_AddPairRequest(KinksterRequestEntry dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RemovePairRequest(KinksterRequestEntry dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+		
+	public Task Callback_ApplyMoodlesByGuid(MoodlesApplierById dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ApplyMoodlesByStatus(MoodlesApplierByStatus dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RemoveMoodles(MoodlesRemoval dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ClearMoodles(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+		
+	public Task Callback_BulkChangeAll(BulkChangeAll dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_BulkChangeGlobal(BulkChangeGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_BulkChangeUnique(BulkChangeUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SingleChangeGlobal(SingleChangeGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SingleChangeUnique(SingleChangeUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SingleChangeAccess(SingleChangeAccess dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+		
+	public Task Callback_KinksterUpdateComposite(KinksterUpdateComposite dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateIpc(KinksterUpdateIpc dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateGagSlot(KinksterUpdateGagSlot dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateRestriction(KinksterUpdateRestriction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateRestraint(KinksterUpdateRestraint dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateCursedLoot(KinksterUpdateCursedLoot dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateAliasGlobal(KinksterUpdateAliasGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateAliasUnique(KinksterUpdateAliasUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateToybox(KinksterUpdateToybox dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateLightStorage(KinksterUpdateLightStorage dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ListenerName(UserData user, string name) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ShockInstruction(ShockCollarAction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+		
+	public Task Callback_ChatMessageGlobal(ChatMessageGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterOffline(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterOnline(OnlineKinkster dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ProfileUpdated(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ShowVerification(VerificationCode dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+		
+	public Task Callback_RoomJoin(RoomParticipant dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomLeave(RoomParticipant dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomDeviceUpdate(UserData user, ToyInfo ToyInfo) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomIncDataStream(ToyDataStreamResponse dataStream) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomAccessGranted(UserData user) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomAccessRevoked(UserData user) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomChatMessage(UserData user, string message) => throw new PlatformNotSupportedException(UnsupportedMessage);
 }

@@ -2,13 +2,9 @@
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
-using GagspeakShared.Utils.Configuration;
 using GagspeakShared.Utils;
+using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.AspNetCore.SignalR;
-using GagspeakServer.Hubs;
-using GagspeakAPI.SignalR;
-using GagspeakAPI.Enums;
 
 namespace GagspeakServer.Services;
 /// <summary> Service for cleaning up users and groups that are no longer active </summary>
@@ -42,8 +38,8 @@ public class UserCleanupService : IHostedService
     {
         while (!ct.IsCancellationRequested)
         {
-            using var scope = _services.CreateScope();
-            using var dbContext = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
+            using IServiceScope scope = _services.CreateScope();
+            using GagspeakDbContext dbContext = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
 
             await PurgeUnusedAccounts(dbContext).ConfigureAwait(false);
 
@@ -56,10 +52,10 @@ public class UserCleanupService : IHostedService
 
             dbContext.SaveChanges();
 
-            var now = DateTime.Now;
+            DateTime now = DateTime.Now;
             TimeOnly currentTime = new(now.Hour, now.Minute, now.Second);
             TimeOnly futureTime = new(now.Hour, now.Minute - now.Minute % 10, 0);
-            var span = futureTime.AddMinutes(10) - currentTime;
+            TimeSpan span = futureTime.AddMinutes(10) - currentTime;
 
             _logger.LogInformation("User Cleanup Complete, next run at {date}", now.Add(span));
             await Task.Delay(span, ct).ConfigureAwait(false);
@@ -72,12 +68,12 @@ public class UserCleanupService : IHostedService
         {
             _logger.LogInformation("Resetting upload counters for users");
 
-            var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
-            var usersToReset = await dbContext.Users
+            DateTime oneWeekAgo = DateTime.UtcNow.AddDays(-7);
+            List<User> usersToReset = await dbContext.Users
                 .Where(user => user.FirstUploadTimestamp != DateTime.MinValue && user.FirstUploadTimestamp >= oneWeekAgo)
                 .ToListAsync().ConfigureAwait(false);
 
-            foreach (var user in usersToReset)
+            foreach (User user in usersToReset)
             {
                 user.UploadLimitCounter = 0;
                 user.FirstUploadTimestamp = DateTime.MinValue;
@@ -98,16 +94,16 @@ public class UserCleanupService : IHostedService
         {
             _logger.LogInformation("Cleaning up rooms older than 12 hours");
 
-            var twelveHoursAgo = DateTime.UtcNow - TimeSpan.FromHours(12);
-            var oldRooms = await dbContext.PrivateRooms
+            DateTime twelveHoursAgo = DateTime.UtcNow - TimeSpan.FromHours(12);
+            List<PrivateRoom> oldRooms = await dbContext.PrivateRooms
                 .Where(r => r.TimeMade < twelveHoursAgo)
                 .ToListAsync().ConfigureAwait(false);
 
-            foreach (var room in oldRooms)
+            foreach (PrivateRoom room in oldRooms)
             {
                 _logger.LogInformation("Removing room: {roomName}", room.NameID);
 
-                var roomUsers = dbContext.PrivateRoomPairs
+                List<PrivateRoomPair> roomUsers = dbContext.PrivateRoomPairs
                     .Where(pru => pru.PrivateRoomNameID == room.NameID)
                     .ToList();
 
@@ -129,13 +125,13 @@ public class UserCleanupService : IHostedService
         {
             if (_configuration.GetValueOrDefault(nameof(ServerConfiguration.PurgeUnusedAccounts), false))
             {
-                var usersOlderThanDays = _configuration.GetValueOrDefault(nameof(ServerConfiguration.PurgeUnusedAccountsPeriodInDays), 120);
+                int usersOlderThanDays = _configuration.GetValueOrDefault(nameof(ServerConfiguration.PurgeUnusedAccountsPeriodInDays), 120);
 
                 _logger.LogInformation("Cleaning up users older than {usersOlderThanDays} days", usersOlderThanDays);
 
-                var allUsers = dbContext.Users.Where(u => string.IsNullOrEmpty(u.Alias)).ToList();
+                List<User> allUsers = dbContext.Users.Where(u => string.IsNullOrEmpty(u.Alias)).ToList();
                 List<User> usersToRemove = new();
-                foreach (var user in allUsers)
+                foreach (User user in allUsers)
                 {
                     if (user.LastLoggedIn < DateTime.UtcNow - TimeSpan.FromDays(usersOlderThanDays))
                     {
@@ -144,7 +140,7 @@ public class UserCleanupService : IHostedService
                     }
                 }
 
-                foreach (var user in usersToRemove)
+                foreach (User user in usersToRemove)
                 {
                     await SharedDbFunctions.PurgeUser(_logger, user, dbContext).ConfigureAwait(false);
                 }
@@ -164,7 +160,7 @@ public class UserCleanupService : IHostedService
         {
             _logger.LogInformation("Cleaning up expired pair requests");
 
-            var expiredRequests = dbContext.KinksterPairRequests.Where(r => r.CreationTime < DateTime.UtcNow - TimeSpan.FromDays(3)).ToList();
+            List<KinksterRequest> expiredRequests = dbContext.KinksterPairRequests.Where(r => r.CreationTime < DateTime.UtcNow - TimeSpan.FromDays(3)).ToList();
             _logger.LogInformation("Removing " + expiredRequests.Count + " expired pair requests");
             dbContext.KinksterPairRequests.RemoveRange(expiredRequests);
         }
@@ -179,9 +175,9 @@ public class UserCleanupService : IHostedService
         try
         {
             _logger.LogInformation($"Cleaning up expired account claim authentications");
-            var accountClaimAuths = dbContext.AccountClaimAuth.Include(u => u.User).Where(a => a.StartedAt != null).ToList();
+            List<AccountClaimAuth> accountClaimAuths = dbContext.AccountClaimAuth.Include(u => u.User).Where(a => a.StartedAt != null).ToList();
             List<AccountClaimAuth> expiredAuths = new List<AccountClaimAuth>();
-            foreach (var auth in accountClaimAuths)
+            foreach (AccountClaimAuth auth in accountClaimAuths)
             {
                 if (auth.StartedAt < DateTime.UtcNow - TimeSpan.FromMinutes(15))
                 {
@@ -203,18 +199,18 @@ public class UserCleanupService : IHostedService
     {
         _logger.LogInformation("Purging user: {uid}", user.UID);
 
-        var claimAuth = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User != null && a.User.UID == user.UID);
+        AccountClaimAuth claimAuth = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User != null && a.User.UID == user.UID);
 
         if (claimAuth != null)
         {
             dbContext.Remove(claimAuth);
         }
 
-        var auth = dbContext.Auth.Single(a => a.UserUID == user.UID);
+        Auth auth = dbContext.Auth.Single(a => a.UserUID == user.UID);
 
-        var ownPairData = dbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToList();
+        List<ClientPair> ownPairData = dbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToList();
         dbContext.ClientPairs.RemoveRange(ownPairData);
-        var otherPairData = dbContext.ClientPairs.Include(u => u.User)
+        List<ClientPair> otherPairData = dbContext.ClientPairs.Include(u => u.User)
             .Where(u => u.OtherUser.UID == user.UID).ToList();
         dbContext.ClientPairs.RemoveRange(otherPairData);
 

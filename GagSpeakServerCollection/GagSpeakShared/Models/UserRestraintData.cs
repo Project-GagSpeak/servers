@@ -1,4 +1,4 @@
-using GagspeakAPI.Data.Interfaces;
+using GagspeakAPI.Data;
 using GagspeakAPI.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;

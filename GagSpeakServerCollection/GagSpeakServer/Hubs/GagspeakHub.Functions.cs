@@ -52,7 +52,7 @@ public partial class GagspeakHub
         // for each of the other pairs in the database, remove the user from their client pair list.
         foreach (var pair in otherPairData)
         {
-            await Clients.User(pair.UserUID).Client_UserRemoveClientPair(new(user.ToUserData())).ConfigureAwait(false);
+            await Clients.User(pair.UserUID).UserRemoveKinkster(new(user.ToUserData())).ConfigureAwait(false);
         }
 
         // if the users globalpermissions is not null, remove it from the database.
@@ -145,7 +145,7 @@ public partial class GagspeakHub
         // grab all paired unpaused users, our user object, and send our offlineIdentDTO to the list of unpaused paired users.
         var usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        await Clients.Users(usersToSendDataTo).Client_UserSendOffline(new(self.ToUserData())).ConfigureAwait(false);
+        await Clients.Users(usersToSendDataTo).Callback_KinksterOffline(new(self.ToUserData())).ConfigureAwait(false);
         return usersToSendDataTo;
     }
 
@@ -161,7 +161,7 @@ public partial class GagspeakHub
         // grab all paired unpaused users, our user object, and send our onlineIdentDTO to the list of unpaused paired users.
         var usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        await Clients.Users(usersToSendDataTo).Client_UserSendOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
+        await Clients.Users(usersToSendDataTo).Callback_KinksterOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
         // return the list of UID strings that we sent the online message to.
         return usersToSendDataTo;
     }
@@ -184,7 +184,7 @@ public partial class GagspeakHub
             if (userUID is not null && _userConnections.ContainsKey(userUID))
             {
                 // if it is, send the verification code to the user
-                await Clients.User(userUID).Client_DisplayVerificationPopup(new() { VerificationCode = auth.VerificationCode ?? "" }).ConfigureAwait(false);
+                await Clients.User(userUID).Callback_ShowVerification(new() { Code = auth.VerificationCode ?? "" }).ConfigureAwait(false);
             }
         }
     }
@@ -271,10 +271,10 @@ public partial class GagspeakHub
                                 equals new { UserUID = pa.UserUID, OtherUserUID = pa.OtherUserUID } into otheraccesses
                             // find perms that the other user has set for the main user. Groups results into 'otheraccesses'
                             from otheraccess in otheraccesses.DefaultIfEmpty()
-                                // Join for UserGlobalPermissions for the main user
+                                // Join for GlobalPerms for the main user
                             join ug in DbContext.UserGlobalPermissions.AsNoTracking() on user.UserUID equals ug.UserUID into userGlobalPerms
                             from userGlobalPerm in userGlobalPerms.DefaultIfEmpty()
-                                // Join for UserGlobalPermissions for the other user
+                                // Join for GlobalPerms for the other user
                             join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
                                 // Filter to include only pairs where the main user is involved
@@ -372,10 +372,10 @@ public partial class GagspeakHub
                                 equals new { UserUID = pa.UserUID, OtherUserUID = pa.OtherUserUID } into otheraccesses
                             // find perms that the other user has set for the main user. Groups results into 'otheraccesses'
                             from otheraccess in otheraccesses.DefaultIfEmpty()
-                                // Join for UserGlobalPermissions for the main user
+                                // Join for GlobalPerms for the main user
                             join ug in DbContext.UserGlobalPermissions.AsNoTracking() on user.UserUID equals ug.UserUID into userGlobalPerms
                             from userGlobalPerm in userGlobalPerms.DefaultIfEmpty()
-                                // Join for UserGlobalPermissions for the other user
+                                // Join for GlobalPerms for the other user
                             join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
                                 // Filter to include only pairs where the main user is involved
@@ -481,10 +481,10 @@ public partial class GagspeakHub
                                 equals new { UserUID = pa.UserUID, OtherUserUID = pa.OtherUserUID } into otheraccesses
                             // find perms that the other user has set for the main user. Groups results into 'otheraccesses'
                             from otheraccess in otheraccesses.DefaultIfEmpty()
-                                // Join for UserGlobalPermissions for the main user
+                                // Join for GlobalPerms for the main user
                             join ug in DbContext.UserGlobalPermissions.AsNoTracking() on user.UserUID equals ug.UserUID into userGlobalPerms
                             from userGlobalPerm in userGlobalPerms.DefaultIfEmpty()
-                                // Join for UserGlobalPermissions for the other user
+                                // Join for GlobalPerms for the other user
                             join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
                                 // Filter to include only pairs where the main user is involved

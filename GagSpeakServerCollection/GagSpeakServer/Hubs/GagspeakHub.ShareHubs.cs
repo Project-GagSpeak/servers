@@ -1,7 +1,8 @@
 ﻿using GagspeakAPI.Data;
-using GagspeakAPI.Dto;
 using GagspeakAPI.Dto.Sharehub;
 using GagspeakAPI.Enums;
+using GagspeakAPI.Hub;
+using GagspeakAPI.Network;
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -14,31 +15,23 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class GagspeakHub
 {
-    private const string GagspeakGlobalChat = "GlobalGagspeakChat";
-
-    // really not a good idea to log this lol.
-    public async Task SendGlobalChat(GlobalChatMessageDto message)
-    {
-        await Clients.Group(GagspeakGlobalChat).Client_GlobalChatMessage(message).ConfigureAwait(false);
-    }
-
-    public async Task<bool> UploadPattern(PatternUploadDto dto)
+    public async Task<HubResponse> UploadPattern(PatternUpload dto)
     {
         _logger.LogCallInfo();
 
         // if the guid is empty, it's not a valid pattern.
         if (dto.patternInfo.Identifier == Guid.Empty)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Invalid Pattern Identifier.").ConfigureAwait(false);
-            return false;
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Invalid Pattern Identifier.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
         }
 
         // ensure the right person is doing this and that they exist.
         User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
         if (user is null || !string.Equals(user.UID, UserUID, StringComparison.Ordinal))
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Your User Doesn't exist.").ConfigureAwait(false);
-            return false;
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Your User Doesn't exist.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
         }
 
         // Attempt to prevent reuploads and duplicate uploads.
@@ -47,8 +40,8 @@ public partial class GagspeakHub
             .ConfigureAwait(false);
         if (existingPattern is not null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern already exists.").ConfigureAwait(false);
-            return false;
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Pattern already exists.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.DuplicateEntry);
         }
 
         // determine max upload allowance
@@ -63,9 +56,9 @@ public partial class GagspeakHub
         // Check if the user has exceeded the upload limit
         if (user.UploadLimitCounter >= maxUploadsPerWeek)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning,
                 $"Upload limit exceeded. You can only upload {maxUploadsPerWeek} patterns per week.").ConfigureAwait(false);
-            return false;
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.UploadLimitExceeded);
         }
 
         // Otherwise, update the upload counter and timestamp
@@ -121,34 +114,34 @@ public partial class GagspeakHub
 
         // Save the user with the new upload log
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return true;
+        return HubResponseBuilder.Yippee();
     }
 
-    public async Task<bool> UploadMoodle(MoodleUploadDto dto)
+    public async Task<HubResponse> UploadMoodle(MoodleUpload dto)
     {
         _logger.LogCallInfo();
 
         // if the guid is empty, it's not a valid pattern.
         if (dto.MoodleInfo.GUID == Guid.Empty)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Invalid Moodle Identifier.").ConfigureAwait(false);
-            return false;
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Invalid Moodle Identifier.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
         }
 
         // ensure the uploader is a valid user in the database.
         User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
         if (user is null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "You are not authorized to upload this moodle.").ConfigureAwait(false);
-            return false;
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "You are not authorized to upload this moodle.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
         }
 
         // Attempt to prevent reuploads and duplicate uploads.
         MoodleStatus existingMoodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == dto.MoodleInfo.GUID).ConfigureAwait(false);
         if (existingMoodle is not null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Moodle already exists.").ConfigureAwait(false);
-            return false;
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Moodle already exists.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.DuplicateEntry);
         }
 
         /////////////// Step 1: Check and add tags //////////////////
@@ -169,7 +162,7 @@ public partial class GagspeakHub
         ///////////// Step 2: Create and insert the new Pattern Entry /////////////
         MoodleStatus newMoodleEntry = new()
         {
-            
+
             Identifier = dto.MoodleInfo.GUID,
             PublisherUID = UserUID,
             TimePublished = DateTime.UtcNow,
@@ -208,103 +201,43 @@ public partial class GagspeakHub
 
         // Save the user with the new upload log
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return true;
+        return HubResponseBuilder.Yippee();
     }
-
-    public async Task<bool> RemovePattern(Guid patternId)
-    {
-        _logger.LogCallInfo();
-
-        // Ensure they are a valid user.
-        User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
-            return false;
-        }
-
-        // Find the pattern by GUID and ensure it belongs to the user
-        PatternEntry pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId && p.PublisherUID == user.UID).ConfigureAwait(false);
-
-        if (pattern is null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning,
-                "Pattern not found or you do not have permission to delete it.").ConfigureAwait(false);
-            return false;
-        }
-
-        // Find and remove related PatternEntryTags
-        List<PatternKeyword> patternEntryTags = await DbContext.PatternKeywords.Where(pet => pet.PatternEntryId == patternId).ToListAsync().ConfigureAwait(false);
-        DbContext.PatternKeywords.RemoveRange(patternEntryTags);
-
-        // Remove the pattern
-        DbContext.Patterns.Remove(pattern);
-
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Information, "Pattern removed successfully.").ConfigureAwait(false);
-        return true;
-    }
-
-    public async Task<bool> RemoveMoodle(Guid moodleId)
-    {
-        _logger.LogCallInfo();
-
-        // Ensure they are a valid user.
-        User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null) return false;
-
-        // Find the pattern by GUID and ensure it belongs to the user
-        MoodleStatus moodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == moodleId && p.PublisherUID == user.UID).ConfigureAwait(false);
-        if (moodle is null)
-        {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern not found or it's not yours.").ConfigureAwait(false);
-            return false;
-        }
-
-        // Find and remove related keywords mapping from the Keywords table and the MoodleStautsId
-        List<MoodleKeyword> moodleKeywords = await DbContext.MoodleKeywords.Where(pet => pet.MoodleStatusId == moodleId).ToListAsync().ConfigureAwait(false);
-        DbContext.MoodleKeywords.RemoveRange(moodleKeywords);
-        DbContext.Moodles.Remove(moodle);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return true;
-    }
-
-    public async Task<string> DownloadPattern(Guid patternId)
+    public async Task<HubResponse<string>> DownloadPattern(Guid patternId)
     {
         _logger.LogCallInfo();
         // locate the pattern in the database by its GUID.
         PatternEntry pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId).ConfigureAwait(false);
         if (pattern is null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "Pattern not found.").ConfigureAwait(false);
-            return string.Empty;
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Pattern not found.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.ShareHubEntryNotFound, string.Empty);
         }
 
         // increment the download count for the pattern
         pattern.DownloadCount++;
         DbContext.Patterns.Update(pattern);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return pattern.Base64PatternData;
+        return HubResponseBuilder.Yippee(pattern.Base64PatternData);
     }
 
-    public async Task<bool> LikePattern(Guid patternId)
+    public async Task<HubResponse> LikePattern(Guid patternId)
     {
         _logger.LogCallInfo();
         // Get the current user
         User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null) return false;
+        if (user is null) 
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
         // Locate the pattern in the database by its GUID.
         PatternEntry pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId).ConfigureAwait(false);
-        if (pattern is null) return false;
+        if (pattern is null) 
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.ShareHubEntryNotFound);
 
         // Check if the user has already liked this pattern
         LikesPatterns existingLike = await DbContext.LikesPatterns.SingleOrDefaultAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID).ConfigureAwait(false);
         if (existingLike is not null)
-        {
-            // User has already liked this pattern, so remove the like
             DbContext.LikesPatterns.Remove(existingLike);
-        }
         else
         {
             // User has not liked this pattern, so add a new like
@@ -319,30 +252,26 @@ public partial class GagspeakHub
         }
         // Save changes to the database
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return true;
+        return HubResponseBuilder.Yippee();
     }
 
-    public async Task<bool> LikeMoodle(Guid moodleId)
+    public async Task<HubResponse> LikeMoodle(Guid moodleId)
     {
         _logger.LogCallInfo();
         // Get the current user
         User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null) return false;
+        if (user is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
         // Locate the pattern in the database by its GUID.
         MoodleStatus moodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == moodleId).ConfigureAwait(false);
         if (moodle is null)
-        {
-            _logger.LogWarning("Moodle not found.");
-            return false;
-        }
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.ShareHubEntryNotFound);
 
         // Check if the user has already liked this pattern
         LikesMoodles existingLike = await DbContext.LikesMoodles.SingleOrDefaultAsync(upl => upl.MoodleStatusId == moodleId && upl.UserUID == user.UID).ConfigureAwait(false);
         if (existingLike is not null)
-        {
-            // User has already liked this pattern, so remove the like
             DbContext.LikesMoodles.Remove(existingLike);
-        }
         else
         {
             // User has not liked this pattern, so add a new like
@@ -355,28 +284,86 @@ public partial class GagspeakHub
             };
             DbContext.LikesMoodles.Add(userPatternLike);
         }
+
         // Save changes to the database
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return true;
+        return HubResponseBuilder.Yippee();
+    }
+    public async Task<HubResponse> RemovePattern(Guid patternId)
+    {
+        _logger.LogCallInfo();
+
+        // Ensure they are a valid user.
+        User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user is null)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+        }
+
+        // Find the pattern by GUID and ensure it belongs to the user
+        PatternEntry pattern = await DbContext.Patterns.SingleOrDefaultAsync(p => p.Identifier == patternId && p.PublisherUID == user.UID).ConfigureAwait(false);
+        if (pattern is null)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "You don't have permission to delete it.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPublisher);
+        }
+
+        // Find and remove related PatternEntryTags
+        List<PatternKeyword> patternEntryTags = await DbContext.PatternKeywords.Where(pet => pet.PatternEntryId == patternId).ToListAsync().ConfigureAwait(false);
+        DbContext.PatternKeywords.RemoveRange(patternEntryTags);
+
+        // Remove the pattern
+        DbContext.Patterns.Remove(pattern);
+
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Pattern removed successfully.").ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
     }
 
-    public async Task<List<ServerPatternInfo>> SearchPatterns(PatternSearchDto dto)
+    public async Task<HubResponse> RemoveMoodle(Guid moodleId)
+    {
+        _logger.LogCallInfo();
+
+        // Ensure they are a valid user.
+        User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        if (user is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
+        // Find the pattern by GUID and ensure it belongs to the user
+        MoodleStatus moodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == moodleId && p.PublisherUID == user.UID).ConfigureAwait(false);
+        if (moodle is null)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Pattern not found or it's not yours.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPublisher);
+        }
+
+        // Find and remove related keywords mapping from the Keywords table and the MoodleStautsId
+        List<MoodleKeyword> moodleKeywords = await DbContext.MoodleKeywords.Where(pet => pet.MoodleStatusId == moodleId).ToListAsync().ConfigureAwait(false);
+        DbContext.MoodleKeywords.RemoveRange(moodleKeywords);
+        DbContext.Moodles.Remove(moodle);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    public async Task<HubResponse<List<ServerPatternInfo>>> SearchPatterns(PatternSearch dto)
     {
         _logger.LogCallInfo();
         // ensure they are a valid user.
         User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
         if (user is null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
-            return new List<ServerPatternInfo>();
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new List<ServerPatternInfo>());
         }
 
         // Start with a base query, insure we include the sub-dependencies such as the tags and likes.
         IQueryable<PatternEntry> patternsQuery = DbContext.Patterns.AsQueryable();
         // 1. Apply title or author / title filters
-        if (!string.IsNullOrEmpty(dto.SearchString))
+        if (!string.IsNullOrEmpty(dto.Input))
         {
-            string searchStringLower = dto.SearchString.ToLower(CultureInfo.InvariantCulture);
+            string searchStringLower = dto.Input.ToLower(CultureInfo.InvariantCulture);
             patternsQuery = patternsQuery.Where(p =>
                 p.Author.ToLower().Equals(searchStringLower) ||
                 p.Name.ToLower().Contains(searchStringLower));
@@ -416,12 +403,12 @@ public partial class GagspeakHub
         // Check if patterns is null or contains null entries
         if (patterns is null || patterns.Any(p => p is null))
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No patterns found or some patterns are invalid.").ConfigureAwait(false);
-            return new List<ServerPatternInfo>();
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "No patterns found or some patterns are invalid.").ConfigureAwait(false);
+            return HubResponseBuilder.Yippee(new List<ServerPatternInfo>());
         }
 
         // Convert to ServerPatternInfo
-        var result = patterns.Select(p => new ServerPatternInfo
+        List<ServerPatternInfo> result = patterns.Select(p => new ServerPatternInfo
         {
             Identifier = p.Identifier,
             Label = p.Name,
@@ -437,27 +424,27 @@ public partial class GagspeakHub
             UsesRotations = p.UsesRotations,
             HasLiked = p.UserPatternLikes.Any(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal))
         }).ToList();
-        return result;
+        return HubResponseBuilder.Yippee(result);
     }
 
-    public async Task<List<ServerMoodleInfo>> SearchMoodles(MoodleSearchDto dto)
+    public async Task<HubResponse<List<ServerMoodleInfo>>> SearchMoodles(MoodleSearch dto)
     {
         _logger.LogCallInfo();
         // ensure they are a valid user.
         User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
         if (user is null)
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
-            return new List<ServerMoodleInfo>();
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "User not found.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new List<ServerMoodleInfo>());
         }
 
         // Start with a base query without including sub-dependencies initially
         IQueryable<MoodleStatus> moodlesQuery = DbContext.Moodles.AsQueryable();
 
         // 1. Apply title or author / title filters
-        if (!string.IsNullOrEmpty(dto.SearchString))
+        if (!string.IsNullOrEmpty(dto.Input))
         {
-            string searchStringLower = dto.SearchString.ToLower(CultureInfo.InvariantCulture);
+            string searchStringLower = dto.Input.ToLower(CultureInfo.InvariantCulture);
             moodlesQuery = moodlesQuery.Where(p =>
                 p.Author.ToLower().Contains(searchStringLower) ||
                 p.Title.ToLower().Contains(searchStringLower));
@@ -487,8 +474,8 @@ public partial class GagspeakHub
         // Check if final result is null or contains null entries
         if (moodles is null || moodles.Any(p => p is null))
         {
-            await Clients.Caller.Client_ReceiveServerMessage(MessageSeverity.Warning, "No moodles found or some moodles are invalid.").ConfigureAwait(false);
-            return new List<ServerMoodleInfo>();
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "No moodles found or some moodles are invalid.").ConfigureAwait(false);
+            return HubResponseBuilder.Yippee(new List<ServerMoodleInfo>());
         }
 
 
@@ -502,19 +489,15 @@ public partial class GagspeakHub
             MoodleStatus = p.ToStatusInfo(),
         }).ToList();
 
-        return result;
+        return HubResponseBuilder.Yippee(result);
     }
 
     // FetchSearchTags
-    public async Task<HashSet<string>> FetchSearchTags()
+    public async Task<HubResponse<HashSet<string>>> FetchSearchTags()
     {
         _logger.LogCallInfo();
         List<string> tags = await DbContext.Keywords.Select(k => k.Word).ToListAsync().ConfigureAwait(false);
-        HashSet<string> hashSetTags = tags.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return hashSetTags;
+        return HubResponseBuilder.Yippee(tags.ToHashSet(StringComparer.OrdinalIgnoreCase));
     }
-
-#pragma warning restore MA0011 // IFormatProvider is missing
-
 }
 

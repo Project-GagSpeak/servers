@@ -1,5 +1,5 @@
-using GagspeakAPI.Dto.Connection;
-using GagspeakAPI.SignalR;
+using GagspeakAPI.Hub;
+using GagspeakAPI.Network;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
@@ -20,7 +20,7 @@ public sealed class SystemInfoService : IHostedService, IDisposable
     private readonly IHubContext<GagspeakHub, IGagspeakHub> _hubContext;
     private readonly IRedisDatabase _redis;
     private Timer _timer = null!;
-    public SystemInfoDto SystemInfoDto { get; private set; } = new(0);
+    public ServerInfoResponse SystemInfoDto { get; private set; } = new(0);
 
     public SystemInfoService(GagspeakMetrics metrics, IConfigurationService<ServerConfiguration> configurationService, IServiceProvider services,
         ILogger<SystemInfoService> logger, IHubContext<GagspeakHub, IGagspeakHub> hubContext, IRedisDatabase redis)
@@ -58,10 +58,10 @@ public sealed class SystemInfoService : IHostedService, IDisposable
             int gagspeakOnlineUsers = (_redis.SearchKeysAsync("GagspeakHub:UID:*").GetAwaiter().GetResult()).Count();
             int toyboxOnlineUsers = (_redis.SearchKeysAsync("ToyboxHub:UID:*").GetAwaiter().GetResult()).Count();
 
-            SystemInfoDto = new SystemInfoDto(gagspeakOnlineUsers);
+            SystemInfoDto = new ServerInfoResponse(gagspeakOnlineUsers);
             if (_config.IsMain)
             {
-                _ = _hubContext.Clients.All.Client_UpdateSystemInfo(SystemInfoDto);
+                _ = _hubContext.Clients.All.Callback_ServerInfo(SystemInfoDto);
                 using IServiceScope scope = _services.CreateScope();
                 using GagspeakDbContext db = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
 
