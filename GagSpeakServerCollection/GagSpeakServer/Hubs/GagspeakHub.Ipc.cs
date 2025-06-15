@@ -28,7 +28,7 @@ public partial class GagspeakHub
           }
 
           // ensure that the client caller has permission to apply the pairs own moodles.
-          if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.PairCanApplyYourMoodlesToYou))
+          if ((pairPerms.MoodlePerms & MoodlePerms.PairCanApplyYourMoodlesToYou) == MoodlePerms.None)
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
@@ -55,7 +55,7 @@ public partial class GagspeakHub
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 		}
-          if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.PairCanApplyTheirMoodlesToYou))
+          if ((pairPerms.MoodlePerms & MoodlePerms.PairCanApplyTheirMoodlesToYou) == MoodlePerms.None)
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
@@ -63,22 +63,22 @@ public partial class GagspeakHub
 
           IEnumerable<MoodlesStatusInfo> moodlesToApply = dto.Statuses;
 
-          if (moodlesToApply.Any(m => m.Type is StatusType.Positive && !pairPerms.MoodlePerms.HasAny(MoodlePerms.PositiveStatusTypes)))
+          if (moodlesToApply.Any(m => m.Type is StatusType.Positive && (pairPerms.MoodlePerms & MoodlePerms.PositiveStatusTypes) == MoodlePerms.None))
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses have a positive type, which this pair does not allow!").ConfigureAwait(false);
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 		}
-          else if (moodlesToApply.Any(m => m.Type is StatusType.Negative && !pairPerms.MoodlePerms.HasAny(MoodlePerms.NegativeStatusTypes)))
+          else if (moodlesToApply.Any(m => m.Type is StatusType.Negative && (pairPerms.MoodlePerms & MoodlePerms.NegativeStatusTypes) == MoodlePerms.None))
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses have a negative type, which this pair does not allow!").ConfigureAwait(false);
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 		}
-		else if (moodlesToApply.Any(m => m.Type is StatusType.Special && !pairPerms.MoodlePerms.HasAny(MoodlePerms.SpecialStatusTypes)))
+		else if (moodlesToApply.Any(m => m.Type is StatusType.Special && (pairPerms.MoodlePerms & MoodlePerms.SpecialStatusTypes) == MoodlePerms.None))
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses have a special type, which this pair does not allow!").ConfigureAwait(false);
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 		}
-		else if (moodlesToApply.Any(m => m.NoExpire && !pairPerms.MoodlePerms.HasAny(MoodlePerms.PermanentMoodles)))
+		else if (moodlesToApply.Any(m => m.NoExpire && (pairPerms.MoodlePerms & MoodlePerms.PermanentMoodles) == MoodlePerms.None))
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses is permanent, which this pair does not allow!").ConfigureAwait(false);
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
@@ -109,7 +109,7 @@ public partial class GagspeakHub
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 		}
-          else if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.RemovingMoodles))
+          else if ((pairPerms.MoodlePerms & MoodlePerms.RemovingMoodles) == MoodlePerms.None)
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Permission to remove Moodles from this pair was not given!").ConfigureAwait(false);
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
@@ -134,7 +134,7 @@ public partial class GagspeakHub
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 		}
 
-          if (!pairPerms.MoodlePerms.HasAny(MoodlePerms.RemovingMoodles))
+          if ((pairPerms.MoodlePerms & MoodlePerms.RemovingMoodles) == MoodlePerms.None)
           {
                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Permission to remove Moodles from this pair was not given!").ConfigureAwait(false);
                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
