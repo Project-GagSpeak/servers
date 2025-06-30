@@ -110,11 +110,11 @@ public partial class GagspeakHub
         return pairs.Select(p =>
         {
             KinksterPair pairList = new(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
-                p.Value.ownPairPermissions.ToApiUserPairPerms(),
-                p.Value.ownPairPermissionAccess.ToApiUserPairEditAccessPerms(),
+                p.Value.ownPairPermissions.ToApiKinksterPerms(),
+                p.Value.ownPairPermissionAccess.ToApiKinksterEditAccess(),
                 p.Value.otherGlobalPerms.ToApiGlobalPerms(),
-                p.Value.otherPairPermissions.ToApiUserPairPerms(),
-                p.Value.otherPairPermissionAccess.ToApiUserPairEditAccessPerms());
+                p.Value.otherPairPermissions.ToApiKinksterPerms(),
+                p.Value.otherPairPermissionAccess.ToApiKinksterEditAccess());
             return pairList;
         }).ToList();
     }

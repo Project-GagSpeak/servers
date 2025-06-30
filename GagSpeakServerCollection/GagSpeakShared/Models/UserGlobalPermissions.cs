@@ -1,3 +1,4 @@
+using GagspeakAPI.Attributes;
 using GagspeakAPI.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -6,7 +7,7 @@ namespace GagspeakShared.Models;
 
 public class UserGlobalPermissions
 {
-    public int         ChatGarblerChannelsBitfield { get; set; } = 0;     // bitfield for liveChatGarblerChannels. Can be set by Hardcore.
+    public InptChannel AllowedGarblerChannels      { get; set; } = InptChannel.None; 
     public bool        ChatGarblerActive           { get; set; } = false; // if the live chat garbler is active
     public bool        ChatGarblerLocked           { get; set; } = false; // if the live chat garbler is locked in an active state.
 
@@ -37,6 +38,7 @@ public class UserGlobalPermissions
     public string      ChatBoxesHidden             { get; set; } = string.Empty;
     public string      ChatInputHidden             { get; set; } = string.Empty;
     public string      ChatInputBlocked            { get; set; } = string.Empty;
+    public string      HypnosisCustomEffect        { get; set; } = string.Empty;
 
     // Global PiShock Permissions & Helpers.
     public string      GlobalShockShareCode        { get; set; } = string.Empty;
@@ -46,6 +48,7 @@ public class UserGlobalPermissions
     public int         MaxIntensity                { get; set; } = -1;
     public int         MaxDuration                 { get; set; } = -1;
     public TimeSpan    ShockVibrateDuration        { get; set; } = TimeSpan.Zero;
+    
     public User User { get; set; }
     // the UserUID is a foreign key to the User table
     // this means that the UserUID must be a primary key in the User table,

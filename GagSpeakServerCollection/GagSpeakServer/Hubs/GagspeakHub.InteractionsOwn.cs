@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Data;
+﻿using GagspeakAPI.Attributes;
+using GagspeakAPI.Data;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
@@ -8,6 +9,7 @@ using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace GagspeakServer.Hubs;
 #nullable enable
@@ -275,7 +277,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         Guid prevSetId = curRestraintData.Identifier;
-        byte prevLayers = curRestraintData.LayersBitfield;
+        RestraintLayer prevLayers = curRestraintData.ActiveLayers;
         Padlocks prevPadlock = curRestraintData.Padlock;
 
         switch (dto.Type)
@@ -286,8 +288,9 @@ public partial class GagspeakHub
                 curRestraintData.Enabler = dto.Enabler;
                 break;
 
-            case DataUpdateType.LayerToggled:
-                curRestraintData.LayersBitfield = dto.LayersBitfield;
+                // No bitwise operations for right now, just raw updates.
+            case DataUpdateType.LayersApplied:
+                curRestraintData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             case DataUpdateType.Locked:
@@ -302,6 +305,11 @@ public partial class GagspeakHub
                 curRestraintData.Password = string.Empty;
                 curRestraintData.Timer = DateTimeOffset.UtcNow;
                 curRestraintData.PadlockAssigner = string.Empty;
+                break;
+
+            // No bitwise operations for right now, just raw updates. (maybe change later?)
+            case DataUpdateType.LayersRemoved:
+                curRestraintData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             case DataUpdateType.Removed:
@@ -321,7 +329,7 @@ public partial class GagspeakHub
         KinksterUpdateRestraint recipientDto = new(new(UserUID), new(UserUID), newRestraintData, dto.Type)
         {
             PreviousRestraint = prevSetId,
-            PreviousLayers = prevLayers,
+            PrevLayers = prevLayers,
             PreviousPadlock = prevPadlock
         };
 
@@ -516,8 +524,8 @@ public partial class GagspeakHub
         }
 
         // Update the global permissions, pair permissions, and editAccess permissions with the new values.
-        ClientPairPermissions newPairPerms = dto.NewPerms.ToModelUserPairPerms(pairPerms);
-        ClientPairPermissionAccess newPairAccess = dto.NewAccess.ToModelUserPairEditAccessPerms(pairAccess);
+        ClientPairPermissions newPairPerms = dto.NewPerms.ToModelKinksterPerms(pairPerms);
+        ClientPairPermissionAccess newPairAccess = dto.NewAccess.ToModelKinksterEditAccess(pairAccess);
 
         // update the database with the new permissions & save DB changes
         DbContext.Update(newPairPerms);

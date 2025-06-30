@@ -19,55 +19,60 @@ public class ClientPairPermissionAccess
     public string OtherUserUID { get; set; }     // the UID of the other user
     public User OtherUser { get; set; }          // the user object of the other user
 
-    public bool ChatGarblerActiveAllowed { get; set; } = false; // Global
-    public bool ChatGarblerLockedAllowed { get; set; } = false; // Global
+    public bool ChatGarblerActiveAllowed            { get; set; } = false; // Global
+    public bool ChatGarblerLockedAllowed            { get; set; } = false; // Global
 
-    public bool PermanentLocksAllowed { get; set; } = false;
-    public bool OwnerLocksAllowed { get; set; } = false;
-    public bool DevotionalLocksAllowed { get; set; } = false;
+    public bool WardrobeEnabledAllowed              { get; set; } = false; // Global
+    public bool GagVisualsAllowed                   { get; set; } = false; // Global
+    public bool RestrictionVisualsAllowed           { get; set; } = false; // Global
+    public bool RestraintSetVisualsAllowed          { get; set; } = false; // Global
 
-    public bool ApplyGagsAllowed { get; set; } = false;
-    public bool LockGagsAllowed { get; set; } = false;
-    public bool MaxGagTimeAllowed { get; set; } = false;
-    public bool UnlockGagsAllowed { get; set; } = false;
-    public bool RemoveGagsAllowed { get; set; } = false;
+    public bool PermanentLocksAllowed               { get; set; } = false;
+    public bool OwnerLocksAllowed                   { get; set; } = false;
+    public bool DevotionalLocksAllowed              { get; set; } = false;
 
-    // unique permissions for the wardrobe
-    public bool WardrobeEnabledAllowed { get; set; } = false; // Global
-    public bool GagVisualsAllowed { get; set; } = false; // Global
-    public bool RestrictionVisualsAllowed { get; set; } = false; // Global
-    public bool RestraintSetVisualsAllowed { get; set; } = false; // Global
+    public bool ApplyGagsAllowed                    { get; set; } = false;
+    public bool LockGagsAllowed                     { get; set; } = false;
+    public bool MaxGagTimeAllowed                   { get; set; } = false;
+    public bool UnlockGagsAllowed                   { get; set; } = false;
+    public bool RemoveGagsAllowed                   { get; set; } = false;
 
-    public bool ApplyRestrictionsAllowed { get; set; } = false;
-    public bool ApplyRestraintLayersAllowed { get; set; } = false;
-    public bool LockRestrictionsAllowed { get; set; } = false;
-    public bool MaxRestrictionTimeAllowed { get; set; } = false;
-    public bool UnlockRestrictionsAllowed { get; set; } = false;
-    public bool RemoveRestrictionsAllowed { get; set; } = false;
+    public bool ApplyRestrictionsAllowed            { get; set; } = false;
+    public bool LockRestrictionsAllowed             { get; set; } = false;
+    public bool MaxRestrictionTimeAllowed           { get; set; } = false;
+    public bool UnlockRestrictionsAllowed           { get; set; } = false;
+    public bool RemoveRestrictionsAllowed           { get; set; } = false;
 
-    public bool ApplyRestraintSetsAllowed { get; set; } = false;
-    public bool LockRestraintSetsAllowed { get; set; } = false;
-    public bool MaxRestraintTimeAllowed { get; set; } = false;
-    public bool UnlockRestraintSetsAllowed { get; set; } = false;
-    public bool RemoveRestraintSetsAllowed { get; set; } = false;
+    public bool ApplyRestraintSetsAllowed           { get; set; } = false;
+    public bool ApplyLayersAllowed                  { get; set; } = false;
+    public bool ApplyLayersWhileLockedAllowed       { get; set; } = false;
+    public bool LockRestraintSetsAllowed            { get; set; } = false;
+    public bool MaxRestraintTimeAllowed             { get; set; } = false;
+    public bool UnlockRestraintSetsAllowed          { get; set; } = false;
+    public bool RemoveLayersAllowed                 { get; set; } = false;
+    public bool RemoveLayersWhileLockedAllowed      { get; set; } = false;
+    public bool RemoveRestraintSetsAllowed          { get; set; } = false;
 
     // unique permissions for the puppeteer
-    public bool PuppeteerEnabledAllowed { get; set; } = false; // Global
-    public PuppetPerms PuppetPermsAllowed { get; set; } = PuppetPerms.None;
+    public bool PuppeteerEnabledAllowed             { get; set; } = false; // Global
+    public PuppetPerms PuppetPermsAllowed           { get; set; } = PuppetPerms.None;
 
     // Moodles
-    public bool MoodlesEnabledAllowed { get; set; } = false; // Global
-    public MoodlePerms MoodlePermsAllowed { get; set; } = MoodlePerms.None;
-    public bool MaxMoodleTimeAllowed { get; set; } = false;
+    public bool MoodlesEnabledAllowed               { get; set; } = false; // Global
+    public MoodlePerms MoodlePermsAllowed           { get; set; } = MoodlePerms.None;
+    public bool MaxMoodleTimeAllowed                { get; set; } = false;
 
     // unique permissions for the toybox
-    public bool ToyboxEnabledAllowed { get; set; } = false; // Global
-    public bool LockToyboxUIAllowed { get; set; } = false; // Global
-    public bool SpatialAudioAllowed { get; set; } = false; // Global
-    public bool ToggleToyStateAllowed { get; set; } = false;
-    public bool RemoteControlAccessAllowed { get; set; } = false;
-    public bool ExecutePatternsAllowed { get; set; } = false;
-    public bool StopPatternsAllowed { get; set; } = false;
-    public bool ToggleAlarmsAllowed { get; set; } = false;
-    public bool ToggleTriggersAllowed { get; set; } = false;
+    public bool ToyboxEnabledAllowed                { get; set; } = false; // Global
+    public bool LockToyboxUIAllowed                 { get; set; } = false; // Global
+    public bool SpatialAudioAllowed                 { get; set; } = false; // Global
+    public bool ToggleToyStateAllowed               { get; set; } = false;
+    public bool RemoteControlAccessAllowed          { get; set; } = false;
+    public bool ExecutePatternsAllowed              { get; set; } = false;
+    public bool StopPatternsAllowed                 { get; set; } = false;
+    public bool ToggleAlarmsAllowed                 { get; set; } = false;
+    public bool ToggleTriggersAllowed               { get; set; } = false;
+
+    // Misc.
+    public bool HypnoEffectSendingAllowed { get; set; } = false;
 }

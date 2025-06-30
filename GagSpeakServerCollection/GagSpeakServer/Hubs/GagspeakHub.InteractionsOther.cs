@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Data;
+﻿using GagspeakAPI.Attributes;
+using GagspeakAPI.Data;
 using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
@@ -280,11 +281,11 @@ public partial class GagspeakHub
 
         // compile the api data objects.
         GlobalPerms ownGlobalsApi = ownGlobals.ToApiGlobalPerms();
-        PairPerms ownPairPermsApi = ownPairPerms.ToApiUserPairPerms();
-        PairPermAccess ownPairPermsAccessApi = ownPairPermsAccess.ToApiUserPairEditAccessPerms();
+        PairPerms ownPairPermsApi = ownPairPerms.ToApiKinksterPerms();
+        PairPermAccess ownPairPermsAccessApi = ownPairPermsAccess.ToApiKinksterEditAccess();
         GlobalPerms otherGlobalsApi = otherGlobals.ToApiGlobalPerms();
-        PairPerms otherPairPermsApi = otherPairPerms.ToApiUserPairPerms();
-        PairPermAccess otherPairPermsAccessApi = otherPairPermsAccess.ToApiUserPairEditAccessPerms();
+        PairPerms otherPairPermsApi = otherPairPerms.ToApiKinksterPerms();
+        PairPermAccess otherPairPermsAccessApi = otherPairPermsAccess.ToApiKinksterEditAccess();
 
         // construct a new UserPairDto based on the response
         KinksterPair pairRequestAcceptingUserResponse = new(pairRequesterUser.ToUserData(), ownPairPermsApi,
@@ -675,7 +676,7 @@ public partial class GagspeakHub
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         Guid prevRestraintSet = curRestraintSetData.Identifier;
-        byte prevBitField = curRestraintSetData.LayersBitfield;
+        RestraintLayer prevLayers = curRestraintSetData.ActiveLayers;
         Padlocks prevPadlock = curRestraintSetData.Padlock;
         // Extra validation checks made on the server for security reasons.
         switch (dto.Type)
@@ -692,14 +693,21 @@ public partial class GagspeakHub
                 curRestraintSetData.Enabler = dto.Enabler;
                 break;
 
-            case DataUpdateType.LayerToggled:
-                if (!pairPerms.ApplyRestraintLayers)
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-
-                if (curRestraintSetData.Identifier.IsEmptyGuid())
+            case DataUpdateType.LayersApplied:
+                if (curRestraintSetData.Identifier == Guid.Empty)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
 
-                curRestraintSetData.LayersBitfield = dto.LayersBitfield;
+                if (!pairPerms.ApplyLayers)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (!pairPerms.ApplyLayersWhileLocked && curRestraintSetData.IsLocked())
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (curRestraintSetData.Padlock.IsDevotionalLock() && !UserUID.Equals(curRestraintSetData.PadlockAssigner))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // We are allowed, perform the update.
+                curRestraintSetData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             case DataUpdateType.Locked:
@@ -752,6 +760,23 @@ public partial class GagspeakHub
                 curRestraintSetData.PadlockAssigner = string.Empty;
                 break;
 
+            case DataUpdateType.LayersRemoved:
+                if (curRestraintSetData.Identifier == Guid.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
+
+                if (!pairPerms.RemoveLayers)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (!pairPerms.RemoveLayersWhileLocked && curRestraintSetData.IsLocked())
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (curRestraintSetData.Padlock.IsDevotionalLock() && !UserUID.Equals(curRestraintSetData.PadlockAssigner))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // We are allowed, perform the update.
+                curRestraintSetData.ActiveLayers = dto.ActiveLayers;
+                break;
+
             case DataUpdateType.Removed:
                 if (curRestraintSetData.Identifier.IsEmptyGuid())
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
@@ -777,7 +802,7 @@ public partial class GagspeakHub
         KinksterUpdateRestraint recipientDto = new(dto.User, new(UserUID), updatedWardrobeData, dto.Type)
         {
             PreviousRestraint = prevRestraintSet,
-            PreviousLayers = prevBitField,
+            PrevLayers = prevLayers,
             PreviousPadlock = prevPadlock
         };
 

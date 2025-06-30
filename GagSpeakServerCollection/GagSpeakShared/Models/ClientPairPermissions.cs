@@ -43,10 +43,13 @@ public class ClientPairPermissions
 
     // unique permissions for the wardrobe
     public bool        ApplyRestraintSets        { get; set; } = false;
-    public bool        ApplyRestraintLayers      { get; set; } = false; // If layers can be switched while locked. *Can make Restraint set Layers Hardcore Locked. (?)
+    public bool        ApplyLayers               { get; set; } = false;
+    public bool        ApplyLayersWhileLocked    { get; set; } = false;
     public bool        LockRestraintSets         { get; set; } = false;
     public TimeSpan    MaxRestraintTime          { get; set; } = TimeSpan.Zero;
     public bool        UnlockRestraintSets       { get; set; } = false;
+    public bool        RemoveLayers              { get; set; } = false;
+    public bool        RemoveLayersWhileLocked   { get; set; } = false;
     public bool        RemoveRestraintSets       { get; set; } = false;
 
     // unique permissions for the puppeteer
@@ -67,6 +70,9 @@ public class ClientPairPermissions
     public bool        ToggleAlarms              { get; set; } = false;
     public bool        ToggleTriggers            { get; set; } = false;
 
+    // Misc.
+    public bool        HypnoEffectSending        { get; set; } = false;
+
     // unique hardcore permissions. (only allow the ALLOW permissions to be set by the user).
     public bool        InHardcore                { get; set; } = false;
     public bool        PairLockedStates          { get; set; } = false; // Treats any State toggled by this pair like a Devotional Padlock.
@@ -78,6 +84,7 @@ public class ClientPairPermissions
     public bool        AllowHidingChatBoxes      { get; set; } = false;
     public bool        AllowHidingChatInput      { get; set; } = false;
     public bool        AllowChatInputBlocking    { get; set; } = false;
+    public bool        AllowHypnoImageSending    { get; set; } = false;
 
     public string      PiShockShareCode          { get; set; } = ""; // the share Code for the shock collar unique to this user.
     public bool        AllowShocks               { get; set; } = false; // If we allow shocks from this pair.

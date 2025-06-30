@@ -1,3 +1,4 @@
+using GagspeakAPI.Attributes;
 using GagspeakAPI.Data;
 using GagspeakAPI.Enums;
 using System.ComponentModel.DataAnnotations;
@@ -16,7 +17,7 @@ public class UserRestraintData : IPadlockableRestriction
 
     public Guid Identifier { get; set; } = Guid.Empty;
     // a bitfield representing which layers are active '1' and which are inactive '0', 5 bits : 0b00000
-    public byte LayersBitfield { get; set; } = 0b00000;
+    public RestraintLayer ActiveLayers { get; set; } = RestraintLayer.None;
 
     [MaxLength(10)]
     public string Enabler { get; set; } = string.Empty;
