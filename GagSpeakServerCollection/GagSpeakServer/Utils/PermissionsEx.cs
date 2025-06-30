@@ -60,6 +60,7 @@ public static class PermissionsEx
         apiPerms.AllowedGarblerChannels = databasePerms.AllowedGarblerChannels;
         apiPerms.ChatGarblerActive = databasePerms.ChatGarblerActive;
         apiPerms.ChatGarblerLocked = databasePerms.ChatGarblerLocked;
+        apiPerms.GaggedNameplate = databasePerms.GaggedNameplate;
 
         apiPerms.WardrobeEnabled = databasePerms.WardrobeEnabled;
         apiPerms.GagVisuals = databasePerms.GagVisuals;
@@ -103,6 +104,7 @@ public static class PermissionsEx
         current.AllowedGarblerChannels = apiPerms.AllowedGarblerChannels;
         current.ChatGarblerActive = apiPerms.ChatGarblerActive;
         current.ChatGarblerLocked = apiPerms.ChatGarblerLocked;
+        current.GaggedNameplate = apiPerms.GaggedNameplate;
 
         current.WardrobeEnabled = apiPerms.WardrobeEnabled;
         current.GagVisuals = apiPerms.GagVisuals;

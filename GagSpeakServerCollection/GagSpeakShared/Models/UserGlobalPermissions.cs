@@ -10,6 +10,7 @@ public class UserGlobalPermissions
     public InptChannel AllowedGarblerChannels      { get; set; } = InptChannel.None; 
     public bool        ChatGarblerActive           { get; set; } = false; // if the live chat garbler is active
     public bool        ChatGarblerLocked           { get; set; } = false; // if the live chat garbler is locked in an active state.
+    public bool        GaggedNameplate             { get; set; } = false; // Shows GagSpeak gagged & gag-speaking icons on nameplate while gagged.
 
     // wardrobe global modifiable permissions
     public bool        WardrobeEnabled             { get; set; } = false; // PROFILE VIEWABLE OPT-IN || If the user's wardrobe component is active
@@ -38,6 +39,9 @@ public class UserGlobalPermissions
     public string      ChatBoxesHidden             { get; set; } = string.Empty;
     public string      ChatInputHidden             { get; set; } = string.Empty;
     public string      ChatInputBlocked            { get; set; } = string.Empty;
+
+    // Going to need to fine tune this soon, but its purpose is to stop others
+    // from applying effects while a restriction or other player has one active.
     public string      HypnosisCustomEffect        { get; set; } = string.Empty;
 
     // Global PiShock Permissions & Helpers.
