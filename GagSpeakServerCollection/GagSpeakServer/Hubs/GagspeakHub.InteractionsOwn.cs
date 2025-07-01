@@ -288,8 +288,10 @@ public partial class GagspeakHub
                 curRestraintData.Enabler = dto.Enabler;
                 break;
 
-                // No bitwise operations for right now, just raw updates.
+            // No bitwise operations for right now, just raw updates.
+            case DataUpdateType.LayersChanged:
             case DataUpdateType.LayersApplied:
+            case DataUpdateType.LayersRemoved:
                 curRestraintData.ActiveLayers = dto.ActiveLayers;
                 break;
 
@@ -305,11 +307,6 @@ public partial class GagspeakHub
                 curRestraintData.Password = string.Empty;
                 curRestraintData.Timer = DateTimeOffset.UtcNow;
                 curRestraintData.PadlockAssigner = string.Empty;
-                break;
-
-            // No bitwise operations for right now, just raw updates. (maybe change later?)
-            case DataUpdateType.LayersRemoved:
-                curRestraintData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             case DataUpdateType.Removed:

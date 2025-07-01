@@ -675,9 +675,10 @@ public partial class GagspeakHub
         // remove the dto.User from the list of all online pairs, so we can send them a self update message.
         allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
-        Guid prevRestraintSet = curRestraintSetData.Identifier;
-        RestraintLayer prevLayers = curRestraintSetData.ActiveLayers;
-        Padlocks prevPadlock = curRestraintSetData.Padlock;
+        var prevRestraintSet = curRestraintSetData.Identifier;
+        var prevLayers = curRestraintSetData.ActiveLayers;
+        var prevPadlock = curRestraintSetData.Padlock;
+
         // Extra validation checks made on the server for security reasons.
         switch (dto.Type)
         {
@@ -691,6 +692,23 @@ public partial class GagspeakHub
 
                 curRestraintSetData.Identifier = dto.ActiveSetId;
                 curRestraintSetData.Enabler = dto.Enabler;
+                break;
+
+            case DataUpdateType.LayersChanged:
+                if (curRestraintSetData.Identifier == Guid.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
+
+                if (!pairPerms.ApplyLayers || !pairPerms.RemoveLayers)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if ((!pairPerms.ApplyLayersWhileLocked || !pairPerms.RemoveLayersWhileLocked) && curRestraintSetData.IsLocked())
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (curRestraintSetData.Padlock.IsDevotionalLock() && !UserUID.Equals(curRestraintSetData.PadlockAssigner))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // We are allowed, perform the update.
+                curRestraintSetData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             case DataUpdateType.LayersApplied:
@@ -707,7 +725,8 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
                 // We are allowed, perform the update.
-                curRestraintSetData.ActiveLayers = dto.ActiveLayers;
+                var layersAdded = dto.ActiveLayers & ~prevLayers;
+                curRestraintSetData.ActiveLayers |= layersAdded;
                 break;
 
             case DataUpdateType.Locked:
@@ -774,7 +793,8 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
                 // We are allowed, perform the update.
-                curRestraintSetData.ActiveLayers = dto.ActiveLayers;
+                var layersRemoved = prevLayers & ~dto.ActiveLayers;
+                curRestraintSetData.ActiveLayers &= ~layersRemoved;
                 break;
 
             case DataUpdateType.Removed:
