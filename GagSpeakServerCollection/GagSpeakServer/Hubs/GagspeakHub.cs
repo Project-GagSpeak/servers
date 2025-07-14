@@ -14,6 +14,7 @@ using GagspeakShared.Utils.Configuration;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
 
@@ -214,30 +215,18 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     public async Task<LobbyAndHubInfoResponce> GetShareHubAndLobbyInfo()
     {
         // Request these in 
-        var patternsTask = DbContext.Patterns
-            .AsNoTracking() // Prevent excess tracking of entities when in readonly.
-            .Where(f => f.PublisherUID == UserUID)
-            .ToListAsync();
+        var patterns = (await DbContext.Patterns.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(p => p.ToPublishedPattern()).ToList();
+        var moodles = (await DbContext.Moodles.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(m => m.ToPublishedMoodle()).ToList();
+        var tags = await DbContext.Keywords.AsNoTracking().Select(k => k.Word).ToListAsync().ConfigureAwait(false);
 
-        var moodlesTask = DbContext.Moodles
-            .AsNoTracking() // Prevent excess tracking of entities when in readonly.
-            .Where(f => f.PublisherUID == UserUID)
-            .ToListAsync();
+        var entries = await _redis.Database.HashGetAllAsync(VibeRoomRedis.RoomInviteKey(UserUID)).ConfigureAwait(false);
+        var invites = entries.Select(e => new RoomInvite(new(UserUID), e.Name.ToString(), e.Value.ToString())).ToList();
 
-        var tagsTask = DbContext.Keywords
-            .AsNoTracking() // Prevent excess tracking of entities when in readonly.
-            .Select(k => k.Word)
-            .ToListAsync();
-
-        // run all searched as no tracking in parallel for faster return time.
-        await Task.WhenAll(patternsTask, moodlesTask, tagsTask).ConfigureAwait(false);
-
-        // ret the results.
-        return new LobbyAndHubInfoResponce(tagsTask.Result)
+        return new LobbyAndHubInfoResponce(tags)
         {
-            PublishedPatterns = patternsTask.Result.Select(p => p.ToPublishedPattern()).ToList(),
-            PublishedMoodles = moodlesTask.Result.Select(m => m.ToPublishedMoodle()).ToList(),
-            // room invites when?
+            PublishedPatterns = patterns,
+            PublishedMoodles = moodles,
+            RoomInvites = invites,
         };
     }
 

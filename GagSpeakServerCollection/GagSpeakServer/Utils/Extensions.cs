@@ -41,13 +41,17 @@ public static class Extensions
     {
         return new PublishedPattern()
         {
+            Version = pattern.Version,
             Identifier = pattern.Identifier,
             Label = pattern.Name,
             Description = pattern.Description,
             Author = pattern.Author,
             Looping = pattern.ShouldLoop,
             Length = pattern.Length,
-            UploadedDate = pattern.TimePublished
+            UploadedDate = pattern.TimePublished,
+            PrimaryDevice = pattern.PrimaryDeviceUsed,
+            SecondaryDevice = pattern.SecondaryDeviceUsed,
+            MotorsUsed = pattern.MotorsUsed
         };
     }
 

@@ -129,15 +129,11 @@ public partial class GagspeakHub
         if (hostUid.IsNullOrEmpty || !hostUid.ToString().Equals(UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotRoomHost);
 
-        // 3. Store the invite as a hash entry under the invitee's invite key
+        // Store the invite as a hash entry under the invitee's invite key
         string inviteKey = VibeRoomRedis.RoomInviteKey(dto.User.UID);
-        HashEntry[] inviteInfo = new HashEntry[]
-        {
-            new("Name", dto.RoomName),
-            new("AttachedMessage", dto.AttachedMessage ?? string.Empty),
-        };
+
         // Add the invite entry to the inviteKey.
-        await _redis.Database.HashSetAsync(inviteKey, inviteInfo).ConfigureAwait(false);
+        await _redis.Database.HashSetAsync(inviteKey, [ new(dto.RoomName, dto.AttachedMessage) ]).ConfigureAwait(false);
 
         // Add the invite to the target's invite list.
         await Clients.User(dto.User.UID).Callback_RoomAddInvite(dto with { User = new(UserUID) }).ConfigureAwait(false);
