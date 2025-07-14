@@ -1,3 +1,4 @@
+using GagspeakAPI.Attributes;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -27,8 +28,9 @@ public class PatternEntry
     public ICollection<LikesPatterns> UserPatternLikes { get; set; } = new List<LikesPatterns>();
     public bool ShouldLoop { get; set; }
     public TimeSpan Length { get; set; }
-    public bool UsesVibrations { get; set; }
-    public bool UsesRotations { get; set; }
+    public ToyBrandName PrimaryDeviceUsed { get; set; } = ToyBrandName.Unknown;
+    public ToyBrandName SecondaryDeviceUsed { get; set; } = ToyBrandName.Unknown;
+    public ToyMotor MotorsUsed { get; set; } = ToyMotor.Unknown;
     public string Base64PatternData { get; set; }
 
     // Derived property to get the like count

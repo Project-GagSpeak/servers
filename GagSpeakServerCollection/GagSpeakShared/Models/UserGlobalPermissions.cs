@@ -27,8 +27,7 @@ public class UserGlobalPermissions
     // global toybox modifiable permissions
     public bool        ToyboxEnabled               { get; set; } = false; // PROFILE VIEWABLE OPT-IN || If the user's toybox component is active
     public bool        LockToyboxUI                { get; set; } = false; // Prevents the user from interfacing with their connected toys.
-    public bool        ToysAreConnected            { get; set; } = false; // If any toys are connected (True if simulated by default)
-    public bool        ToysAreInUse                { get; set; } = false; // True if connected to any remote / vibe room.
+    public RemoteType  ActiveRemoteMode            { get; set; } = RemoteType.None; // Latest GagSpeakRemote state. Useful for knowing if other actions should be blocked.
     public bool        SpatialAudio                { get; set; } = false; // if the user's toybox local audio is active
 
     // global hardcore permissions (readonly for everyone)

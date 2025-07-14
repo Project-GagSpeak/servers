@@ -179,14 +179,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 DbContext.UserAchievementData.Add(clientCallerAchievementData);
             }
 
-            // we will need to grab all of our published patterns and append them as PublishedPattern object to the connectionDto
-            List<PatternEntry> callerPatternPublications = await DbContext.Patterns.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
-            List<PublishedPattern> publishedPatterns = callerPatternPublications.Select(p => p.ToPublishedPattern()).ToList();
-
-            // grab all the published moodles and append them as the published pattern object to the connectionDto
-            List<MoodleStatus> callerMoodlePublications = await DbContext.Moodles.Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false);
-            List<PublishedMoodle> publishedMoodles = callerMoodlePublications.Select(m => m.ToPublishedMoodle()).ToList();
-
             // Save the DbContext (never know if it was added or not so always good to be safe.
             await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
@@ -195,12 +187,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             {
                 CurrentClientVersion = _expectedClientVersion,
                 ServerVersion = IGagspeakHub.ApiVersion,
+
                 GlobalPerms = globalPermsModel.ToApiGlobalPerms(),
                 SyncedGagData = clientGags,
                 SyncedRestrictionsData = clientRestrictions,
                 SyncedRestraintSetData = restraintSetData.ToApiRestraintData(),
-                PublishedPatterns = publishedPatterns,
-                PublishedMoodles = publishedMoodles,
+
                 ActiveAccountUidList = accountProfileUids,
                 UserAchievements = clientCallerAchievementData.Base64AchievementData,
             };
@@ -211,6 +203,42 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "GetConnectionDto", ex.Message, ex.StackTrace ?? string.Empty));
             return null!;
         }
+    }
+
+
+    /// <summary>
+    ///     This only returns the data that is respective to the caller's UserUID
+    /// </summary>
+    /// <returns> All the UserUID's published patterns, moodles and collective sharehub tags for searches. </returns>
+    [Authorize(Policy = "Identified")]
+    public async Task<LobbyAndHubInfoResponce> GetShareHubAndLobbyInfo()
+    {
+        // Request these in 
+        var patternsTask = DbContext.Patterns
+            .AsNoTracking() // Prevent excess tracking of entities when in readonly.
+            .Where(f => f.PublisherUID == UserUID)
+            .ToListAsync();
+
+        var moodlesTask = DbContext.Moodles
+            .AsNoTracking() // Prevent excess tracking of entities when in readonly.
+            .Where(f => f.PublisherUID == UserUID)
+            .ToListAsync();
+
+        var tagsTask = DbContext.Keywords
+            .AsNoTracking() // Prevent excess tracking of entities when in readonly.
+            .Select(k => k.Word)
+            .ToListAsync();
+
+        // run all searched as no tracking in parallel for faster return time.
+        await Task.WhenAll(patternsTask, moodlesTask, tagsTask).ConfigureAwait(false);
+
+        // ret the results.
+        return new LobbyAndHubInfoResponce(tagsTask.Result)
+        {
+            PublishedPatterns = patternsTask.Result.Select(p => p.ToPublishedPattern()).ToList(),
+            PublishedMoodles = moodlesTask.Result.Select(m => m.ToPublishedMoodle()).ToList(),
+            // room invites when?
+        };
     }
 
     /// <summary> 

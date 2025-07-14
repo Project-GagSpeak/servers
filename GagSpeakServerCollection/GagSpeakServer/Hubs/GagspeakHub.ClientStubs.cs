@@ -53,8 +53,10 @@ public partial class GagspeakHub
 	public Task Callback_ShowVerification(VerificationCode dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 		
 	public Task Callback_RoomJoin(RoomParticipant dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_RoomLeave(RoomParticipant dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_RoomDeviceUpdate(UserData user, ToyInfo ToyInfo) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomLeave(UserData user) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomAddInvite(RoomInvite dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RoomHostChanged(UserData user) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_RoomDeviceUpdate(UserData user, ToyInfo ToyInfo) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RoomIncDataStream(ToyDataStreamResponse dataStream) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RoomAccessGranted(UserData user) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RoomAccessRevoked(UserData user) => throw new PlatformNotSupportedException(UnsupportedMessage);

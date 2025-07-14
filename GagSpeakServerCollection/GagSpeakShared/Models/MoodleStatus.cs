@@ -5,8 +5,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace GagspeakShared.Models;
 
 /// <summary>
-/// Stores an uploaded pattern entry. Contains the base64 string data of the pattern.
-/// Included in the table is components used for searching and categorizing.
+///     Stores an uploaded pattern entry. Contains the base64 string data of the pattern.
+///     Included in the table is components used for searching and categorizing.
 /// </summary>
 public class MoodleStatus
 {

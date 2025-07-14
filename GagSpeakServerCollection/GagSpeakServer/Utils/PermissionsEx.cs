@@ -73,8 +73,7 @@ public static class PermissionsEx
 
         apiPerms.ToyboxEnabled = databasePerms.ToyboxEnabled;
         apiPerms.LockToyboxUI = databasePerms.LockToyboxUI;
-        apiPerms.ToysAreConnected = databasePerms.ToysAreConnected;
-        apiPerms.ToysAreInUse = databasePerms.ToysAreInUse;
+        apiPerms.ActiveRemoteMode = databasePerms.ActiveRemoteMode;
         apiPerms.SpatialAudio = databasePerms.SpatialAudio;
 
         apiPerms.ForcedFollow = databasePerms.ForcedFollow;
@@ -117,8 +116,7 @@ public static class PermissionsEx
 
         current.ToyboxEnabled = apiPerms.ToyboxEnabled;
         current.LockToyboxUI = apiPerms.LockToyboxUI;
-        current.ToysAreConnected = apiPerms.ToysAreConnected;
-        current.ToysAreInUse = apiPerms.ToysAreInUse;
+        current.ActiveRemoteMode = apiPerms.ActiveRemoteMode;
         current.SpatialAudio = apiPerms.SpatialAudio;
 
         current.ForcedFollow = apiPerms.ForcedFollow;

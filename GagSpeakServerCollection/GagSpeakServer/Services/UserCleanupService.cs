@@ -1,10 +1,15 @@
-﻿using GagspeakShared.Data;
+﻿using GagspeakServer.Hubs;
+using GagspeakShared.Data;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
 using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
+using StackExchange.Redis.Extensions.Core.Abstractions;
+using System.Globalization;
+using System.Text.Json;
 
 namespace GagspeakServer.Services;
 /// <summary> Service for cleaning up users and groups that are no longer active </summary>
@@ -13,16 +18,18 @@ public class UserCleanupService : IHostedService
     private readonly GagspeakMetrics _metrics;
     private readonly ILogger<UserCleanupService> _logger;
     private readonly IServiceProvider _services;
-    private readonly IConfigurationService<ServerConfiguration> _configuration;
+    private readonly IRedisDatabase _redis;
+    private readonly IConfigurationService<ServerConfiguration> _config;
     private CancellationTokenSource _cleanupCts = new();
 
     public UserCleanupService(GagspeakMetrics metrics, ILogger<UserCleanupService> logger,
-        IServiceProvider services, IConfigurationService<ServerConfiguration> configuration)
+        IServiceProvider services, IRedisDatabase redis, IConfigurationService<ServerConfiguration> config)
     {
         _metrics = metrics;
         _logger = logger;
         _services = services;
-        _configuration = configuration;
+        _redis = redis;
+        _config = config;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -40,7 +47,7 @@ public class UserCleanupService : IHostedService
         {
             using IServiceScope scope = _services.CreateScope();
             using GagspeakDbContext dbContext = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
-
+            
             await PurgeUnusedAccounts(dbContext).ConfigureAwait(false);
 
             await CleanUpOldRooms(dbContext).ConfigureAwait(false);
@@ -90,32 +97,73 @@ public class UserCleanupService : IHostedService
 
     private async Task CleanUpOldRooms(GagspeakDbContext dbContext)
     {
+        var nowUtc = DateTime.UtcNow;
+        _logger.LogInformation("Cleaning up Redis rooms older than 8 hours");
+
         try
         {
-            _logger.LogInformation("Cleaning up rooms older than 12 hours");
-
-            DateTime twelveHoursAgo = DateTime.UtcNow - TimeSpan.FromHours(12);
-            List<PrivateRoom> oldRooms = await dbContext.PrivateRooms
-                .Where(r => r.TimeMade < twelveHoursAgo)
-                .ToListAsync().ConfigureAwait(false);
-
-            foreach (PrivateRoom room in oldRooms)
+            var roomKeys = await _redis.SearchKeysAsync("VibeRoom:Room:*").ConfigureAwait(false);
+            foreach (var roomHashKey in roomKeys)
             {
-                _logger.LogInformation("Removing room: {roomName}", room.NameID);
+                var roomKeyStr = roomHashKey.ToString();
+                var roomName = roomKeyStr.Substring("VibeRoom:Room:".Length);
 
-                List<PrivateRoomPair> roomUsers = dbContext.PrivateRoomPairs
-                    .Where(pru => pru.PrivateRoomNameID == room.NameID)
-                    .ToList();
+                // get the creation time of the room.
+                var createdTimeValue = await _redis.Database.HashGetAsync(roomHashKey, "CreatedTimeUTC").ConfigureAwait(false);
+                if (createdTimeValue.IsNullOrEmpty)
+                    continue;
 
-                dbContext.PrivateRoomPairs.RemoveRange(roomUsers);
-                dbContext.PrivateRooms.Remove(room);
+                // Parse and check the age
+                if (!DateTime.TryParse(createdTimeValue.ToString(), null, DateTimeStyles.AdjustToUniversal, out var createdAt))
+                    continue;
+
+                if ((nowUtc - createdAt).TotalHours < 8)
+                    continue;
+
+                // --- Cleanup logic ---
+                // Begin by removing all participants from the room.
+                var participantsKey = VibeRoomRedis.ParticipantsKey(roomName);
+                var participantUids = await _redis.Database.SetMembersAsync(participantsKey).ConfigureAwait(false);
+                await _redis.Database.KeyDeleteAsync(participantsKey).ConfigureAwait(false);
+
+                // Remove each participant’s data
+                foreach (var uid in participantUids)
+                {
+                    var participantDataKey = VibeRoomRedis.ParticipantDataKey(roomName, uid!);
+                    await _redis.Database.KeyDeleteAsync(participantDataKey).ConfigureAwait(false);
+                    await _redis.Database.KeyDeleteAsync(VibeRoomRedis.KinksterRoomKey(uid.ToString())).ConfigureAwait(false);
+                }
+
+                // Delete participants set
+                await _redis.Database.KeyDeleteAsync(participantsKey).ConfigureAwait(false);
+
+                // Remove host pointer.
+                await _redis.Database.KeyDeleteAsync(VibeRoomRedis.RoomHostKey(roomName)).ConfigureAwait(false);
+
+                // Remove the room metadata/hash.
+                await _redis.Database.KeyDeleteAsync(roomHashKey).ConfigureAwait(false);
+
+                // remove the public room index.
+                await _redis.Database.SetRemoveAsync(VibeRoomRedis.PublicRoomsKey, roomHashKey).ConfigureAwait(false);
+
+                // remove the tag indexes.
+                var tagJson = await _redis.Database.HashGetAsync(roomHashKey, "Tags").ConfigureAwait(false);
+                if (!tagJson.IsNullOrEmpty && JsonSerializer.Deserialize<List<string>>(tagJson) is { } roomTags)
+                {
+                    // Remove the room from the tag indexes.
+                    foreach (var tag in roomTags)
+                    {
+                        var tagKey = VibeRoomRedis.TagIndexKey(tag);
+                        await _redis.Database.SetRemoveAsync(tagKey, roomHashKey).ConfigureAwait(false);
+                    }
+                }
+
+                // invites would get handled here, but look into if we even consider them first.
             }
-
-            await dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error during old rooms cleanup");
+            _logger.LogWarning(ex, "Error during Redis old rooms cleanup");
         }
     }
 
@@ -123,9 +171,9 @@ public class UserCleanupService : IHostedService
     {
         try
         {
-            if (_configuration.GetValueOrDefault(nameof(ServerConfiguration.PurgeUnusedAccounts), false))
+            if (_config.GetValueOrDefault(nameof(ServerConfiguration.PurgeUnusedAccounts), false))
             {
-                int usersOlderThanDays = _configuration.GetValueOrDefault(nameof(ServerConfiguration.PurgeUnusedAccountsPeriodInDays), 120);
+                int usersOlderThanDays = _config.GetValueOrDefault(nameof(ServerConfiguration.PurgeUnusedAccountsPeriodInDays), 300);
 
                 _logger.LogInformation("Cleaning up users older than {usersOlderThanDays} days", usersOlderThanDays);
 

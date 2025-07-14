@@ -359,7 +359,7 @@ public partial class GagspeakHub
         }
 
         // Start with a base query, insure we include the sub-dependencies such as the tags and likes.
-        IQueryable<PatternEntry> patternsQuery = DbContext.Patterns.AsQueryable();
+        IQueryable<PatternEntry> patternsQuery = DbContext.Patterns.AsNoTracking().AsQueryable();
         // 1. Apply title or author / title filters
         if (!string.IsNullOrEmpty(dto.Input))
         {
@@ -380,18 +380,18 @@ public partial class GagspeakHub
         // finalize the filtered results against our filter and order for sorting.
         switch (dto.Filter)
         {
-            case ResultFilter.DatePosted:
-                patternsQuery = dto.Sort == SearchSort.Ascending
+            case HubFilter.DatePosted:
+                patternsQuery = dto.Order is HubDirection.Ascending
                     ? patternsQuery.OrderBy(p => p.TimePublished)
                     : patternsQuery.OrderByDescending(p => p.TimePublished);
                 break;
-            case ResultFilter.Downloads:
-                patternsQuery = dto.Sort == SearchSort.Ascending
+            case HubFilter.Downloads:
+                patternsQuery = dto.Order is HubDirection.Ascending
                     ? patternsQuery.OrderBy(p => p.DownloadCount)
                     : patternsQuery.OrderByDescending(p => p.DownloadCount);
                 break;
-            case ResultFilter.Likes:
-                patternsQuery = dto.Sort == SearchSort.Ascending
+            case HubFilter.Likes:
+                patternsQuery = dto.Order is HubDirection.Ascending
                     ? patternsQuery.OrderBy(p => p.UserPatternLikes.Count)
                     : patternsQuery.OrderByDescending(p => p.UserPatternLikes.Count);
                 break;
@@ -420,14 +420,15 @@ public partial class GagspeakHub
             Looping = p.ShouldLoop,
             Length = p.Length,
             UploadedDate = p.TimePublished,
-            UsesVibrations = p.UsesVibrations,
-            UsesRotations = p.UsesRotations,
+            PrimaryDeviceUsed = p.PrimaryDeviceUsed,
+            SecondaryDeviceUsed = p.SecondaryDeviceUsed,
+            MotorsUsed = p.MotorsUsed,
             HasLiked = p.UserPatternLikes.Any(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal))
         }).ToList();
         return HubResponseBuilder.Yippee(result);
     }
 
-    public async Task<HubResponse<List<ServerMoodleInfo>>> SearchMoodles(MoodleSearch dto)
+    public async Task<HubResponse<List<ServerMoodleInfo>>> SearchMoodles(SearchBase dto)
     {
         _logger.LogCallInfo();
         // ensure they are a valid user.
@@ -459,11 +460,11 @@ public partial class GagspeakHub
         }
 
         // 3. Apply sorting
-        moodlesQuery = dto.Filter is ResultFilter.Likes
-            ? (dto.Sort is SearchSort.Ascending
+        moodlesQuery = dto.Filter is HubFilter.Likes
+            ? (dto.Order is HubDirection.Ascending
                 ? moodlesQuery.OrderBy(p => p.LikesMoodles.Count)
                 : moodlesQuery.OrderByDescending(p => p.LikesMoodles.Count))
-            : (dto.Sort is SearchSort.Ascending
+            : (dto.Order is HubDirection.Ascending
                 ? moodlesQuery.OrderBy(p => p.TimePublished)
                 : moodlesQuery.OrderByDescending(p => p.TimePublished));
 
@@ -490,14 +491,6 @@ public partial class GagspeakHub
         }).ToList();
 
         return HubResponseBuilder.Yippee(result);
-    }
-
-    // FetchSearchTags
-    public async Task<HubResponse<HashSet<string>>> FetchSearchTags()
-    {
-        _logger.LogCallInfo();
-        List<string> tags = await DbContext.Keywords.Select(k => k.Word).ToListAsync().ConfigureAwait(false);
-        return HubResponseBuilder.Yippee(tags.ToHashSet(StringComparer.OrdinalIgnoreCase));
     }
 }
 

@@ -44,10 +44,6 @@ public class GagspeakDbContext : DbContext
     /* Format used to go from no-sided pairing to two-sided pairing directly. */
     public DbSet<KinksterRequest> KinksterPairRequests { get; set; }
 
-    /* Tables that structure the toybox Private Room System */
-    public DbSet<PrivateRoom> PrivateRooms { get; set; } // The set of created private rooms.
-    public DbSet<PrivateRoomPair> PrivateRoomPairs { get; set; } // users who exist in a particular private room.
-
     /* Tables for the Share Hubs */
     public DbSet<PatternEntry> Patterns { get; set; } // Toybox Pattern Sharing
     public DbSet<MoodleStatus> Moodles { get; set; } // Moodle Sharing
@@ -119,14 +115,6 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<LikesPatterns>().HasKey(upl => new { upl.UserUID, upl.PatternEntryId });
         modelBuilder.Entity<LikesMoodles>().ToTable("likes_moodles");
         modelBuilder.Entity<LikesMoodles>().HasKey(uml => new { uml.UserUID, uml.MoodleStatusId });
-
-        modelBuilder.Entity<PrivateRoom>().ToTable("private_rooms"); // Key == RoomName
-        modelBuilder.Entity<PrivateRoom>().HasIndex(c => c.NameID).IsUnique(true); // insure only one room of the same ID can exist.
-        modelBuilder.Entity<PrivateRoom>().HasIndex(c => c.HostUID); // index by the room host when searching for searching hosts.
-        modelBuilder.Entity<PrivateRoomPair>().ToTable("private_room_users");
-        modelBuilder.Entity<PrivateRoomPair>().HasKey(u => new { u.PrivateRoomNameID, u.PrivateRoomUserUID });
-        modelBuilder.Entity<PrivateRoomPair>().HasIndex(c => c.PrivateRoomNameID);
-        modelBuilder.Entity<PrivateRoomPair>().HasIndex(c => c.PrivateRoomUserUID);
 
         modelBuilder.Entity<User>().ToTable("users");
         modelBuilder.Entity<UserGlobalPermissions>().ToTable("user_global_permissions");
