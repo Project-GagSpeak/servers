@@ -410,6 +410,7 @@ public partial class GagspeakHub
         // Convert to ServerPatternInfo
         List<ServerPatternInfo> result = patterns.Select(p => new ServerPatternInfo
         {
+            Version = p.Version,
             Identifier = p.Identifier,
             Label = p.Name,
             Description = p.Description,

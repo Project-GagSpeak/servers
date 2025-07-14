@@ -33,6 +33,9 @@ public class PatternEntry
     public ToyMotor MotorsUsed { get; set; } = ToyMotor.Unknown;
     public string Base64PatternData { get; set; }
 
+    // Versioning to detect update changes in uploaded pattern data.
+    public int Version { get; set; } = 2;
+
     // Derived property to get the like count
     [NotMapped]
     public int LikeCount => UserPatternLikes.Count;
