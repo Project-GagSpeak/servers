@@ -376,14 +376,13 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
         /* -------------------- Regular Connection -------------------- */
         // Attempt to retrieve an existing connection ID for the user UID.
-        if (_userConnections.TryGetValue(UserUID, out string connectionId)
-            && string.Equals(connectionId, Context.ConnectionId, StringComparison.Ordinal))
+        if (_userConnections.TryGetValue(UserUID, out string cid) && string.Equals(cid, Context.ConnectionId, StringComparison.Ordinal))
         {
-            // if they were already in the dictionary, log that we have a user disconnecting from the current connection total
-            _logger.LogMessage("Removing Connection of 1 user.");
-
             try
             {
+                // try to leave the current room if the user is in one prior to removing them from redi's connection.
+                await RoomLeave().ConfigureAwait(false);
+
                 // dispose the player from the online synced pair cache service
                 await _onlineSyncedPairCacheService.DisposePlayer(UserUID).ConfigureAwait(false);
 
@@ -392,9 +391,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
                 // check to see if they disconnected with an exception. If it did, log it as a warning message
                 if (exception != null)
-                {
                     _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, exception.Message, exception.StackTrace ?? string.Empty));
-                }
 
                 // remove the users from the redis database (if it is critical to the discord bot)
                 await RemoveUserFromRedis().ConfigureAwait(false);

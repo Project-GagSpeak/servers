@@ -72,8 +72,8 @@ public static class PermissionsEx
         apiPerms.PuppetPerms = databasePerms.PuppetPerms;
 
         apiPerms.ToyboxEnabled = databasePerms.ToyboxEnabled;
-        apiPerms.LockToyboxUI = databasePerms.LockToyboxUI;
-        apiPerms.ActiveRemoteMode = databasePerms.ActiveRemoteMode;
+        apiPerms.ToysAreInteractable = databasePerms.ToysAreInteractable;
+        apiPerms.InVibeRoom = databasePerms.InVibeRoom;
         apiPerms.SpatialAudio = databasePerms.SpatialAudio;
 
         apiPerms.ForcedFollow = databasePerms.ForcedFollow;
@@ -115,8 +115,8 @@ public static class PermissionsEx
         current.PuppetPerms = apiPerms.PuppetPerms;
 
         current.ToyboxEnabled = apiPerms.ToyboxEnabled;
-        current.LockToyboxUI = apiPerms.LockToyboxUI;
-        current.ActiveRemoteMode = apiPerms.ActiveRemoteMode;
+        current.ToysAreInteractable = apiPerms.ToysAreInteractable;
+        current.InVibeRoom = apiPerms.InVibeRoom;
         current.SpatialAudio = apiPerms.SpatialAudio;
 
         current.ForcedFollow = apiPerms.ForcedFollow;

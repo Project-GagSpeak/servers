@@ -2,6 +2,7 @@ using GagspeakAPI.Dto.VibeRoom;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
+using GagspeakServer.Utils;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System.Globalization;
@@ -21,6 +22,8 @@ public partial class GagspeakHub
 
     public async Task<HubResponse<List<RoomListing>>> SearchForRooms(SearchBase dto)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
         // 1. Get all public room names
         RedisValue[] publicRooms = await _redis.Database.SetMembersAsync(VibeRoomRedis.PublicRoomsKey).ConfigureAwait(false);
 
@@ -75,6 +78,8 @@ public partial class GagspeakHub
     /// <summary> Attempts to create a room with the specified room name. </summary>
     public async Task<HubResponse> RoomCreate(RoomCreateRequest dto)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
         string roomName = dto.Name;
         string hashKey = VibeRoomRedis.RoomHashKey(roomName);
 
@@ -121,6 +126,8 @@ public partial class GagspeakHub
     /// <summary> Sends an invite to a user to join a room. </summary>
     public async Task<HubResponse> SendRoomInvite(RoomInvite dto)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
         if (!await _redis.Database.KeyExistsAsync(VibeRoomRedis.RoomHashKey(dto.RoomName)).ConfigureAwait(false))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.RoomNotFound);
 
@@ -145,6 +152,8 @@ public partial class GagspeakHub
     /// <summary> Changes the password of an existing room. </summary>
     public async Task<HubResponse> ChangeRoomHost(string roomName, KinksterBase newHost)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(roomName, newHost));
+
         string roomKey = VibeRoomRedis.RoomHashKey(roomName);
 
         // Fetch current HostUid
@@ -172,6 +181,8 @@ public partial class GagspeakHub
     /// <summary> Changes the password of an existing room. </summary>
     public async Task<HubResponse> ChangeRoomPassword(string roomName, string newPass)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(roomName, newPass));
+
         string roomKey = VibeRoomRedis.RoomHashKey(roomName);
 
         RedisValue[] fields = await _redis.Database.HashGetAsync(roomKey, [ "HostUid", "Password" ]).ConfigureAwait(false);
@@ -209,6 +220,8 @@ public partial class GagspeakHub
     /// <summary> Allows a user to join the room. </summary>
     public async Task<HubResponse<List<RoomParticipant>>> RoomJoin(string name, string pass, RoomParticipant joiningUser)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(name, pass, joiningUser));
+
         string roomHashKey = VibeRoomRedis.RoomHashKey(name);
         // Ensure the room exists and fetch required fields
         RedisValue[] fields = await _redis.Database.HashGetAsync(roomHashKey, [ "IsPublic", "Password", "MaxParticipants" ]).ConfigureAwait(false);
@@ -264,6 +277,8 @@ public partial class GagspeakHub
     /// <remarks> DEVNOTE: Please do a stability check to make sure all tag associations are removed to avoid DB bloat overtime. </remarks>
     public async Task<HubResponse> RoomLeave()
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(UserUID));
+
         // Get the room the user is currently in
         string userRoomKey = VibeRoomRedis.KinksterRoomKey(UserUID);
         RedisValue roomName = await _redis.Database.StringGetAsync(userRoomKey).ConfigureAwait(false);
@@ -310,6 +325,8 @@ public partial class GagspeakHub
     /// <summary> Grants access to a user in the room. </summary>
     public async Task<HubResponse> RoomGrantAccess(KinksterBase allowedUser)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(allowedUser));
+
         // get the room they are in, in the first place.
         string userRoomKey = VibeRoomRedis.KinksterRoomKey(UserUID);
         // aquire that room name.
@@ -344,6 +361,8 @@ public partial class GagspeakHub
     /// <summary> Revokes access from a user in the room. </summary>
     public async Task<HubResponse> RoomRevokeAccess(KinksterBase restrictedUser)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(restrictedUser));
+
         // get the room they are in, in the first place.
         string userRoomKey = VibeRoomRedis.KinksterRoomKey(UserUID);
         // aquire that room name.
@@ -377,6 +396,8 @@ public partial class GagspeakHub
     /// <summary> Pushes device update (e.g., for battery level, motor settings) to the room. </summary>
     public async Task<HubResponse> RoomPushDeviceUpdate(ToyInfo deviceInfo)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(deviceInfo));
+
         // get the room they are in, in the first place.
         string userRoomKey = VibeRoomRedis.KinksterRoomKey(UserUID);
         // aquire that room name.
@@ -416,6 +437,8 @@ public partial class GagspeakHub
     /// <summary> Sends a data stream (vibration/rotation data) to users in the room. </summary>
     public async Task<HubResponse> RoomSendDataStream(ToyDataStream streamDto)
     {
+        _logger.LogMessage("User sent dataStream!");
+
         RedisValue roomName = await _redis.Database.StringGetAsync(VibeRoomRedis.KinksterRoomKey(UserUID)).ConfigureAwait(false);
         if (!roomName.HasValue)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotInRoom);
@@ -428,7 +451,7 @@ public partial class GagspeakHub
         {
             // If the participant is allowed to receive this data, send it.
             if (participantUids.Contains(dataStreamChunk.User.UID, StringComparer.OrdinalIgnoreCase))
-                await Clients.User(dataStreamChunk.User.UID).Callback_RoomIncDataStream(new(dataStreamChunk.MotorData, streamDto.Timestamp)).ConfigureAwait(false);
+                await Clients.User(dataStreamChunk.User.UID).Callback_RoomIncDataStream(new(dataStreamChunk.Devices, streamDto.Timestamp)).ConfigureAwait(false);
         }
 
         return HubResponseBuilder.Yippee();

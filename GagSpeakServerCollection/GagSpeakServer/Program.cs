@@ -80,7 +80,10 @@ public class Program
         using ILoggerFactory loggerFactory = LoggerFactory.Create(builder =>
         {
             builder.ClearProviders();
-            builder.AddConsole();
+            builder.AddConsole(options =>
+            {
+                options.IncludeScopes = false;
+            });
         });
         // use the logger factory to create the logger for the startup class here
         ILogger<Startup> logger = loggerFactory.CreateLogger<Startup>();

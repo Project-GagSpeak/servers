@@ -537,6 +537,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Authenticated")]
     public async Task<HubResponse> UserChangeOwnGlobalPerm(SingleChangeGlobal dto)
     {
+        // COMMENT THIS OUT WHEN NOT DEBUGGING:
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Make sure the UserData within is for ourselves, since we called the [UpdateOwnGlobalPerm]
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
