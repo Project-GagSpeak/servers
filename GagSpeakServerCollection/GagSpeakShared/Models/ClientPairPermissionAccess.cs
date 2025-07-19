@@ -21,6 +21,8 @@ public class ClientPairPermissionAccess
 
     public bool ChatGarblerActiveAllowed            { get; set; } = false; // Global
     public bool ChatGarblerLockedAllowed            { get; set; } = false; // Global
+    public bool GaggedNameplateAllowed              { get; set; } = false; // Global
+
 
     public bool WardrobeEnabledAllowed              { get; set; } = false; // Global
     public bool GagVisualsAllowed                   { get; set; } = false; // Global
@@ -60,19 +62,15 @@ public class ClientPairPermissionAccess
     // Moodles
     public bool MoodlesEnabledAllowed               { get; set; } = false; // Global
     public MoodlePerms MoodlePermsAllowed           { get; set; } = MoodlePerms.None;
-    public bool MaxMoodleTimeAllowed                { get; set; } = false;
+    public bool MaxMoodleTimeAllowed                { get; set; } = false; 
+
+    // Misc.
+    public bool HypnoEffectSendingAllowed           { get; set; } = false;
 
     // unique permissions for the toybox
-    public bool ToyboxEnabledAllowed                { get; set; } = false; // Global
-    public bool LockToyboxUIAllowed                 { get; set; } = false; // Global
     public bool SpatialAudioAllowed                 { get; set; } = false; // Global
-    public bool ToggleToyStateAllowed               { get; set; } = false;
-    public bool RemoteControlAccessAllowed          { get; set; } = false;
     public bool ExecutePatternsAllowed              { get; set; } = false;
     public bool StopPatternsAllowed                 { get; set; } = false;
     public bool ToggleAlarmsAllowed                 { get; set; } = false;
     public bool ToggleTriggersAllowed               { get; set; } = false;
-
-    // Misc.
-    public bool HypnoEffectSendingAllowed { get; set; } = false;
 }

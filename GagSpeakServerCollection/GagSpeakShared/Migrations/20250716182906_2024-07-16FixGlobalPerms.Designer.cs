@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250716182906_2024-07-16FixGlobalPerms")]
+    partial class _20240716FixGlobalPerms
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -203,10 +206,6 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("gag_visuals_allowed");
 
-                    b.Property<bool>("GaggedNameplateAllowed")
-                        .HasColumnType("boolean")
-                        .HasColumnName("gagged_nameplate_allowed");
-
                     b.Property<bool>("HypnoEffectSendingAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("hypno_effect_sending_allowed");
@@ -222,6 +221,10 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("LockRestrictionsAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("lock_restrictions_allowed");
+
+                    b.Property<bool>("LockToyboxUIAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("lock_toybox_ui_allowed");
 
                     b.Property<bool>("MaxGagTimeAllowed")
                         .HasColumnType("boolean")
@@ -263,6 +266,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("puppeteer_enabled_allowed");
 
+                    b.Property<bool>("RemoteControlAccessAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("remote_control_access_allowed");
+
                     b.Property<bool>("RemoveGagsAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("remove_gags_allowed");
@@ -303,9 +310,17 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("toggle_alarms_allowed");
 
+                    b.Property<bool>("ToggleToyStateAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("toggle_toy_state_allowed");
+
                     b.Property<bool>("ToggleTriggersAllowed")
                         .HasColumnType("boolean")
                         .HasColumnName("toggle_triggers_allowed");
+
+                    b.Property<bool>("ToyboxEnabledAllowed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("toybox_enabled_allowed");
 
                     b.Property<bool>("UnlockGagsAllowed")
                         .HasColumnType("boolean")
@@ -503,6 +518,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("smallint")
                         .HasColumnName("puppet_perms");
 
+                    b.Property<bool>("RemoteControlAccess")
+                        .HasColumnType("boolean")
+                        .HasColumnName("remote_control_access");
+
                     b.Property<bool>("RemoveGags")
                         .HasColumnType("boolean")
                         .HasColumnName("remove_gags");
@@ -534,6 +553,10 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("ToggleAlarms")
                         .HasColumnType("boolean")
                         .HasColumnName("toggle_alarms");
+
+                    b.Property<bool>("ToggleToyState")
+                        .HasColumnType("boolean")
+                        .HasColumnName("toggle_toy_state");
 
                     b.Property<bool>("ToggleTriggers")
                         .HasColumnType("boolean")

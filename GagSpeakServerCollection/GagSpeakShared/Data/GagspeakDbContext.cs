@@ -67,6 +67,8 @@ public class GagspeakDbContext : DbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<Auth>().ToTable("auth");
+        modelBuilder.Entity<Auth>().HasIndex(a => a.UserUID);
+        modelBuilder.Entity<Auth>().HasIndex(a => a.PrimaryUserUID);
         modelBuilder.Entity<AccountClaimAuth>().ToTable("account_claim_auth");
         modelBuilder.Entity<BannedRegistrations>().ToTable("banned_registrations");
         modelBuilder.Entity<Banned>().ToTable("banned_users");

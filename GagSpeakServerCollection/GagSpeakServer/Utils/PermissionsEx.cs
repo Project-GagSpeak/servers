@@ -82,6 +82,7 @@ public static class PermissionsEx
         apiPerms.ChatBoxesHidden = databasePerms.ChatBoxesHidden;
         apiPerms.ChatInputHidden = databasePerms.ChatInputHidden;
         apiPerms.ChatInputBlocked = databasePerms.ChatInputBlocked;
+
         apiPerms.HypnosisCustomEffect = databasePerms.HypnosisCustomEffect;
 
         apiPerms.GlobalShockShareCode = databasePerms.GlobalShockShareCode;
@@ -125,6 +126,7 @@ public static class PermissionsEx
         current.ChatBoxesHidden = apiPerms.ChatBoxesHidden;
         current.ChatInputHidden = apiPerms.ChatInputHidden;
         current.ChatInputBlocked = apiPerms.ChatInputBlocked;
+
         current.HypnosisCustomEffect = apiPerms.HypnosisCustomEffect;
 
         current.GlobalShockShareCode = apiPerms.GlobalShockShareCode;
@@ -181,14 +183,12 @@ public static class PermissionsEx
         apiPerms.MoodlePerms = databasePerms.MoodlePerms;
         apiPerms.MaxMoodleTime = databasePerms.MaxMoodleTime;
 
-        apiPerms.ToggleToyState = databasePerms.ToggleToyState;
-        apiPerms.RemoteControlAccess = databasePerms.RemoteControlAccess;
+        apiPerms.HypnoEffectSending = databasePerms.HypnoEffectSending;
+
         apiPerms.ExecutePatterns = databasePerms.ExecutePatterns;
         apiPerms.StopPatterns = databasePerms.StopPatterns;
         apiPerms.ToggleAlarms = databasePerms.ToggleAlarms;
         apiPerms.ToggleTriggers = databasePerms.ToggleTriggers;
-
-        apiPerms.HypnoEffectSending = databasePerms.HypnoEffectSending;
 
         apiPerms.InHardcore = databasePerms.InHardcore;
         apiPerms.PairLockedStates = databasePerms.PairLockedStates;
@@ -254,14 +254,12 @@ public static class PermissionsEx
         databasePerms.MoodlePerms = apiPerms.MoodlePerms;
         databasePerms.MaxMoodleTime = apiPerms.MaxMoodleTime;
 
-        databasePerms.ToggleToyState = apiPerms.ToggleToyState;
-        databasePerms.RemoteControlAccess = apiPerms.RemoteControlAccess;
+        databasePerms.HypnoEffectSending = apiPerms.HypnoEffectSending;
+
         databasePerms.ExecutePatterns = apiPerms.ExecutePatterns;
         databasePerms.StopPatterns = apiPerms.StopPatterns;
         databasePerms.ToggleAlarms = apiPerms.ToggleAlarms;
         databasePerms.ToggleTriggers = apiPerms.ToggleTriggers;
-
-        databasePerms.HypnoEffectSending = apiPerms.HypnoEffectSending;
 
         databasePerms.InHardcore = apiPerms.InHardcore;
         databasePerms.PairLockedStates = apiPerms.PairLockedStates;
@@ -294,6 +292,7 @@ public static class PermissionsEx
 
         apiPerms.ChatGarblerActiveAllowed = databasePerms.ChatGarblerActiveAllowed;
         apiPerms.ChatGarblerLockedAllowed = databasePerms.ChatGarblerLockedAllowed;
+        apiPerms.GaggedNameplateAllowed = databasePerms.GaggedNameplateAllowed;
 
         apiPerms.WardrobeEnabledAllowed = databasePerms.WardrobeEnabledAllowed;
         apiPerms.GagVisualsAllowed = databasePerms.GagVisualsAllowed;
@@ -333,17 +332,13 @@ public static class PermissionsEx
         apiPerms.MoodlePermsAllowed = databasePerms.MoodlePermsAllowed;
         apiPerms.MaxMoodleTimeAllowed = databasePerms.MaxMoodleTimeAllowed;
 
-        apiPerms.ToyboxEnabledAllowed = databasePerms.ToyboxEnabledAllowed;
-        apiPerms.LockToyboxUIAllowed = databasePerms.LockToyboxUIAllowed;
+        apiPerms.HypnoEffectSendingAllowed = databasePerms.HypnoEffectSendingAllowed;
+
         apiPerms.SpatialAudioAllowed = databasePerms.SpatialAudioAllowed;
-        apiPerms.ToggleToyStateAllowed = databasePerms.ToggleToyStateAllowed;
-        apiPerms.RemoteControlAccessAllowed = databasePerms.RemoteControlAccessAllowed;
         apiPerms.ExecutePatternsAllowed = databasePerms.ExecutePatternsAllowed;
         apiPerms.StopPatternsAllowed = databasePerms.StopPatternsAllowed;
         apiPerms.ToggleAlarmsAllowed = databasePerms.ToggleAlarmsAllowed;
         apiPerms.ToggleTriggersAllowed = databasePerms.ToggleTriggersAllowed;
-
-        apiPerms.HypnoEffectSendingAllowed = databasePerms.HypnoEffectSendingAllowed;
 
         return apiPerms;
     }
@@ -356,6 +351,7 @@ public static class PermissionsEx
         // Otherwise update it.
         databasePerms.ChatGarblerActiveAllowed = apiPerms.ChatGarblerActiveAllowed;
         databasePerms.ChatGarblerLockedAllowed = apiPerms.ChatGarblerLockedAllowed;
+        databasePerms.GaggedNameplateAllowed = apiPerms.GaggedNameplateAllowed;
 
         databasePerms.WardrobeEnabledAllowed = apiPerms.WardrobeEnabledAllowed;
         databasePerms.GagVisualsAllowed = apiPerms.GagVisualsAllowed;
@@ -395,18 +391,14 @@ public static class PermissionsEx
         databasePerms.MoodlePermsAllowed = apiPerms.MoodlePermsAllowed;
         databasePerms.MaxMoodleTimeAllowed = apiPerms.MaxMoodleTimeAllowed;
 
-        databasePerms.ToyboxEnabledAllowed = apiPerms.ToyboxEnabledAllowed;
-        databasePerms.LockToyboxUIAllowed = apiPerms.LockToyboxUIAllowed;
+        databasePerms.HypnoEffectSendingAllowed = apiPerms.HypnoEffectSendingAllowed;
+
         databasePerms.SpatialAudioAllowed = apiPerms.SpatialAudioAllowed;
-        databasePerms.ToggleToyStateAllowed = apiPerms.ToggleToyStateAllowed;
-        databasePerms.RemoteControlAccessAllowed = apiPerms.RemoteControlAccessAllowed;
         databasePerms.ExecutePatternsAllowed = apiPerms.ExecutePatternsAllowed;
         databasePerms.StopPatternsAllowed = apiPerms.StopPatternsAllowed;
         databasePerms.ToggleAlarmsAllowed = apiPerms.ToggleAlarmsAllowed;
         databasePerms.ToggleTriggersAllowed = apiPerms.ToggleTriggersAllowed;
         
-        databasePerms.HypnoEffectSendingAllowed = apiPerms.HypnoEffectSendingAllowed;
-
         return databasePerms;
     }
 }
