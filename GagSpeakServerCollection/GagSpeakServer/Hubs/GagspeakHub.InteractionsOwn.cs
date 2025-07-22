@@ -9,7 +9,6 @@ using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace GagspeakServer.Hubs;
 #nullable enable
@@ -17,26 +16,15 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub
 {
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushData(PushClientCompositeUpdate dto)
+    public async Task<HubResponse> UserPushActiveData(PushClientCompositeUpdate dto)
     {
         _logger.LogCallInfo();
-
-        // fetch the recipient UID list from the recipient list of the dto
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        // check to see if all the recipients are cached within the cache service. If not, then cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            // fetch all the paired users of the client caller
-            List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            // see which of the paired users are in the recipient list, and cache them.
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        
         // if a safeword, we need to clear all the data for the appearance and activeSetData.
         if (dto.WasSafeword)
         {
+            _logger.LogWarning($"FOR SOME REASON, {UserUID} SAFEWORDED! Clearing all gag data, restriction data, and restraint data for them.");
             // Grab the gag data ordered by layer.
             List<UserGagData> curGagData = await DbContext.UserGagData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
             if (curGagData.Any(g => g is null))
@@ -94,39 +82,32 @@ public partial class GagspeakHub
             // Dont need to update tables since they are using tracking. Just save changes.
             await DbContext.SaveChangesAsync().ConfigureAwait(false);
             // If a safeword, the contents of the composite data wont madder, since we know they are being reset and can handle it on the client end.
-            _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
+            _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count()));
             await Clients.Users(recipientUids).Callback_KinksterUpdateComposite(new(new(UserUID), dto.NewData, dto.WasSafeword)).ConfigureAwait(false);
         }
         else
         {
             // Push the composite data off to the other pairs.
-            _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count));
+            _logger.LogCallInfo(GagspeakHubLogger.Args(recipientUids.Count()));
             await Clients.Users(recipientUids).Callback_KinksterUpdateComposite(new(new(UserUID), dto.NewData, dto.WasSafeword)).ConfigureAwait(false);
         }
 
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserPushDataIpc(PushClientIpcUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveIpc(PushClientIpcUpdate dto)
     {
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
+        var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterUpdateIpc(new(new(UserUID), new(UserUID), dto.NewData, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserPushDataGags(PushClientGagSlotUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveGags(PushClientActiveGagSlot dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        // Get who we are sending it to, and cache any pairs not currently synced with the pool.
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
+        var recipientUids = dto.Recipients.Select(r => r.UID);
 
         // Grab the appearance data from the database at the layer we want to interact with.
         UserGagData? curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false);
@@ -174,31 +155,24 @@ public partial class GagspeakHub
 
         // get the updated appearance.
         ActiveGagSlot newAppearance = curGagData.ToApiGagSlot();
-        KinksterUpdateGagSlot recipientDto = new(new(UserUID), new(UserUID), newAppearance, dto.Type)
+        KinksterUpdateActiveGag recipientDto = new(new(UserUID), new(UserUID), newAppearance, dto.Type)
         {
             AffectedLayer = dto.Layer,
             PreviousGag = previousGag,
             PreviousPadlock = previousPadlock
         };
 
-        await Clients.Users(recipientUids).Callback_KinksterUpdateGagSlot(recipientDto).ConfigureAwait(false);
-        await Clients.Caller.Callback_KinksterUpdateGagSlot(recipientDto).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
+        await Clients.Caller.Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
 
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserPushDataRestrictions(PushClientRestrictionUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveRestrictions(PushClientActiveRestriction dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        // Get who we are sending it to, and cache any pairs not currently synced with the pool.
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
+        var recipientUids = dto.Recipients.Select(r => r.UID);
 
         UserRestrictionData? curRestrictionData = await DbContext.UserRestrictionData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false);
         if (curRestrictionData is null)
@@ -246,30 +220,24 @@ public partial class GagspeakHub
 
         // get the updated restrictionData.
         ActiveRestriction newRestrictionData = curRestrictionData.ToApiRestrictionSlot();
-        KinksterUpdateRestriction recipientDto = new(new(UserUID), new(UserUID), newRestrictionData, dto.Type)
+        KinksterUpdateActiveRestriction recipientDto = new(new(UserUID), new(UserUID), newRestrictionData, dto.Type)
         {
             AffectedLayer = dto.Layer,
             PreviousRestriction = prevId,
             PreviousPadlock = prevPadlock
         };
 
-        await Clients.Users(recipientUids).Callback_KinksterUpdateRestriction(recipientDto).ConfigureAwait(false);
-        await Clients.Caller.Callback_KinksterUpdateRestriction(recipientDto).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveRestriction(recipientDto).ConfigureAwait(false);
+        await Clients.Caller.Callback_KinksterUpdateActiveRestriction(recipientDto).ConfigureAwait(false);
 
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserPushDataRestraint(PushClientRestraintUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveRestraint(PushClientActiveRestraint dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
+        var recipientUids = dto.Recipients.Select(r => r.UID);
 
         // grab the restraintSetData from the database.
         UserRestraintData? curRestraintData = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
@@ -323,146 +291,179 @@ public partial class GagspeakHub
 
         // get the updated restraintData.
         CharaActiveRestraint newRestraintData = curRestraintData.ToApiRestraintData();
-        KinksterUpdateRestraint recipientDto = new(new(UserUID), new(UserUID), newRestraintData, dto.Type)
+        KinksterUpdateActiveRestraint recipientDto = new(new(UserUID), new(UserUID), newRestraintData, dto.Type)
         {
             PreviousRestraint = prevSetId,
             PrevLayers = prevLayers,
             PreviousPadlock = prevPadlock
         };
 
-        await Clients.Users(recipientUids).Callback_KinksterUpdateRestraint(recipientDto).ConfigureAwait(false);
-        await Clients.Caller.Callback_KinksterUpdateRestraint(recipientDto).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
+        await Clients.Caller.Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
 
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserPushDataCursedLoot(PushClientCursedLootUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveLoot(PushClientActiveLoot dto)
     {
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        // if the loot is not null, we assume application, so try and apply it if a gag item.
+        if (dto.LootItem is { } item && item.Type is CursedLootType.Gag && item.Gag.HasValue)
         {
-            List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        // Handle the cursed loot based on the type.
-        if (dto.InteractedLoot.GagType is not GagType.None)
-        {
-            // Grab the user gag data associated with our name, and find the first layer that does not have a gag item. If none found, return error.
+            // grab the usergagdata for the first open slot with no gag item applied, if no layers are available, return invalid layer.
             UserGagData? curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Gag == GagType.None).ConfigureAwait(false);
             if (curGagData is null)
                 return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer);
 
-            // get the previous gag.
-            GagType previousGag = curGagData.Gag;
-
             // update the data.
-            curGagData.Gag = dto.InteractedLoot.GagType;
+            curGagData.Gag = item.Gag.Value;
             curGagData.Enabler = "Mimic";
             curGagData.Padlock = Padlocks.MimicPadlock;
             curGagData.Password = string.Empty;
-            curGagData.Timer = dto.InteractedLoot.ReleaseTimeUTC;
+            curGagData.Timer = dto.LootItem.ReleaseTimeUTC;
             curGagData.PadlockAssigner = "Mimic";
 
             // save changes to our tracked item.
             await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
             ActiveGagSlot newAppearance = curGagData.ToApiGagSlot();
-            KinksterUpdateGagSlot recipientDto = new(new(UserUID), new(UserUID), newAppearance, DataUpdateType.AppliedCursed)
+            KinksterUpdateActiveGag recipientDto = new(new(UserUID), new(UserUID), newAppearance, DataUpdateType.AppliedCursed)
             {
                 AffectedLayer = curGagData.Layer,
-                PreviousGag = previousGag,
+                PreviousGag = GagType.None,
                 PreviousPadlock = Padlocks.None
             };
             // Return Gag Update.
-            await Clients.Users(recipientUids).Callback_KinksterUpdateGagSlot(recipientDto).ConfigureAwait(false);
-            await Clients.Caller.Callback_KinksterUpdateGagSlot(recipientDto).ConfigureAwait(false);
+            await Clients.Users(recipientUids).Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
+            await Clients.Caller.Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
         }
 
         // Push CursedLoot update to all recipients.
-        await Clients.Users(recipientUids).Callback_KinksterUpdateCursedLoot(new(new(UserUID), dto.ActiveItems, dto.InteractedLoot)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveCursedLoot(new(new(UserUID), dto.ActiveItems, dto.ChangeItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushAliasGlobalUpdate(PushClientAliasGlobalUpdate dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        // convert the recipient UID list from the recipient list of the dto
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        await Clients.Users(recipientUids).Callback_KinksterUpdateAliasGlobal(new(new(UserUID), dto.Alias)).ConfigureAwait(false);
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateAliasGlobal(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushAliasUniqueUpdate(PushClientAliasUniqueUpdate dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        await Clients.User(dto.Recipient.UID).Callback_KinksterUpdateAliasGlobal(new(new(UserUID), dto.Alias)).ConfigureAwait(false);
+        await Clients.User(dto.Recipient.UID).Callback_KinksterUpdateAliasGlobal(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserPushDataToybox(PushClientToyboxUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActivePattern(PushClientActivePattern dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        // we need to update our lists based on the interacted item, and store what item was interacted with.
-        switch (dto.Type)
-        {
-            case DataUpdateType.PatternSwitched:
-            case DataUpdateType.PatternExecuted:
-                dto.LatestActiveItems.ActivePattern = dto.AffectedIdentifier;
-                break;
-
-            case DataUpdateType.PatternStopped:
-                dto.LatestActiveItems.ActivePattern = Guid.Empty;
-                break;
-
-            case DataUpdateType.AlarmToggled:
-                // If we couldnt remove it, it means it was not present, so add it.
-                if (!dto.LatestActiveItems.ActiveAlarms.Remove(dto.AffectedIdentifier))
-                    dto.LatestActiveItems.ActiveAlarms.Add(dto.AffectedIdentifier);
-                break;
-
-            case DataUpdateType.TriggerToggled:
-                // If we couldnt remove it, it means it was not present, so add it.
-                if (!dto.LatestActiveItems.ActiveTriggers.Remove(dto.AffectedIdentifier))
-                    dto.LatestActiveItems.ActiveTriggers.Add(dto.AffectedIdentifier);
-                break;
-
-            default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
-        }
-
-        await Clients.Users(recipientUids).Callback_KinksterUpdateToybox(new(new(UserUID), new(UserUID), dto.LatestActiveItems, dto.Type)).ConfigureAwait(false);
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActivePattern(new(new(UserUID), new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserPushDataLightStorage(PushClientLightStorageUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveAlarms(PushClientActiveAlarms dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        List<string> recipientUids = dto.Recipients.Select(r => r.UID).ToList();
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(UserUID, recipientUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-        {
-            List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            recipientUids = allPairedUsers.Where(f => recipientUids.Contains(f, StringComparer.Ordinal)).ToList();
-            await _onlineSyncedPairCacheService.CachePlayers(UserUID, allPairedUsers, Context.ConnectionAborted).ConfigureAwait(false);
-        }
-
-        await Clients.Users(recipientUids).Callback_KinksterUpdateLightStorage(new(new(UserUID), new(UserUID), dto.NewData)).ConfigureAwait(false);
+        // convert the recipient UID list from the recipient list of the dto
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveAlarms(new(new(UserUID), new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveTriggers(PushClientActiveTriggers dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveTriggers(new(new(UserUID), new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    // Pushing updates to client data items.
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewGagData(PushClientDataChangeGag dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewGagData(new(new(UserUID), dto.GagType, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewRestrictionData(PushClientDataChangeRestriction dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewRestrictionData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewRestraintData(PushClientDataChangeRestraint dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewRestraintData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewLootData(PushClientDataChangeLoot dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewLootData(new(new(UserUID), dto.Id, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewPatternData(PushClientDataChangePattern dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewPatternData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewAlarmData(PushClientDataChangeAlarm dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewAlarmData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewTriggerData(PushClientDataChangeTrigger dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewTriggerData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewAllowances(PushClientAllowances dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewAllowances(new(new(UserUID), dto.Module, dto.AllowedUids)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserBulkChangeGlobal(BulkChangeGlobal dto)
     {
         _logger.LogCallInfo();
@@ -496,6 +497,7 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserBulkChangeUnique(BulkChangeUnique dto)
     {
         _logger.LogCallInfo();
@@ -534,7 +536,7 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
-    [Authorize(Policy = "Authenticated")]
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeOwnGlobalPerm(SingleChangeGlobal dto)
     {
         // COMMENT THIS OUT WHEN NOT DEBUGGING:
@@ -577,7 +579,7 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
-    [Authorize(Policy = "Authenticated")]
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeOwnPairPerm(SingleChangeUnique dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -640,7 +642,7 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
-    [Authorize(Policy = "Authenticated")]
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeOwnPairPermAccess(SingleChangeAccess dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));

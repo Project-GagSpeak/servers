@@ -393,8 +393,8 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
-    /// <summary> Changes another pairs gag data, if allowance permits. </summary>
-    public async Task<HubResponse> UserChangeKinksterGagState(PushKinksterGagSlotUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeKinksterActiveGag(PushKinksterActiveGagSlot dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
@@ -407,16 +407,6 @@ public partial class GagspeakHub
         UserGagData? currentGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID && u.Layer == dto.Layer).ConfigureAwait(false);
         if (currentGagData is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer);
-
-        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all these pairs are cached for that pair. If not, cache them.
-        if (!await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false))
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         GagType previousGag = currentGagData.Gag;
         Padlocks previousPadlock = currentGagData.Padlock;
@@ -455,7 +445,7 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
                 // do a final validation pass.
-                GagSpeakApiEc finalLockPass = dto.CanLock(currentGagData, pairPerms.MaxGagTime);
+                GagSpeakApiEc finalLockPass = currentGagData.CanLock(dto, pairPerms.MaxGagTime);
                 if (finalLockPass is not GagSpeakApiEc.Success)
                     return HubResponseBuilder.AwDangIt(finalLockPass);
 
@@ -476,7 +466,7 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
                 // validate if we can unlock the gag, if not, throw a warning.
-                GagSpeakApiEc finalUnlockPass = dto.CanUnlock(dto.Target.UID, dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
+                GagSpeakApiEc finalUnlockPass = currentGagData.CanUnlock(dto.Target.UID, dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
                 if (finalUnlockPass is not GagSpeakApiEc.Success)
                     return HubResponseBuilder.AwDangIt(finalUnlockPass);
 
@@ -507,8 +497,15 @@ public partial class GagspeakHub
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
+        // Obtain the recipients to send the data to now that we know we can.
+        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+
         ActiveGagSlot newGagData = currentGagData.ToApiGagSlot();
-        KinksterUpdateGagSlot recipientDto = new(new(dto.User.UID), new(UserUID), newGagData, dto.Type)
+        KinksterUpdateActiveGag recipientDto = new(new(dto.User.UID), new(UserUID), newGagData, dto.Type)
         {
             AffectedLayer = dto.Layer,
             PreviousGag = previousGag,
@@ -516,14 +513,14 @@ public partial class GagspeakHub
         };
 
         // send to recipient.
-        await Clients.User(dto.User.UID).Callback_KinksterUpdateGagSlot(recipientDto).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
         // send back to all recipients pairs. (including client caller)
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateGagSlot(recipientDto).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
-    /// <summary> Changes another pairs restriction data, if allowance permits. </summary>
-    public async Task<HubResponse> UserChangeKinksterRestrictionState(PushKinksterRestrictionUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeKinksterActiveRestriction(PushKinksterActiveRestriction dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
@@ -536,16 +533,6 @@ public partial class GagspeakHub
         UserRestrictionData? curRestrictionData = await DbContext.UserRestrictionData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID && u.Layer == dto.Layer).ConfigureAwait(false);
         if (curRestrictionData is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer);
-
-        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all these pairs are cached for that pair. If not, cache them.
-        if (!await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false))
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         Guid prevRestriction = curRestrictionData.Identifier;
         Padlocks prevPadlock = curRestrictionData.Padlock;
@@ -584,7 +571,7 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
                 // do a final validation pass.
-                GagSpeakApiEc finalLockPass = dto.CanLock(curRestrictionData, pairPerms.MaxRestrictionTime);
+                GagSpeakApiEc finalLockPass = curRestrictionData.CanLock(dto, pairPerms.MaxRestrictionTime);
                 if (finalLockPass is not GagSpeakApiEc.Success)
                     return HubResponseBuilder.AwDangIt(finalLockPass);
 
@@ -636,20 +623,27 @@ public partial class GagspeakHub
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
+        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+
         ActiveRestriction newRestrictionData = curRestrictionData.ToApiRestrictionSlot();
-        KinksterUpdateRestriction recipientDto = new(new(dto.User.UID), new(UserUID), newRestrictionData, dto.Type)
+        KinksterUpdateActiveRestriction recipientDto = new(new(dto.User.UID), new(UserUID), newRestrictionData, dto.Type)
         {
             AffectedLayer = dto.Layer,
             PreviousRestriction = prevRestriction,
             PreviousPadlock = prevPadlock
         };
 
-        await Clients.User(dto.User.UID).Callback_KinksterUpdateRestriction(recipientDto).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateRestriction(recipientDto).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_KinksterUpdateActiveRestriction(recipientDto).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveRestriction(recipientDto).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserChangeKinksterRestraintState(PushKinksterRestraintUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeKinksterActiveRestraint(PushKinksterActiveRestraint dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
@@ -662,18 +656,6 @@ public partial class GagspeakHub
         UserRestraintData? curRestraintSetData = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (curRestraintSetData is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-
-        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all these pairs are cached for that pair. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         var prevRestraintSet = curRestraintSetData.Identifier;
         var prevLayers = curRestraintSetData.ActiveLayers;
@@ -749,7 +731,7 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
                 // do a final validation pass.
-                GagSpeakApiEc finalLockPass = dto.CanLock(curRestraintSetData, pairPerms.MaxRestrictionTime);
+                GagSpeakApiEc finalLockPass = curRestraintSetData.CanLock(dto, pairPerms.MaxRestrictionTime);
                 if (finalLockPass is not GagSpeakApiEc.Success)
                     return HubResponseBuilder.AwDangIt(finalLockPass);
 
@@ -818,41 +800,35 @@ public partial class GagspeakHub
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
+        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+
         CharaActiveRestraint updatedWardrobeData = curRestraintSetData.ToApiRestraintData();
-        KinksterUpdateRestraint recipientDto = new(dto.User, new(UserUID), updatedWardrobeData, dto.Type)
+        KinksterUpdateActiveRestraint recipientDto = new(dto.User, new(UserUID), updatedWardrobeData, dto.Type)
         {
             PreviousRestraint = prevRestraintSet,
             PrevLayers = prevLayers,
             PreviousPadlock = prevPadlock
         };
 
-        await Clients.User(dto.User.UID).Callback_KinksterUpdateRestraint(recipientDto).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateRestraint(recipientDto).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
-    public async Task<HubResponse> UserChangeKinksterToyboxState(PushKinksterToyboxUpdate dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeKinksterActivePattern(PushKinksterActivePattern dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        if (string.Equals(dto.Target.UID, UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
-        ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false);
         if (pairPerms is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-
-        // Grabs all Pairs of the affected pair
-        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-
-        // Verify all these pairs are cached for that pair. If not, cache them.
-        bool allCached = await _onlineSyncedPairCacheService.AreAllPlayersCached(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-        if (!allCached)
-            await _onlineSyncedPairCacheService.CachePlayers(dto.User.UID, allOnlinePairsOfAffectedPairUids, Context.ConnectionAborted).ConfigureAwait(false);
-
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
 
         // validate change over server.
         switch (dto.Type)
@@ -861,44 +837,84 @@ public partial class GagspeakHub
             case DataUpdateType.PatternExecuted:
                 if (!pairPerms.ExecutePatterns)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-
-                dto.LatestData.ActivePattern = dto.Item;
                 break;
 
             case DataUpdateType.PatternStopped:
                 if (!pairPerms.StopPatterns)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-
-                dto.LatestData.ActivePattern = Guid.Empty;
-                break;
-
-            case DataUpdateType.AlarmToggled:
-                if (!pairPerms.ToggleAlarms)
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-
-                // If we couldnt remove it, it means it was not present, so add it.
-                if (!dto.LatestData.ActiveAlarms.Remove(dto.Item))
-                    dto.LatestData.ActiveAlarms.Add(dto.Item);
-                break;
-
-            case DataUpdateType.TriggerToggled:
-                if (!pairPerms.ToggleTriggers)
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-
-                // If we couldnt remove it, it means it was not present, so add it.
-                if (!dto.LatestData.ActiveTriggers.Remove(dto.Item))
-                    dto.LatestData.ActiveTriggers.Add(dto.Item);
                 break;
 
             default:
                 return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
         }
 
-        await Clients.User(dto.User.UID).Callback_KinksterUpdateToybox(new(dto.Target, new(UserUID), dto.LatestData, dto.Type)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateToybox(new(dto.Target, new(UserUID), dto.LatestData, dto.Type)).ConfigureAwait(false);
+        // Grabs all Pairs of the affected pair
+        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+        // remove the TargetKinkster from the list of all online pairs, so we can send them a self update message.
+        allOnlinePairsOfAffectedPairUids.Remove(dto.Target.UID);
+
+        await Clients.User(dto.Target.UID).Callback_KinksterUpdateActivePattern(new(dto.Target, new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActivePattern(new(dto.Target, new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeKinksterActiveAlarms(PushKinksterActiveAlarms dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        if (string.Equals(dto.Target.UID, UserUID, StringComparison.Ordinal))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
+        if (dto.Type is not DataUpdateType.AlarmToggled)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+
+        ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false);
+        if (pairPerms is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+
+        if (!pairPerms.ToggleAlarms)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+        // Grabs all Pairs of the affected pair
+        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+
+        await Clients.User(dto.Target.UID).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeKinksterActiveTriggers(PushKinksterActiveTriggers dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        if (string.Equals(dto.Target.UID, UserUID, StringComparison.Ordinal))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
+        if (dto.Type is not DataUpdateType.AlarmToggled)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+
+        ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false);
+        if (pairPerms is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+
+        if (!pairPerms.ToggleTriggers)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+        // Grabs all Pairs of the affected pair
+        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+
+        await Clients.User(dto.Target.UID).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserSendNameToKinkster(KinksterBase dto, string listenerName)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -914,12 +930,7 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
-
-    /// <summary> 
-    /// Updates a global permission on one of the client caller's user pair to a new value.
-    /// If successful, function will send update to client caller and their paired users.
-    /// </summary>
-    [Authorize(Policy = "Authenticated")]
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeOtherGlobalPerm(SingleChangeGlobal dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -961,11 +972,7 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
-    /// <summary>
-    /// Updates a pair permission of one of the client caller's paired users to a new value.
-    /// If successful, function will send update to the paired user being updated, and the client caller (unless all paired users are needed?)
-    /// </summary>
-    [Authorize(Policy = "Authenticated")]
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeOtherPairPerm(SingleChangeUnique dto)
     {
         // no way to verify if we are using it properly, so just make the assumption that we are.

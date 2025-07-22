@@ -40,9 +40,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     // Redis database for caching (Redi's allows us to have a simple way to store and manage user state with large scale)
     private readonly IRedisDatabase _redis;
 
-    // Service for managing online synced pairs
-    private readonly OnlineSyncedPairCacheService _onlineSyncedPairCacheService;
-
     // Expected version of the client
     private readonly Version _expectedClientVersion;
 
@@ -53,18 +50,15 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     private GagspeakDbContext DbContext => _dbContextLazy.Value;
 
     // Constructor for GagspeakHub
-    public GagspeakHub(GagspeakMetrics metrics,
-        IDbContextFactory<GagspeakDbContext> GagSpeakDbContextFactory,
+    public GagspeakHub(GagspeakMetrics metrics, IDbContextFactory<GagspeakDbContext> GagSpeakDbContextFactory,
         ILogger<GagspeakHub> logger, SystemInfoService systemInfoService, IRedisDatabase redis,
-        IConfigurationService<ServerConfiguration> configuration, IHttpContextAccessor contextAccessor,
-        OnlineSyncedPairCacheService onlineSyncedPairCacheService)
+        IConfigurationService<ServerConfiguration> configuration, IHttpContextAccessor contextAccessor)
     {
         _metrics = metrics;
         _systemInfoService = systemInfoService;
         _expectedClientVersion = configuration.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
         _contextAccessor = contextAccessor;
         _redis = redis;
-        _onlineSyncedPairCacheService = onlineSyncedPairCacheService;
         _logger = new GagspeakHubLogger(this, logger);
         _dbContextLazy = new Lazy<GagspeakDbContext>(() => GagSpeakDbContextFactory.CreateDbContext());
     }
@@ -137,7 +131,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             }
 
             // Handle retrieving all GagData entries for the user, and correcting any invalid ones.
-            List<UserGagData> gagStateCache = await DbContext.UserGagData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            List<UserGagData> gagStateCache = await DbContext.UserGagData.AsNoTracking().Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
             for (byte layer = 0; layer < gagStateCache.Count; layer++)
             {
                 if (gagStateCache[layer] is null)
@@ -151,7 +145,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             CharaActiveGags clientGags = new CharaActiveGags(gagDataApi);
 
             // Handle retrieving all RestrictionData entries for the user, and correcting any invalid ones.
-            List<UserRestrictionData> restrictionStateCache = await DbContext.UserRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            List<UserRestrictionData> restrictionStateCache = await DbContext.UserRestrictionData.AsNoTracking().Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
             for (byte layer = 0; layer < restrictionStateCache.Count; layer++)
             {
                 if (restrictionStateCache[layer] is null)
@@ -336,7 +330,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             {
                 // display IP of client who just connected, and initialize player into the online synced pair cache service.
                 _logger.LogCallInfo(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
-                await _onlineSyncedPairCacheService.InitPlayer(UserUID).ConfigureAwait(false);
                 // Finally, update the user onto the redi's server, then set their connection ID in the concurrent dictionary.
                 await UpdateUserOnRedis().ConfigureAwait(false);
                 _userConnections[UserUID] = Context.ConnectionId;
@@ -382,9 +375,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             {
                 // try to leave the current room if the user is in one prior to removing them from redi's connection.
                 await RoomLeave().ConfigureAwait(false);
-
-                // dispose the player from the online synced pair cache service
-                await _onlineSyncedPairCacheService.DisposePlayer(UserUID).ConfigureAwait(false);
 
                 // log the call info of the user who disconnected
                 _logger.LogCallInfo(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));

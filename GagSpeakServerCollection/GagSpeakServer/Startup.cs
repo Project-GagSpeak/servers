@@ -50,10 +50,6 @@ public class Startup
         // create a configuration section var for the gagspeak config
         IConfigurationSection gagspeakConfig = Configuration.GetRequiredSection("GagSpeak");
 
-        // handle the configuration for our metrics
-        ConfigureMetrics(services);
-        _logger.LogInformation("Metrics Configured");
-
         // handle the startup configuration for our database
         ConfigureDatabase(services, gagspeakConfig);
         _logger.LogInformation("Database Configured");
@@ -90,7 +86,6 @@ public class Startup
         // next, add the server token generator, systeminfo service, and online synced pair cache service to the services
         services.AddSingleton<ServerTokenGenerator>();
         services.AddSingleton<SystemInfoService>();
-        services.AddSingleton<OnlineSyncedPairCacheService>();
         _logger.LogInformation("Server Token Generator, System Info Service, and Online Synced Pair Cache Service added");
 
         // next, add the hosted service for the system info service
@@ -334,50 +329,6 @@ public class Startup
             }).UseSnakeCaseNamingConvention();
             options.EnableThreadSafetyChecks(false);
         });
-    }
-
-    /// <summary> Helper method for configuring the metrics for the server. </summary>
-    private static void ConfigureMetrics(IServiceCollection services)
-    {
-        // add to the service collection the GagSpeak Metrics. This will be used to track the metrics of the server.
-        services.AddSingleton<GagspeakMetrics>(m => new GagspeakMetrics(m.GetService<ILogger<GagspeakMetrics>>(), new List<string>
-        {
-            MetricsAPI.CounterInitializedConnections,       // add the initialized connections counter
-            
-            MetricsAPI.CounterUserPushDataComposite,        // data pushes
-            MetricsAPI.CounterUserPushDataIpc,              // add the user push data ipc counter
-            MetricsAPI.CounterUserPushDataAppearance,       // add the user push data appearance counter
-            MetricsAPI.CounterUserPushDataWardrobe,         // add the user push data wardrobe counter
-            MetricsAPI.CounterUserPushDataAlias,            // add the user push data alias counter
-            MetricsAPI.CounterUserPushDataToybox,          // add the user push data pattern counter
-            
-            MetricsAPI.CounterUserPushDataCompositeTo,      // add the user push data composite to counter
-            MetricsAPI.CounterUserPushDataIpcTo,            // add the user push data ipc to counter
-            MetricsAPI.CounterUserPushDataAppearanceTo,     // add the user push data appearance to counter
-            MetricsAPI.CounterUserPushDataWardrobeTo,       // add the user push data wardrobe to counter
-            MetricsAPI.CounterUserPushDataAliasTo,          // add the user push data alias to counter
-            MetricsAPI.CounterUserPushDataToyboxTo,        // add the user push data pattern to counter
-
-            MetricsAPI.CounterUsersRegisteredDeleted,       // add the users registered deleted counter
-            
-            MetricsAPI.CounterAuthenticationCacheHits,      // add the authentication cache hits counter
-            MetricsAPI.CounterAuthenticationFailures,       // add the authentication failures counter
-            MetricsAPI.CounterAuthenticationRequests,       // add the authentication requests counter
-            MetricsAPI.CounterAuthenticationSuccesses,      // add the authentication successes counter
-            
-        }, new List<string>
-        {
-            MetricsAPI.GaugeAuthorizedConnections,          // add the authorized connections gauge
-            MetricsAPI.GaugeConnections,                    // add the connections gauge
-            MetricsAPI.GaugePairs,                          // add the pairs gauge
-            MetricsAPI.GaugePairsPaused,                    // add the pairs paused gauge
-            MetricsAPI.GaugeAvailableIOWorkerThreads,       // add the available IO worker threads gauge
-            MetricsAPI.GaugeAvailableWorkerThreads,         // add the available worker threads gauge
-            MetricsAPI.GaugeUsersRegistered,                // add the users registered gauge
-            MetricsAPI.GaugeAuthenticationCacheEntries,     // add the authentication cache entries gauge
-            MetricsAPI.GaugeUserPairCacheEntries,           // add the user pair cache entries gauge
-            MetricsAPI.GaugeUserPairCacheUsers,             // add the user pair cache users gauge
-        }));
     }
 
     /// <summary> The Configure method is responsible for configuring the application's request pipeline. </summary>
