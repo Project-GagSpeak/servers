@@ -56,16 +56,8 @@ public class UserRequirementHandler : AuthorizationHandler<UserRequirement, HubI
             // ar ident = await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
             var ident = await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
             if (ident == RedisValue.EmptyString)
-            {
-                // _logger.LogInformation("Ident not found in Redis");
-                // allow people on the toybox hub to also be authorized.
-                ident = await _redis.GetAsync<string>("ToyboxHub:UID:" + uid).ConfigureAwait(false);
-                if (ident == RedisValue.EmptyString)
-                {
-                    //_logger.LogInformation("Ident not found in ToyboxHub");
-                    context.Fail();
-                }
-            }
+                context.Fail();
+
         }
 
         // otherwise, succeed the context requirement.

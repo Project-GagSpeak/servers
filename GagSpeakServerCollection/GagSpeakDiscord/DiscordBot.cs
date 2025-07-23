@@ -490,11 +490,8 @@ internal partial class DiscordBot : IHostedService
             System.Net.EndPoint endPoint = _connectionMultiplexer.GetEndPoints().First();
             // fetch the total number of online users connected to the redis server
             int onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "GagspeakHub:UID:*").CountAsync().ConfigureAwait(false);
-            int toyboxUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "ToyboxHub:UID:*").CountAsync().ConfigureAwait(false);
-
             // log the status
             _logger.LogTrace("Kinksters online: {onlineUsers}", onlineUsers);
-            _logger.LogTrace("Toybox users online: {toyboxUsers}", toyboxUsers);
             // change the activity
             await _discordClient.SetActivityAsync(new Game("with " + onlineUsers + " Kinksters")).ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromSeconds(15)).ConfigureAwait(false);

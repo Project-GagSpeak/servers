@@ -56,8 +56,6 @@ public sealed class SystemInfoService : IHostedService, IDisposable
             _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
 
             int gagspeakOnlineUsers = (_redis.SearchKeysAsync("GagspeakHub:UID:*").GetAwaiter().GetResult()).Count();
-            int toyboxOnlineUsers = (_redis.SearchKeysAsync("ToyboxHub:UID:*").GetAwaiter().GetResult()).Count();
-
             SystemInfoDto = new ServerInfoResponse(gagspeakOnlineUsers);
             if (_config.IsMain)
             {

@@ -319,7 +319,7 @@ public partial class GagspeakHub
             // update the data.
             curGagData.Gag = item.Gag.Value;
             curGagData.Enabler = "Mimic";
-            curGagData.Padlock = Padlocks.MimicPadlock;
+            curGagData.Padlock = Padlocks.Mimic;
             curGagData.Password = string.Empty;
             curGagData.Timer = dto.LootItem.ReleaseTimeUTC;
             curGagData.PadlockAssigner = "Mimic";
