@@ -28,6 +28,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     // The Metrics for the GagSpeak web server
     private readonly GagspeakMetrics _metrics;
 
+    // Service for managing online synced pairs
+    private readonly OnlineSyncedPairCacheService _onlineSyncedPairCacheService;
+
     // Service for getting system information
     private readonly SystemInfoService _systemInfoService;
 
@@ -50,11 +53,13 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     private GagspeakDbContext DbContext => _dbContextLazy.Value;
 
     // Constructor for GagspeakHub
-    public GagspeakHub(GagspeakMetrics metrics, IDbContextFactory<GagspeakDbContext> GagSpeakDbContextFactory,
-        ILogger<GagspeakHub> logger, SystemInfoService systemInfoService, IRedisDatabase redis,
+    public GagspeakHub(GagspeakMetrics metrics, OnlineSyncedPairCacheService onlineSyncService,
+        IDbContextFactory<GagspeakDbContext> GagSpeakDbContextFactory, ILogger<GagspeakHub> logger, 
+        SystemInfoService systemInfoService, IRedisDatabase redis,
         IConfigurationService<ServerConfiguration> configuration, IHttpContextAccessor contextAccessor)
     {
         _metrics = metrics;
+        _onlineSyncedPairCacheService = onlineSyncService;
         _systemInfoService = systemInfoService;
         _expectedClientVersion = configuration.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
         _contextAccessor = contextAccessor;
@@ -330,6 +335,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             {
                 // display IP of client who just connected, and initialize player into the online synced pair cache service.
                 _logger.LogCallInfo(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
+                // initialize the online synced pair cache service with the user UID and connection ID.
+                await _onlineSyncedPairCacheService.InitPlayer(UserUID).ConfigureAwait(false);
                 // Finally, update the user onto the redi's server, then set their connection ID in the concurrent dictionary.
                 await UpdateUserOnRedis().ConfigureAwait(false);
                 _userConnections[UserUID] = Context.ConnectionId;
@@ -375,6 +382,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             {
                 // try to leave the current room if the user is in one prior to removing them from redi's connection.
                 await RoomLeave().ConfigureAwait(false);
+
+                // dispose from cache sync service
+                await _onlineSyncedPairCacheService.DisposePlayer(UserUID).ConfigureAwait(false);
 
                 // log the call info of the user who disconnected
                 _logger.LogCallInfo(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
