@@ -69,15 +69,17 @@ public class ClientPairPermissions
     public bool        ToggleTriggers            { get; set; } = false;
 
     // Misc.
+    public TimeSpan    MaxHypnosisTime           { get; set; } = TimeSpan.Zero;
     public bool        HypnoEffectSending        { get; set; } = false;
 
     // unique hardcore permissions. (only allow the ALLOW permissions to be set by the user).
     public bool        InHardcore                { get; set; } = false;
     public bool        PairLockedStates          { get; set; } = false; // Treats any State toggled by this pair like a Devotional Padlock.
-    public bool        AllowForcedFollow         { get; set; } = false;
-    public bool        AllowForcedSit            { get; set; } = false;
-    public bool        AllowForcedEmote          { get; set; } = false;
-    public bool        AllowForcedStay           { get; set; } = false;
+    public bool        AllowLockedFollowing      { get; set; } = false;
+    public bool        AllowLockedSitting        { get; set; } = false;
+    public bool        AllowLockedEmoting        { get; set; } = false;
+    public bool        AllowIndoorConfinement    { get; set; } = false;
+    public bool        AllowImprisonment         { get; set; } = false;
     public bool        AllowGarbleChannelEditing { get; set; } = false;
     public bool        AllowHidingChatBoxes      { get; set; } = false;
     public bool        AllowHidingChatInput      { get; set; } = false;

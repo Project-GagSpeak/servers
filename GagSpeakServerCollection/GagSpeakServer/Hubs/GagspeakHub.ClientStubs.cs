@@ -30,7 +30,8 @@ public partial class GagspeakHub
 	public Task Callback_BulkChangeGlobal(BulkChangeGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_BulkChangeUnique(BulkChangeUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_SingleChangeGlobal(SingleChangeGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_SingleChangeUnique(SingleChangeUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_DoubleChangeGlobal(DoubleChangeGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_SingleChangeUnique(SingleChangeUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_SingleChangeAccess(SingleChangeAccess dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 		
 	public Task Callback_KinksterUpdateComposite(KinksterUpdateComposite dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
@@ -46,7 +47,10 @@ public partial class GagspeakHub
 	public Task Callback_KinksterUpdateActiveTriggers(KinksterUpdateActiveTriggers dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ListenerName(UserData user, string name) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ShockInstruction(ShockCollarAction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-
+	public Task Callback_HypnoticEffect(HypnoticAction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ConfineToAddress(ConfineByAddress dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ImprisonAtPosition(ImprisonAtPosition dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    
 	public Task Callback_KinksterNewGagData(KinksterNewGagData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
     public Task Callback_KinksterNewRestrictionData(KinksterNewRestrictionData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
     public Task Callback_KinksterNewRestraintData(KinksterNewRestraintData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

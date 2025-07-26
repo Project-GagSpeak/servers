@@ -963,9 +963,8 @@ public partial class GagspeakHub
         // grab the user pairs that the paired user we are updating has.
         List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
         Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
-
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
         // send callback to all the paired users of the userpair we modified, informing them of the update (includes the client caller)
-        IEnumerable<string> callbackUids = pairsOfClient.Select(p => p.Key);
         await Clients.Users(callbackUids).Callback_SingleChangeGlobal(new(dto.User, dto.NewPerm, UpdateDir.Other, dto.Enactor)).ConfigureAwait(false);
         // finally, send a callback to the client pair who just had their permissions updated.
         await Clients.User(dto.User.UID).Callback_SingleChangeGlobal(new(dto.User, dto.NewPerm, UpdateDir.Own, dto.Enactor)).ConfigureAwait(false);
@@ -1002,4 +1001,190 @@ public partial class GagspeakHub
         await Clients.Caller.Callback_SingleChangeUnique(new(dto.User, dto.NewPerm, UpdateDir.Other, dto.Enactor)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
+
+    [Authorize(Policy = "Identified")]
+
+    /// <summary>
+    ///     Sends a custom Hypnosis effect to another kinkster, which they will execute. <para />
+    ///     If the image string is not null, ensure they have permission rights to do so.
+    /// </summary>
+    /// <remarks> Permission validation is not set yet for self-call test loops. </remarks>
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserHypnotizeKinkster(HypnoticAction dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        //if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        //{
+        //    await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
+        //    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+        //}
+
+        // make sure they are added as a pair of the client caller.
+        var pairGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (pairGlobals is null)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Global Perms do not exist!").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        }
+        //var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        //if (pairGlobals is null || pairPerms is null)
+        //{
+        //    await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
+        //    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+        //}
+
+        // Validate permission for image here down the line.
+
+        // Fail if currently rendering a hypnosis effect.
+        if (!string.IsNullOrEmpty(pairGlobals.HypnosisCustomEffect))
+        {
+            // An effect is already happening, so reject the action.
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.DuplicateEntry);
+        }
+
+        // Otherwise we can set it (assuming the permissions are valid) and should also inform all of this pair's pairs.
+        List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
+
+        // update the global permission value.
+        pairGlobals.HypnosisCustomEffect = UserUID;
+        DbContext.Update(pairGlobals);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // send the globals update to the correct people.
+        var newChange = new KeyValuePair<string, object>(nameof(GlobalPerms.HypnosisCustomEffect), UserUID);
+        await Clients.Users(callbackUids).Callback_SingleChangeGlobal(new(dto.User, newChange, UpdateDir.Other, new(UserUID))).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_SingleChangeGlobal(new(dto.User, newChange, UpdateDir.Own, new(UserUID))).ConfigureAwait(false);
+
+        // return to the recipient the instruction.
+        await Clients.User(dto.User.UID).Callback_HypnoticEffect(new(new(UserUID), dto.Duration, dto.Effect, dto.base64Image)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    /// <summary>
+    ///     Instructs a Kinkster to be defined by a set address. <para />
+    /// 
+    ///     Because there is no way to know if the pair's IPC is valid outside of allowed permissions,
+    ///     the operation will attmept, and fallback to nearest node. <para />
+    ///     
+    ///     If the task throws an exception due to an IPC failure or no nearest node being available, the
+    ///     setting will be reverted by the target.
+    /// </summary>
+    /// <remarks> Permission validation is not set yet for self-call test loops. </remarks>
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserConfineKinksterByAddress(ConfineByAddress dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        //if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        //{
+        //    await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
+        //    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+        //}
+
+        // make sure they are added as a pair of the client caller.
+        var pairGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (pairGlobals is null)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Global Perms do not exist!").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        }
+
+        //var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        //if (pairGlobals is null || pairPerms is null)
+        //{
+        //    await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
+        //    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+        //}
+
+        // Fail if in a confinement task already, or we are already confined.
+        if (pairGlobals.HcConfinedState() || pairGlobals.InConfinementTask)
+        {
+            // An effect is already happening, so reject the action.
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        }
+
+        // Otherwise we can set it (assuming the permissions are valid) and should also inform all of this pair's pairs.
+        List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
+
+        // update the global permission value. (add devotional pairlock here if nessisary)
+        pairGlobals.IndoorConfinement = UserUID;
+        pairGlobals.InConfinementTask = true;
+        DbContext.Update(pairGlobals);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // send the globals update to the correct people.
+        var newPermOne = new KeyValuePair<string, object>(nameof(GlobalPerms.HypnosisCustomEffect), UserUID);
+        var newPermTwo = new KeyValuePair<string, object>(nameof(GlobalPerms.InConfinementTask), true);
+        await Clients.Users(callbackUids).Callback_DoubleChangeGlobal(new(dto.User, newPermOne, newPermTwo, UpdateDir.Other, new(UserUID))).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_DoubleChangeGlobal(new(dto.User, newPermOne, newPermTwo, UpdateDir.Own, new(UserUID))).ConfigureAwait(false);
+
+        // return to the recipient the instruction.
+        await Clients.User(dto.User.UID).Callback_ConfineToAddress(new(new(UserUID), dto.SpesificAddress)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    /// <summary>
+    ///     Instructs a Kinkster to be anchors to a defined position. <para />
+    ///     The Kinkster will not be able to stray further than the dto's defined radius. <para />
+    ///     If the Kinkster is currently in a confinement task, this should fail.
+    /// </summary>
+    /// <remarks> Permission validation is not set yet for self-call test loops. </remarks>
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserImprisonKinkster(ImprisonAtPosition dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        //if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        //{
+        //    await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
+        //    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+        //}
+
+        // make sure they are added as a pair of the client caller.
+        var pairGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (pairGlobals is null)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Global Perms do not exist!").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        }
+
+        //var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
+        //if (pairGlobals is null || pairPerms is null)
+        //{
+        //    await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
+        //    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+        //}
+
+        // Fail if in a confinement task already, or we are already confined.
+        if (pairGlobals.HcCageState() || pairGlobals.InConfinementTask)
+        {
+            // An effect is already happening, so reject the action.
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        }
+
+        // Otherwise we can set it (assuming the permissions are valid) and should also inform all of this pair's pairs.
+        List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
+
+        // update the global permission value. (add devotional pairlock here if nessisary)
+        pairGlobals.Imprisonment = UserUID;
+        DbContext.Update(pairGlobals);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // send the globals update to the correct people.
+        var newPerm = new KeyValuePair<string, object>(nameof(GlobalPerms.Imprisonment), UserUID);
+        await Clients.Users(callbackUids).Callback_SingleChangeGlobal(new(dto.User, newPerm, UpdateDir.Other, new(UserUID))).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_SingleChangeGlobal(new(dto.User, newPerm, UpdateDir.Own, new(UserUID))).ConfigureAwait(false);
+
+        // return to the recipient the instruction.
+        await Clients.User(dto.User.UID).Callback_ImprisonAtPosition(new(new(UserUID), dto.Position, dto.MaxRadiusAllowed)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
 }

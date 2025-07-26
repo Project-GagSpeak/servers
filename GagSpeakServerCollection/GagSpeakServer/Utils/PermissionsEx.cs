@@ -76,9 +76,9 @@ public static class PermissionsEx
         apiPerms.InVibeRoom = databasePerms.InVibeRoom;
         apiPerms.SpatialAudio = databasePerms.SpatialAudio;
 
-        apiPerms.ForcedFollow = databasePerms.ForcedFollow;
-        apiPerms.ForcedEmoteState = databasePerms.ForcedEmoteState;
-        apiPerms.ForcedStay = databasePerms.ForcedStay;
+        apiPerms.LockedFollowing = databasePerms.LockedFollowing;
+        apiPerms.LockedEmoteState = databasePerms.LockedEmoteState;
+        apiPerms.IndoorConfinement = databasePerms.IndoorConfinement;
         apiPerms.ChatBoxesHidden = databasePerms.ChatBoxesHidden;
         apiPerms.ChatInputHidden = databasePerms.ChatInputHidden;
         apiPerms.ChatInputBlocked = databasePerms.ChatInputBlocked;
@@ -120,9 +120,9 @@ public static class PermissionsEx
         current.InVibeRoom = apiPerms.InVibeRoom;
         current.SpatialAudio = apiPerms.SpatialAudio;
 
-        current.ForcedFollow = apiPerms.ForcedFollow;
-        current.ForcedEmoteState = apiPerms.ForcedEmoteState;
-        current.ForcedStay = apiPerms.ForcedStay;
+        current.LockedFollowing = apiPerms.LockedFollowing;
+        current.LockedEmoteState = apiPerms.LockedEmoteState;
+        current.IndoorConfinement = apiPerms.IndoorConfinement;
         current.ChatBoxesHidden = apiPerms.ChatBoxesHidden;
         current.ChatInputHidden = apiPerms.ChatInputHidden;
         current.ChatInputBlocked = apiPerms.ChatInputBlocked;
@@ -183,6 +183,7 @@ public static class PermissionsEx
         apiPerms.MoodlePerms = databasePerms.MoodlePerms;
         apiPerms.MaxMoodleTime = databasePerms.MaxMoodleTime;
 
+        apiPerms.MaxHypnosisTime = databasePerms.MaxHypnosisTime;
         apiPerms.HypnoEffectSending = databasePerms.HypnoEffectSending;
 
         apiPerms.ExecutePatterns = databasePerms.ExecutePatterns;
@@ -192,10 +193,11 @@ public static class PermissionsEx
 
         apiPerms.InHardcore = databasePerms.InHardcore;
         apiPerms.PairLockedStates = databasePerms.PairLockedStates;
-        apiPerms.AllowForcedFollow = databasePerms.AllowForcedFollow;
-        apiPerms.AllowForcedSit = databasePerms.AllowForcedSit;
-        apiPerms.AllowForcedEmote = databasePerms.AllowForcedEmote;
-        apiPerms.AllowForcedStay = databasePerms.AllowForcedStay;
+        apiPerms.AllowLockedFollowing = databasePerms.AllowLockedFollowing;
+        apiPerms.AllowLockedSitting = databasePerms.AllowLockedSitting;
+        apiPerms.AllowLockedEmoting = databasePerms.AllowLockedEmoting;
+        apiPerms.AllowIndoorConfinement = databasePerms.AllowIndoorConfinement;
+        apiPerms.AllowImprisonment = databasePerms.AllowImprisonment;
         apiPerms.AllowGarbleChannelEditing = databasePerms.AllowGarbleChannelEditing;
         apiPerms.AllowHidingChatBoxes = databasePerms.AllowHidingChatBoxes;
         apiPerms.AllowHidingChatInput = databasePerms.AllowHidingChatInput;
@@ -254,6 +256,7 @@ public static class PermissionsEx
         databasePerms.MoodlePerms = apiPerms.MoodlePerms;
         databasePerms.MaxMoodleTime = apiPerms.MaxMoodleTime;
 
+        databasePerms.MaxHypnosisTime = apiPerms.MaxHypnosisTime;
         databasePerms.HypnoEffectSending = apiPerms.HypnoEffectSending;
 
         databasePerms.ExecutePatterns = apiPerms.ExecutePatterns;
@@ -263,10 +266,11 @@ public static class PermissionsEx
 
         databasePerms.InHardcore = apiPerms.InHardcore;
         databasePerms.PairLockedStates = apiPerms.PairLockedStates;
-        databasePerms.AllowForcedFollow = apiPerms.AllowForcedFollow;
-        databasePerms.AllowForcedSit = apiPerms.AllowForcedSit;
-        databasePerms.AllowForcedEmote = apiPerms.AllowForcedEmote;
-        databasePerms.AllowForcedStay = apiPerms.AllowForcedStay;
+        databasePerms.AllowLockedFollowing = apiPerms.AllowLockedFollowing;
+        databasePerms.AllowLockedSitting = apiPerms.AllowLockedSitting;
+        databasePerms.AllowLockedEmoting = apiPerms.AllowLockedEmoting;
+        databasePerms.AllowIndoorConfinement = apiPerms.AllowIndoorConfinement;
+        databasePerms.AllowImprisonment = apiPerms.AllowImprisonment;
         databasePerms.AllowGarbleChannelEditing = apiPerms.AllowGarbleChannelEditing;
         databasePerms.AllowHidingChatBoxes = apiPerms.AllowHidingChatBoxes;
         databasePerms.AllowHidingChatInput = apiPerms.AllowHidingChatInput;
@@ -332,7 +336,8 @@ public static class PermissionsEx
         apiPerms.MoodlePermsAllowed = databasePerms.MoodlePermsAllowed;
         apiPerms.MaxMoodleTimeAllowed = databasePerms.MaxMoodleTimeAllowed;
 
-        apiPerms.HypnoEffectSendingAllowed = databasePerms.HypnoEffectSendingAllowed;
+        apiPerms.HypnosisMaxTimeAllowed = databasePerms.HypnosisMaxTimeAllowed;
+        apiPerms.HypnosisSendingAllowed = databasePerms.HypnoEffectSendingAllowed;
 
         apiPerms.SpatialAudioAllowed = databasePerms.SpatialAudioAllowed;
         apiPerms.ExecutePatternsAllowed = databasePerms.ExecutePatternsAllowed;
@@ -391,7 +396,8 @@ public static class PermissionsEx
         databasePerms.MoodlePermsAllowed = apiPerms.MoodlePermsAllowed;
         databasePerms.MaxMoodleTimeAllowed = apiPerms.MaxMoodleTimeAllowed;
 
-        databasePerms.HypnoEffectSendingAllowed = apiPerms.HypnoEffectSendingAllowed;
+        databasePerms.HypnosisMaxTimeAllowed = apiPerms.HypnosisMaxTimeAllowed;
+        databasePerms.HypnoEffectSendingAllowed = apiPerms.HypnosisSendingAllowed;
 
         databasePerms.SpatialAudioAllowed = apiPerms.SpatialAudioAllowed;
         databasePerms.ExecutePatternsAllowed = apiPerms.ExecutePatternsAllowed;

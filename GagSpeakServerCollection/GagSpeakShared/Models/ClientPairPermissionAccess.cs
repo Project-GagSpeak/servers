@@ -65,6 +65,7 @@ public class ClientPairPermissionAccess
     public bool MaxMoodleTimeAllowed                { get; set; } = false; 
 
     // Misc.
+    public bool HypnosisMaxTimeAllowed              { get; set; } = false;
     public bool HypnoEffectSendingAllowed           { get; set; } = false;
 
     // unique permissions for the toybox

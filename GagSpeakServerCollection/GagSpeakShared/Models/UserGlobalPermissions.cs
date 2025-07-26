@@ -31,18 +31,21 @@ public class UserGlobalPermissions : IReadOnlyGlobalPerms
     public bool        InVibeRoom                  { get; set; } = false;
     public bool        SpatialAudio                { get; set; } = false;
 
+    // Going to need to fine tune this soon, but its purpose is to stop others
+    // from applying effects while a restriction or other player has one active.
+    public string      HypnosisCustomEffect        { get; set; } = string.Empty;
+
     // global hardcore permissions (readonly for everyone)
     // Contains the UID who applied it when active. If Devotional, will have    |pairlocked    appended.
-    public string      ForcedFollow                { get; set; } = string.Empty;
-    public string      ForcedEmoteState            { get; set; } = string.Empty;
-    public string      ForcedStay                  { get; set; } = string.Empty;
+    public string      LockedFollowing             { get; set; } = string.Empty;
+    public string      LockedEmoteState            { get; set; } = string.Empty;
+    public string      IndoorConfinement           { get; set; } = string.Empty;
+    public string      Imprisonment                { get; set; } = string.Empty;
     public string      ChatBoxesHidden             { get; set; } = string.Empty;
     public string      ChatInputHidden             { get; set; } = string.Empty;
     public string      ChatInputBlocked            { get; set; } = string.Empty;
 
-    // Going to need to fine tune this soon, but its purpose is to stop others
-    // from applying effects while a restriction or other player has one active.
-    public string      HypnosisCustomEffect        { get; set; } = string.Empty;
+    public bool        InConfinementTask           { get; set; } = false;
 
     // Global PiShock Permissions & Helpers.
     public string      GlobalShockShareCode        { get; set; } = string.Empty;
