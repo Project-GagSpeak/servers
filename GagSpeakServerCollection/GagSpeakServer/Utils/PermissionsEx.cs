@@ -337,7 +337,7 @@ public static class PermissionsEx
         apiPerms.MaxMoodleTimeAllowed = databasePerms.MaxMoodleTimeAllowed;
 
         apiPerms.HypnosisMaxTimeAllowed = databasePerms.HypnosisMaxTimeAllowed;
-        apiPerms.HypnosisSendingAllowed = databasePerms.HypnoEffectSendingAllowed;
+        apiPerms.HypnosisSendingAllowed = databasePerms.HypnosisSendingAllowed;
 
         apiPerms.SpatialAudioAllowed = databasePerms.SpatialAudioAllowed;
         apiPerms.ExecutePatternsAllowed = databasePerms.ExecutePatternsAllowed;
@@ -397,7 +397,7 @@ public static class PermissionsEx
         databasePerms.MaxMoodleTimeAllowed = apiPerms.MaxMoodleTimeAllowed;
 
         databasePerms.HypnosisMaxTimeAllowed = apiPerms.HypnosisMaxTimeAllowed;
-        databasePerms.HypnoEffectSendingAllowed = apiPerms.HypnosisSendingAllowed;
+        databasePerms.HypnosisSendingAllowed = apiPerms.HypnosisSendingAllowed;
 
         databasePerms.SpatialAudioAllowed = apiPerms.SpatialAudioAllowed;
         databasePerms.ExecutePatternsAllowed = apiPerms.ExecutePatternsAllowed;
