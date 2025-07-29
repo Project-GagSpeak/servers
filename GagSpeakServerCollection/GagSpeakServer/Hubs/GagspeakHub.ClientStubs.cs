@@ -21,7 +21,11 @@ public partial class GagspeakHub
 	public Task Callback_AddPairRequest(KinksterRequestEntry dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemovePairRequest(KinksterRequestEntry dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 		
-	public Task Callback_ApplyMoodlesByGuid(MoodlesApplierById dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterIpcFull(KinksterIpcDataFull dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterIpcStatusManager(KinksterIpcStatusManager dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterIpcStatuses(KinksterIpcStatuses dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterIpcPresets(KinksterIpcPresets dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_ApplyMoodlesByGuid(MoodlesApplierById dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ApplyMoodlesByStatus(MoodlesApplierByStatus dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveMoodles(MoodlesRemoval dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ClearMoodles(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
@@ -35,7 +39,6 @@ public partial class GagspeakHub
 	public Task Callback_SingleChangeAccess(SingleChangeAccess dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 		
 	public Task Callback_KinksterUpdateComposite(KinksterUpdateComposite dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterUpdateIpc(KinksterUpdateIpc dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateActiveGag(KinksterUpdateActiveGag dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateActiveRestriction(KinksterUpdateActiveRestriction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateActiveRestraint(KinksterUpdateActiveRestraint dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

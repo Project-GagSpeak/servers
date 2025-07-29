@@ -4,6 +4,7 @@ using GagspeakAPI.Network;
 using GagspeakServer.Utils;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace GagspeakServer.Hubs;
@@ -13,10 +14,42 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class GagspeakHub
 {
-     /// <summary>
-     /// Notifiy the recipient pair to apply the spesified Moodles to their status manager by their GUID.
-     /// </summary>
-     [Authorize(Policy = "Identified")]
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcFull(PushIpcDataFull dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_SetKinksterIpcFull(new(new(UserUID), new(UserUID), dto.NewData)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcStatusManager(PushIpcStatusManager dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_SetKinksterIpcStatusManager(new(new(UserUID), new(UserUID), dto.DataString, dto.DataInfo)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcStatuses(PushIpcStatuses dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_SetKinksterIpcStatuses(new(new(UserUID), new(UserUID), dto.Statuses)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcPresets(PushIpcPresets dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_SetKinksterIpcPresets(new(new(UserUID), new(UserUID), dto.Presets)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    /// <summary>
+    /// Notifiy the recipient pair to apply the spesified Moodles to their status manager by their GUID.
+    /// </summary>
+    [Authorize(Policy = "Identified")]
      public async Task<HubResponse> UserApplyMoodlesByGuid(MoodlesApplierById dto)
      {
         // simply validate that they are an existing pair.

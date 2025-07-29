@@ -592,7 +592,7 @@ public partial class GagspeakHub
                 else if (!pairPerms.UnlockRestrictions)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-                GagSpeakApiEc finalUnlockPass = dto.CanUnlock(dto.Target.UID, dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
+                GagSpeakApiEc finalUnlockPass = curRestrictionData.CanUnlock(dto.Target.UID, dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
                 if (finalUnlockPass is not GagSpeakApiEc.Success)
                     return HubResponseBuilder.AwDangIt(finalUnlockPass);
 
@@ -751,7 +751,7 @@ public partial class GagspeakHub
                 else if (!pairPerms.UnlockRestraintSets)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-                GagSpeakApiEc finalUnlockPass = dto.CanUnlock(dto.Target.UID, dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
+                GagSpeakApiEc finalUnlockPass = curRestraintSetData.CanUnlock(dto.Target.UID, dto.Password, UserUID, pairPerms.OwnerLocks, pairPerms.DevotionalLocks);
                 if (finalUnlockPass is not GagSpeakApiEc.Success)
                     return HubResponseBuilder.AwDangIt(finalUnlockPass);
 
@@ -791,6 +791,7 @@ public partial class GagspeakHub
 
                 curRestraintSetData.Identifier = Guid.Empty;
                 curRestraintSetData.Enabler = string.Empty;
+                curRestraintSetData.ActiveLayers = RestraintLayer.None;
                 break;
 
             default:

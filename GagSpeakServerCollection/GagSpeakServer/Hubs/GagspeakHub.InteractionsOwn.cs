@@ -96,14 +96,6 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveIpc(PushClientIpcUpdate dto)
-    {
-        var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterUpdateIpc(new(new(UserUID), new(UserUID), dto.NewData, dto.Type)).ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
-
-    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushActiveGags(PushClientActiveGagSlot dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
@@ -280,6 +272,7 @@ public partial class GagspeakHub
             case DataUpdateType.Removed:
                 curRestraintData.Identifier = Guid.Empty;
                 curRestraintData.Enabler = string.Empty;
+                curRestraintData.ActiveLayers = RestraintLayer.None;
                 break;
 
             default:
@@ -497,6 +490,46 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
+    // Understand Safewords Better First!
+    //[Authorize(Policy = "Identified")]
+    //public async Task<HubResponse> UserBulkChangeSafeword(BulkChangeAll dto)
+    //{
+    //    _logger.LogCallInfo();
+    //    if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+    //    {
+    //        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot perform this on anyone but yourself!").ConfigureAwait(false);
+    //        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+    //    }
+
+    //    // grab our pair permissions for this user.
+    //    ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+    //    if (pairPerms is null)
+    //    {
+    //        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Pair Permission Not Found").ConfigureAwait(false);
+    //        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+    //    }
+    //    // grab the pair permission access for this user.
+    //    ClientPairPermissionAccess? pairAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+    //    if (pairAccess is null)
+    //    {
+    //        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Pair permission access not found").ConfigureAwait(false);
+    //        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+    //    }
+
+    //    // Update the global permissions, pair permissions, and editAccess permissions with the new values.
+    //    ClientPairPermissions newPairPerms = dto.Unique.ToModelKinksterPerms(pairPerms);
+    //    ClientPairPermissionAccess newPairAccess = dto.Access.ToModelKinksterEditAccess(pairAccess);
+
+    //    // update the database with the new permissions & save DB changes
+    //    DbContext.Update(newPairPerms);
+    //    DbContext.Update(newPairAccess);
+    //    await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+    //    await Clients.Caller.Callback_BulkChangeUnique(new(dto.User, dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
+    //    await Clients.User(dto.User.UID).Callback_BulkChangeUnique(new(new(UserUID), dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
+    //    return HubResponseBuilder.Yippee();
+    //}
+
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserBulkChangeUnique(BulkChangeUnique dto)
     {
@@ -531,8 +564,8 @@ public partial class GagspeakHub
         DbContext.Update(newPairAccess);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        await Clients.Caller.Callback_BulkChangeUnique(new(dto.User, dto.NewPerms, dto.NewAccess)).ConfigureAwait(false);
-        await Clients.User(dto.User.UID).Callback_BulkChangeUnique(new(new(UserUID), dto.NewPerms, dto.NewAccess)).ConfigureAwait(false);
+        await Clients.Caller.Callback_BulkChangeUnique(new(dto.User, dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_BulkChangeUnique(new(new(UserUID), dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
