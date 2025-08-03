@@ -45,7 +45,8 @@ public partial class GagspeakHub
 	public Task Callback_KinksterUpdateActiveCursedLoot(KinksterUpdateActiveCursedLoot dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateAliasGlobal(KinksterUpdateAliasGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateAliasUnique(KinksterUpdateAliasUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterUpdateActivePattern(KinksterUpdateActivePattern dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterUpdateValidToys(KinksterUpdateValidToys dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_KinksterUpdateActivePattern(KinksterUpdateActivePattern dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateActiveAlarms(KinksterUpdateActiveAlarms dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateActiveTriggers(KinksterUpdateActiveTriggers dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ListenerName(UserData user, string name) => throw new PlatformNotSupportedException(UnsupportedMessage);

@@ -1,5 +1,4 @@
 using GagspeakAPI.Data;
-using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
@@ -146,7 +145,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 }
             }
             // Compile the API output.
-            var gagDataApi = gagStateCache.Select(g => g.ToApiGagSlot()).ToArray();
+            ActiveGagSlot[] gagDataApi = gagStateCache.Select(g => g.ToApiGagSlot()).ToArray();
             CharaActiveGags clientGags = new CharaActiveGags(gagDataApi);
 
             // Handle retrieving all RestrictionData entries for the user, and correcting any invalid ones.
@@ -160,7 +159,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 }
             }
             // Compile the API output.
-            var restrictionDataApi = restrictionStateCache.Select(r => r.ToApiRestrictionSlot()).ToArray();
+            ActiveRestriction[] restrictionDataApi = restrictionStateCache.Select(r => r.ToApiRestrictionSlot()).ToArray();
             CharaActiveRestrictions clientRestrictions = new CharaActiveRestrictions(restrictionDataApi);
 
             // Handle retrieving the RestraintSetData entry for the user, and correcting it if invalid.
@@ -214,12 +213,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     public async Task<LobbyAndHubInfoResponce> GetShareHubAndLobbyInfo()
     {
         // Request these in 
-        var patterns = (await DbContext.Patterns.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(p => p.ToPublishedPattern()).ToList();
-        var moodles = (await DbContext.Moodles.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(m => m.ToPublishedMoodle()).ToList();
-        var tags = await DbContext.Keywords.AsNoTracking().Select(k => k.Word).ToListAsync().ConfigureAwait(false);
+        List<PublishedPattern> patterns = (await DbContext.Patterns.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(p => p.ToPublishedPattern()).ToList();
+        List<PublishedMoodle> moodles = (await DbContext.Moodles.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(m => m.ToPublishedMoodle()).ToList();
+        List<string> tags = await DbContext.Keywords.AsNoTracking().Select(k => k.Word).ToListAsync().ConfigureAwait(false);
 
-        var entries = await _redis.Database.HashGetAllAsync(VibeRoomRedis.RoomInviteKey(UserUID)).ConfigureAwait(false);
-        var invites = entries.Select(e => new RoomInvite(new(UserUID), e.Name.ToString(), e.Value.ToString())).ToList();
+        HashEntry[] entries = await _redis.Database.HashGetAllAsync(VibeRoomRedis.RoomInviteKey(UserUID)).ConfigureAwait(false);
+        List<RoomInvite> invites = entries.Select(e => new RoomInvite(new(UserUID), e.Name.ToString(), e.Value.ToString())).ToList();
 
         return new LobbyAndHubInfoResponce(tags)
         {

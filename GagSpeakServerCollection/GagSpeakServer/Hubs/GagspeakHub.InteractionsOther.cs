@@ -851,13 +851,10 @@ public partial class GagspeakHub
 
         // Grabs all Pairs of the affected pair
         List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-        // remove the TargetKinkster from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.Target.UID);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
 
-        await Clients.User(dto.Target.UID).Callback_KinksterUpdateActivePattern(new(dto.Target, new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActivePattern(new(dto.Target, new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
+        await Clients.Users([ ..callbackUids, dto.Target.UID]).Callback_KinksterUpdateActivePattern(new(dto.Target, new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
@@ -880,11 +877,10 @@ public partial class GagspeakHub
 
         // Grabs all Pairs of the affected pair
         List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
 
-        await Clients.User(dto.Target.UID).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        await Clients.Users([ ..callbackUids, dto.Target.UID ]).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
@@ -895,7 +891,7 @@ public partial class GagspeakHub
         if (string.Equals(dto.Target.UID, UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
-        if (dto.Type is not DataUpdateType.AlarmToggled)
+        if (dto.Type is not DataUpdateType.TriggerToggled)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
 
         ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false);
@@ -907,11 +903,10 @@ public partial class GagspeakHub
 
         // Grabs all Pairs of the affected pair
         List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
 
-        await Clients.User(dto.Target.UID).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        await Clients.Users([.. callbackUids, dto.Target.UID]).Callback_KinksterUpdateActiveTriggers(new(dto.Target, new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 

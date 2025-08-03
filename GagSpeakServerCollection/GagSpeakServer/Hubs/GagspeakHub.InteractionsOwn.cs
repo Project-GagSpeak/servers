@@ -355,6 +355,15 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushValidToys(PushClientValidToys dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateValidToys(new(new(UserUID), dto.ValidToys)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushActivePattern(PushClientActivePattern dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
