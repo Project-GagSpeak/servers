@@ -350,7 +350,7 @@ public partial class GagspeakHub
     public async Task<HubResponse> UserPushAliasUniqueUpdate(PushClientAliasUniqueUpdate dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        await Clients.User(dto.Recipient.UID).Callback_KinksterUpdateAliasGlobal(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
+        await Clients.User(dto.Recipient.UID).Callback_KinksterUpdateAliasUnique(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
