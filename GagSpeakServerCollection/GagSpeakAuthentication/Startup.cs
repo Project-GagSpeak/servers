@@ -213,13 +213,14 @@ public class Startup
         // add to the service collection the gagspeak metrics for the authentication server
         services.AddSingleton<GagspeakMetrics>(m => new GagspeakMetrics(m.GetService<ILogger<GagspeakMetrics>>(), new List<string>
         {
-            MetricsAPI.CounterAuthenticationCacheHits,      // the counter for the number of cache hits
-            MetricsAPI.CounterAuthenticationFailures,       // the counter for the number of authentication failures
-            MetricsAPI.CounterAuthenticationRequests,       // the counter for the number of authentication requests
-            MetricsAPI.CounterAuthenticationSuccesses,      // the counter for the number of authentication successes
+            MetricsAPI.CounterAuthenticationRequests,
+            MetricsAPI.CounterAuthenticationSuccess,
+            MetricsAPI.CounterAuthenticationFailed,
+            MetricsAPI.CounterUsersRegisteredDeleted,
         }, new List<string>
         {
-            MetricsAPI.GaugeAuthenticationCacheEntries,     // the gauge for the number of cache entries
+            MetricsAPI.GaugeAuthorizedConnections,
+            MetricsAPI.GaugeConnections,
         }));
     }
 

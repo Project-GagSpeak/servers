@@ -3,6 +3,7 @@ using GagspeakAPI.Dto.Sharehub;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
+using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
@@ -114,6 +115,8 @@ public partial class GagspeakHub
 
         // Save the user with the new upload log
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterUploadedPatterns);
+        _metrics.IncGauge(MetricsAPI.GaugeShareHubPatterns);
         return HubResponseBuilder.Yippee();
     }
 
@@ -201,6 +204,8 @@ public partial class GagspeakHub
 
         // Save the user with the new upload log
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterUploadedMoodles);
+        _metrics.IncGauge(MetricsAPI.GaugeShareHubMoodles);
         return HubResponseBuilder.Yippee();
     }
     public async Task<HubResponse<string>> DownloadPattern(Guid patternId)
@@ -218,6 +223,7 @@ public partial class GagspeakHub
         pattern.DownloadCount++;
         DbContext.Patterns.Update(pattern);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterPatternDownloads);
         return HubResponseBuilder.Yippee(pattern.Base64PatternData);
     }
 
@@ -237,7 +243,10 @@ public partial class GagspeakHub
         // Check if the user has already liked this pattern
         LikesPatterns existingLike = await DbContext.LikesPatterns.SingleOrDefaultAsync(upl => upl.PatternEntryId == patternId && upl.UserUID == user.UID).ConfigureAwait(false);
         if (existingLike is not null)
+        {
             DbContext.LikesPatterns.Remove(existingLike);
+            _metrics.DecGauge(MetricsAPI.GaugePatternLikes);
+        }
         else
         {
             // User has not liked this pattern, so add a new like
@@ -249,6 +258,7 @@ public partial class GagspeakHub
                 PatternEntry = pattern
             };
             DbContext.LikesPatterns.Add(userPatternLike);
+            _metrics.IncGauge(MetricsAPI.GaugePatternLikes);
         }
         // Save changes to the database
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -269,9 +279,11 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.ShareHubEntryNotFound);
 
         // Check if the user has already liked this pattern
-        LikesMoodles existingLike = await DbContext.LikesMoodles.SingleOrDefaultAsync(upl => upl.MoodleStatusId == moodleId && upl.UserUID == user.UID).ConfigureAwait(false);
-        if (existingLike is not null)
-            DbContext.LikesMoodles.Remove(existingLike);
+        if (await DbContext.LikesMoodles.SingleOrDefaultAsync(upl => upl.MoodleStatusId == moodleId && upl.UserUID == user.UID).ConfigureAwait(false) is { } liked)
+        {
+            DbContext.LikesMoodles.Remove(liked);
+            _metrics.DecGauge(MetricsAPI.GaugeMoodleLikes);
+        }
         else
         {
             // User has not liked this pattern, so add a new like
@@ -283,6 +295,7 @@ public partial class GagspeakHub
                 MoodleStatus = moodle
             };
             DbContext.LikesMoodles.Add(userPatternLike);
+            _metrics.IncGauge(MetricsAPI.GaugeMoodleLikes);
         }
 
         // Save changes to the database
@@ -312,13 +325,12 @@ public partial class GagspeakHub
         // Find and remove related PatternEntryTags
         List<PatternKeyword> patternEntryTags = await DbContext.PatternKeywords.Where(pet => pet.PatternEntryId == patternId).ToListAsync().ConfigureAwait(false);
         DbContext.PatternKeywords.RemoveRange(patternEntryTags);
-
-        // Remove the pattern
         DbContext.Patterns.Remove(pattern);
 
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Pattern removed successfully.").ConfigureAwait(false);
+        _metrics.DecGauge(MetricsAPI.GaugeShareHubPatterns);
         return HubResponseBuilder.Yippee();
     }
 
@@ -340,10 +352,13 @@ public partial class GagspeakHub
         }
 
         // Find and remove related keywords mapping from the Keywords table and the MoodleStautsId
-        List<MoodleKeyword> moodleKeywords = await DbContext.MoodleKeywords.Where(pet => pet.MoodleStatusId == moodleId).ToListAsync().ConfigureAwait(false);
+        var moodleKeywords = await DbContext.MoodleKeywords.Where(pet => pet.MoodleStatusId == moodleId).ToListAsync().ConfigureAwait(false);
         DbContext.MoodleKeywords.RemoveRange(moodleKeywords);
         DbContext.Moodles.Remove(moodle);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Moodle removed successfully.").ConfigureAwait(false);
+        _metrics.DecGauge(MetricsAPI.GaugeShareHubMoodles);
         return HubResponseBuilder.Yippee();
     }
 
@@ -398,7 +413,7 @@ public partial class GagspeakHub
         }
 
         // limit the results to 30 patterns.
-        List<PatternEntry> patterns = await patternsQuery.Take(30).Include(p => p.PatternKeywords).Include(p => p.UserPatternLikes).AsSplitQuery().ToListAsync().ConfigureAwait(false);
+        var patterns = await patternsQuery.Take(30).Include(p => p.PatternKeywords).Include(p => p.UserPatternLikes).AsSplitQuery().ToListAsync().ConfigureAwait(false);
 
         // Check if patterns is null or contains null entries
         if (patterns is null || patterns.Any(p => p is null))
@@ -426,6 +441,7 @@ public partial class GagspeakHub
             MotorsUsed = p.MotorsUsed,
             HasLiked = p.UserPatternLikes.Any(upl => string.Equals(upl.UserUID, user.UID, StringComparison.Ordinal))
         }).ToList();
+        _metrics.IncCounter(MetricsAPI.CounterShareHubSearches);
         return HubResponseBuilder.Yippee(result);
     }
 
@@ -490,7 +506,7 @@ public partial class GagspeakHub
             Tags = p.MoodleKeywords.Select(t => t.KeywordWord).ToHashSet(StringComparer.OrdinalIgnoreCase),
             MoodleStatus = p.ToStatusInfo(),
         }).ToList();
-
+        _metrics.IncCounter(MetricsAPI.CounterShareHubSearches);
         return HubResponseBuilder.Yippee(result);
     }
 }

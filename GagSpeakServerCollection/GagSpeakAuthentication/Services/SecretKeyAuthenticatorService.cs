@@ -70,7 +70,7 @@ public class SecretKeyAuthenticatorService
         // get the primary user UID string from the auth reply, or the user UID if the primary user UID is null.
         var primaryUid = authReply?.PrimaryUserUID ?? authReply?.UserUID;
 
-        // if our authreply does have the primary user ID as not null, then we need to check if the primary user is banned.
+        // if our auth-reply does have the primary user ID as not null, then we need to check if the primary user is banned.
         if (authReply?.PrimaryUserUID != null)
         {
             // get the primary user from the context, where the user UID is the primary user UID from the auth reply.
@@ -91,14 +91,9 @@ public class SecretKeyAuthenticatorService
 
         // if the reply was a success, then increase the success counter for the number of authentication successes and the number of cache entries.
         if (reply.Success)
-        {
             _metrics.IncCounter(MetricsAPI.CounterAuthenticationSuccess);
-        }
         else
-        {
-            // otherwise, return an authentication failure.
             return AuthenticationFailure(ip);
-        }
 
         return reply;
     }
@@ -108,12 +103,9 @@ public class SecretKeyAuthenticatorService
     /// <returns> The secret key auth reply for the failed authentication. </returns>
     private SecretKeyAuthReply AuthenticationFailure(string ip)
     {
-        // increase the counter for the number of authentication failures.
         _metrics.IncCounter(MetricsAPI.CounterAuthenticationFailed);
 
-        // log the failed authorization from the IP.
         _logger.LogWarning("Failed authorization from {ip}", ip);
-        // set the whitelisted variable to the whitelisted IPs from the configuration service.
         var whitelisted = _configurationService.GetValueOrDefault(nameof(AuthServiceConfiguration.WhitelistedIps), new List<string>());
 
         // if the IP does not exist in the list of whitelisted IPs, then increase the failed attempts for the IP.
@@ -121,14 +113,10 @@ public class SecretKeyAuthenticatorService
         {
             // if the IP is in the failed authorizations list, then increase the failed attempts for the IP.
             if (_failedAuthorizations.TryGetValue(ip, out var auth))
-            {
                 auth.IncreaseFailedAttempts();
-            }
             else
-            {
                 // otherwise, add the IP to the failed authorizations list.
                 _failedAuthorizations[ip] = new SecretKeyFailedAuthorization();
-            }
         }
 
         // return the failed secretkeyauthreply object.

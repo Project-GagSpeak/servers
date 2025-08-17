@@ -310,41 +310,92 @@ public class Startup
         // add to the service collection the GagSpeak Metrics. This will be used to track the metrics of the server.
         services.AddSingleton<GagspeakMetrics>(m => new GagspeakMetrics(m.GetService<ILogger<GagspeakMetrics>>(), new List<string>
         {
-            MetricsAPI.CounterInitializedConnections,       // add the initialized connections counter
-            
-            MetricsAPI.CounterUserPushDataComposite,        // data pushes
-            MetricsAPI.CounterUserPushDataIpc,              // add the user push data ipc counter
-            MetricsAPI.CounterUserPushDataAppearance,       // add the user push data appearance counter
-            MetricsAPI.CounterUserPushDataWardrobe,         // add the user push data wardrobe counter
-            MetricsAPI.CounterUserPushDataAlias,            // add the user push data alias counter
-            MetricsAPI.CounterUserPushDataToybox,          // add the user push data pattern counter
-            
-            MetricsAPI.CounterUserPushDataCompositeTo,      // add the user push data composite to counter
-            MetricsAPI.CounterUserPushDataIpcTo,            // add the user push data ipc to counter
-            MetricsAPI.CounterUserPushDataAppearanceTo,     // add the user push data appearance to counter
-            MetricsAPI.CounterUserPushDataWardrobeTo,       // add the user push data wardrobe to counter
-            MetricsAPI.CounterUserPushDataAliasTo,          // add the user push data alias to counter
-            MetricsAPI.CounterUserPushDataToyboxTo,        // add the user push data pattern to counter
+            MetricsAPI.CounterInitializedConnections,
+            MetricsAPI.CounterAuthenticationRequests,
+            MetricsAPI.CounterAuthenticationSuccess,
+            MetricsAPI.CounterAuthenticationFailed,
+            MetricsAPI.CounterUsersRegisteredDeleted,
 
-            MetricsAPI.CounterUsersRegisteredDeleted,       // add the users registered deleted counter
-            
-            MetricsAPI.CounterAuthenticationCacheHits,      // add the authentication cache hits counter
-            MetricsAPI.CounterAuthenticationFailures,       // add the authentication failures counter
-            MetricsAPI.CounterAuthenticationRequests,       // add the authentication requests counter
-            MetricsAPI.CounterAuthenticationSuccesses,      // add the authentication successes counter
-            
+            MetricsAPI.CounterUploadedPatterns,
+            MetricsAPI.CounterUploadedMoodles,
+            MetricsAPI.CounterPatternDownloads,
+            MetricsAPI.CounterShareHubSearches,
+
+            MetricsAPI.CounterGlobalChatMessages,
+            MetricsAPI.CounterKinkPlateUpdates,
+            MetricsAPI.CounterKinkPlateReportsCreated,
+
+            MetricsAPI.CounterStateTransfersIpcFull,
+            MetricsAPI.CounterStateTransfersIpcSM,
+            MetricsAPI.CounterStateTransfersIpcStatus,
+            MetricsAPI.CounterStateTransfersIpcPreset,
+            MetricsAPI.CounterMoodlesAppliedId,
+            MetricsAPI.CounterMoodlesAppliedStatus,
+            MetricsAPI.CounterMoodlesRemoved,
+            MetricsAPI.CounterMoodlesCleared,
+
+            MetricsAPI.CounterStateTransferFull,
+            MetricsAPI.CounterStateTransferGags,
+            MetricsAPI.CounterStateTransferRestrictions,
+            MetricsAPI.CounterStateTransferRestraint,
+            MetricsAPI.CounterStateTransferCollar,
+            MetricsAPI.CounterStateTransferLoot,
+            MetricsAPI.CounterStateTransferPattern,
+            MetricsAPI.CounterStateTransferAlarms,
+            MetricsAPI.CounterStateTransferTriggers,
+
+            MetricsAPI.CounterDataUpdateGags,
+            MetricsAPI.CounterDataUpdateRestrictions,
+            MetricsAPI.CounterDataUpdateRestraint,
+            MetricsAPI.CounterDataUpdateCollar,
+            MetricsAPI.CounterDataUpdateLoot,
+            MetricsAPI.CounterDataUpdatePattern,
+            MetricsAPI.CounterDataUpdateAlarms,
+            MetricsAPI.CounterDataUpdateTriggers,
+            MetricsAPI.CounterDataUpdateAllowances,
+
+            MetricsAPI.CounterKinksterRequestsCreated,
+            MetricsAPI.CounterKinksterRequestsAccepted,
+            MetricsAPI.CounterKinksterRequestsRejected,
+            MetricsAPI.CounterCollarRequestsCreated,
+            MetricsAPI.CounterCollarRequestsAccepted,
+            MetricsAPI.CounterCollarRequestsRejected,
+
+            MetricsAPI.CounterPermissionChangeGlobal,
+            MetricsAPI.CounterPermissionChangeHardcore,
+            MetricsAPI.CounterPermissionChangeUnique,
+            MetricsAPI.CounterPermissionChangeAccess,
+
+            MetricsAPI.CounterSafewordUsed,
+            MetricsAPI.CounterNamesSent,
+            MetricsAPI.CounterHypnoticEffectsSent,
+            MetricsAPI.CounterKinkstersShocked,
+
+            MetricsAPI.CounterVibeLobbySearches,
+            MetricsAPI.CounterVibeLobbiesCreated,
+            MetricsAPI.CounterVibeLobbiesJoined,
+            MetricsAPI.CounterVibeLobbyDeviceUpdates,
+            MetricsAPI.CounterVibeLobbyChatsSent,
         }, new List<string>
         {
-            MetricsAPI.GaugeAuthorizedConnections,          // add the authorized connections gauge
-            MetricsAPI.GaugeConnections,                    // add the connections gauge
-            MetricsAPI.GaugePairs,                          // add the pairs gauge
-            MetricsAPI.GaugePairsPaused,                    // add the pairs paused gauge
-            MetricsAPI.GaugeAvailableIOWorkerThreads,       // add the available IO worker threads gauge
-            MetricsAPI.GaugeAvailableWorkerThreads,         // add the available worker threads gauge
-            MetricsAPI.GaugeUsersRegistered,                // add the users registered gauge
-            MetricsAPI.GaugeAuthenticationCacheEntries,     // add the authentication cache entries gauge
-            MetricsAPI.GaugeUserPairCacheEntries,           // add the user pair cache entries gauge
-            MetricsAPI.GaugeUserPairCacheUsers,             // add the user pair cache users gauge
+            MetricsAPI.GaugeAuthorizedConnections,
+            MetricsAPI.GaugeConnections,
+            MetricsAPI.GaugeAvailableIOWorkerThreads,
+            MetricsAPI.GaugeAvailableWorkerThreads,
+
+            MetricsAPI.GaugeUsersRegistered,
+            MetricsAPI.GaugePairs,
+
+            MetricsAPI.GaugeShareHubPatterns,
+            MetricsAPI.GaugeShareHubMoodles,
+            MetricsAPI.GaugePatternLikes,
+            MetricsAPI.GaugeMoodleLikes,
+
+            MetricsAPI.GaugePendingKinksterRequests,
+            MetricsAPI.GaugePendingCollarRequests,
+
+            MetricsAPI.GaugeVibeRoomsActive,
+            MetricsAPI.GaugeVibeRoomUsersActive
         }));
     }
 

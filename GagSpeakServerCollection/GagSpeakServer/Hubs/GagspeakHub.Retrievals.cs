@@ -141,33 +141,24 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<KinkPlateFull> UserGetKinkPlate(KinksterBase user)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(user));
+        // Get list of caller's pairs.
+        List<string> callerPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
 
-        // Grab all users Client Caller is paired with.
-        List<string> allUserPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        // Return blank profile if it does not exist.
+        if (await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false) is not { } data)
+            return new KinkPlateFull(user.User, new KinkPlateContent(), string.Empty);
 
-        // Grab the requested user's profile data from the database
-        UserProfileData? data = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false);
-        if (data is null)
-        {
-            KinkPlateContent newPlate = new KinkPlateContent();
-            return new KinkPlateFull(user.User, newPlate, string.Empty);
-        }
+        // If not in the callers KinksterPair list and not set to public, return nonPublic profile.
         // If requested User Profile is not in list of pairs, and is not self, return blank profile update.
-        if (!allUserPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
-        {
-            // if the profile is not public, and it was required from a non-paired user, return a blank profile.
-            if (!data.ProfileIsPublic)
-            {
-                KinkPlateContent newPlate = new KinkPlateContent() { Description = "Profile is not Public!" };
-                return new KinkPlateFull(user.User, newPlate, string.Empty);
-            }
-        }
+        if (!callerPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal) && !data.ProfileIsPublic)
+            return new KinkPlateFull(user.User, new KinkPlateContent() { Description = "Profile is not Public!" }, string.Empty);
+
+        // If profile is disabled / restricted, return disabled profile.
         if (data.ProfileDisabled)
-        {
-            KinkPlateContent newPlate = new KinkPlateContent() { Disabled = true, Description = "This profile is currently disabled" };
-            return new KinkPlateFull(user.User, newPlate, string.Empty);
-        }
+            return new KinkPlateFull(user.User, new KinkPlateContent() { Disabled = true, Description = "This profile is currently disabled" }, string.Empty);
+
+        // It is valid, so we should grab the collar related data.
+
         // Return the valid profile.
         return new KinkPlateFull(user.User, data.FromProfileData(), data.Base64ProfilePic);
     }

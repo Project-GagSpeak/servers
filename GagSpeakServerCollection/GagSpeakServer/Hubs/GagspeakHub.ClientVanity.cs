@@ -2,6 +2,7 @@
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakServer.Utils;
+using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -20,6 +21,8 @@ public partial class GagspeakHub
     public async Task<HubResponse> UserSendGlobalChat(ChatMessageGlobal message)
     {
         await Clients.Group(GagspeakGlobalChat).Callback_ChatMessageGlobal(message).ConfigureAwait(false);
+        
+        _metrics.IncCounter(MetricsAPI.CounterGlobalChatMessages);
         return HubResponseBuilder.Yippee();
     }
 
@@ -35,6 +38,8 @@ public partial class GagspeakHub
         // get the uid's of the other room participants.
         var uids = (await _redis.Database.SetMembersAsync(VibeRoomRedis.ParticipantsKey(roomName)).ConfigureAwait(false)).ToStringArray();
         await Clients.Users(uids).Callback_RoomChatMessage(message.Sender, message.Message).ConfigureAwait(false);
+        
+        _metrics.IncCounter(MetricsAPI.CounterVibeLobbyChatsSent);
         return HubResponseBuilder.Yippee();
     }
 
@@ -86,39 +91,29 @@ public partial class GagspeakHub
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto.User));
 
+        // Must be self.
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot modify profile data for anyone but yourself").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
+        if (await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is { } data)
+        {
+            data.UpdateInfoFromDto(dto.Info);
+            DbContext.Update(data);
+        }
+        else
+        {
+            var newData = new UserProfileData() { UserUID = dto.User.UID };
+            newData.UpdateInfoFromDto(dto.Info);
+            await DbContext.UserProfileData.AddAsync(newData).ConfigureAwait(false);
         }
 
-        // Grab Client Callers current profile data from the database
-        UserProfileData existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        // Validate the rest of the profile data.
-        if (existingData is not null)
-        {
-            // update all other values from the Info in the dto.
-            existingData.UpdateInfoFromDto(dto.Info);
-        }
-        else // If no data exists, our profile is not yet in the database, so create a fresh one and add it.
-        {
-            UserProfileData userProfileData = new UserProfileData() { UserUID = dto.User.UID };
-            userProfileData.UpdateInfoFromDto(dto.Info);
-            await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
-        }
-
-        // Save DB Changes
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // Fetch all paired user's of the client caller
-        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        // Get Online users.
-        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
+        List<string> allPairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        Dictionary<string, string> onlinePairsOfCaller = await GetOnlineUsers(allPairsOfCaller).ConfigureAwait(false);
+        IEnumerable<string> onlinePairUids = onlinePairsOfCaller.Keys;
 
-        // Inform the client caller and all their pairs that their profile has been updated.
-        // Is this doing a double call???
-        await Clients.Users(pairs.Select(p => p.Key)).Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
-        await Clients.Caller.Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
+        await Clients.Users([ ..onlinePairUids, UserUID]).Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
@@ -242,9 +237,11 @@ public partial class GagspeakHub
         // Notify other user pairs to update their profiles, so they obtain the latest information, including the profile, now being flagged.
         List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
-        await Clients.Users(pairs.Select(p => p.Key)).Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
+        IEnumerable<string> pairedUsers = pairs.Keys;
+        await Clients.Users(pairedUsers).Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
         await Clients.Caller.Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
         
+        _metrics.IncCounter(MetricsAPI.CounterKinkPlateReportsCreated);
         return HubResponseBuilder.Yippee();
     }
 }

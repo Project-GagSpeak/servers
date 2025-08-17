@@ -1,5 +1,7 @@
 ﻿using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
+using GagspeakAPI.Hub;
+using GagspeakAPI.Network;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
@@ -20,67 +22,76 @@ public partial class GagspeakHub
     /// </summary>
     private async Task DeleteUser(User user)
     {
-        // fetch all data related to the user about to be deleted from the database.
+        // Obtain all Auth-Related content.
         Auth auth = await DbContext.Auth.SingleAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         AccountClaimAuth? accountClaimAuth = await DbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User != null && u.User.UID == user.UID).ConfigureAwait(false);
-        List<ClientPair> ownPairData = await DbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<ClientPairPermissions> ownPairPermData = await DbContext.ClientPairPermissions.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<ClientPairPermissionAccess> ownPairAccessData = await DbContext.ClientPairPermissionAccess.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        // Obtain all Pair related content.
+        List<ClientPair> usersKinksterPairs = await DbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
+        List<ClientPairPermissions> pairPerms = await DbContext.ClientPairPermissions.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        List<ClientPairPermissionAccess> pairPermAccess = await DbContext.ClientPairPermissionAccess.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+
+        // Requests
         List<KinksterRequest> kinksterRequests = await DbContext.KinksterPairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        UserGlobalPermissions? ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserGagData? ownGagData = await DbContext.UserGagData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserRestraintData? ownActiveStateData = await DbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        List<LikesMoodles> ownLikedMoodles = await DbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<LikesPatterns> ownLikedPatterns = await DbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        UserAchievementData? ownAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserProfileData? userProfileData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        List<CollarRequest> collarRequests = await DbContext.CollarRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
 
-        // first, check if the accountclaimauth is not null, and remove it from the database.
-        if (accountClaimAuth != null) { DbContext.AccountClaimAuth.Remove(accountClaimAuth); }
+        // Obtain all personal data.
+        UserGlobalPermissions? globals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        UserHardcoreState? hcState = await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        List<UserGagData> gags = await DbContext.UserGagData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        List<UserRestrictionData> restrictions = await DbContext.UserRestrictionData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        UserRestraintData? restraint = await DbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        UserCollarData? collar = await DbContext.UserCollarData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
 
-        // next check if the user achievement data is not null, and remove it from the database.
-        if (ownAchievementData != null) { DbContext.UserAchievementData.Remove(ownAchievementData); }
+        // ShareHub info (keep uploads)
+        List<LikesMoodles> likesMoodles = await DbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        List<LikesPatterns> likesPatterns = await DbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
 
-        // next check if the user profile data is not null, and remove it from the database.
-        if (userProfileData != null) { DbContext.UserProfileData.Remove(userProfileData); }
+        // Achievements & Profile.
+        UserAchievementData? achievements = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        UserProfileData? profile = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
 
-        // next remove the range of client pairs that fall under the own pair data
-        DbContext.ClientPairs.RemoveRange(ownPairData);
-        List<ClientPair> otherPairData = await DbContext.ClientPairs.Include(u => u.User).Where(u => u.OtherUser.UID == user.UID).AsNoTracking().ToListAsync().ConfigureAwait(false);
-        // for each of the other pairs in the database, remove the user from their client pair list.
-        foreach (ClientPair? pair in otherPairData)
-        {
-            await Clients.User(pair.UserUID).UserRemoveKinkster(new(user.ToUserData())).ConfigureAwait(false);
-        }
+        // ----------------------------------------- // 
+        // Remove AuthClaim is present.
+        if (accountClaimAuth is not null) DbContext.AccountClaimAuth.Remove(accountClaimAuth);
+        // Remove Achievements if present.
+        if (achievements is not null) DbContext.UserAchievementData.Remove(achievements);
+        // Remove Profile if present.
+        if (profile is not null) DbContext.UserProfileData.Remove(profile);
 
-        // if the users globalpermissions is not null, remove it from the database.
-        if (ownGlobalPerms != null) { DbContext.UserGlobalPermissions.Remove(ownGlobalPerms); }
-
-        // if the users appearance data is not null, remove it from the database.
-        if (ownGagData != null) { DbContext.UserGagData.Remove(ownGagData); }
-
-        // if the users active state data is not null, remove it from the database.
-        if (ownActiveStateData != null) { DbContext.UserRestraintData.Remove(ownActiveStateData); }
-
-        // remove the range of pair permissions
-        DbContext.ClientPairPermissions.RemoveRange(ownPairPermData);
-        // remove the range of pair permission accesses
-        DbContext.ClientPairPermissionAccess.RemoveRange(ownPairAccessData);
-        // remove the range of kinkster requests
+        // Remove all requests.
         DbContext.KinksterPairRequests.RemoveRange(kinksterRequests);
-        // remove the user from the likesmoodles list
-        DbContext.LikesMoodles.RemoveRange(ownLikedMoodles);
-        // remove the user from the likespatterns list
-        DbContext.LikesPatterns.RemoveRange(ownLikedPatterns);
+        DbContext.CollarRequests.RemoveRange(collarRequests);
 
-        // increase our metrics counter for accounts deleted first
-        _metrics.IncCounter(MetricsAPI.CounterUsersRegisteredDeleted, 1);
+        // Remove all the user's pairs, and send to those pairs to remove the users.
+        DbContext.ClientPairs.RemoveRange(usersKinksterPairs);
+        var otherPairs = await DbContext.ClientPairs.Include(u => u.User).Where(u => u.OtherUser.UID == user.UID).AsNoTracking().ToListAsync().ConfigureAwait(false);
+        foreach (var pair in otherPairs)
+            await Clients.User(pair.UserUID).UserRemoveKinkster(new(user.ToUserData())).ConfigureAwait(false);
 
-        // then remove the client pairs, user, and finally auth.
-        DbContext.ClientPairs.RemoveRange(ownPairData);
+        // Remove Global-Related permissions if present.
+        if (globals is not null) DbContext.UserGlobalPermissions.Remove(globals);
+        // Remove Hardcore State if present.
+        if (hcState is not null) DbContext.UserHardcoreState.Remove(hcState);
+
+        // Remove stored active state data.
+        DbContext.UserGagData.RemoveRange(gags);
+        DbContext.UserRestrictionData.RemoveRange(restrictions);
+        if (restraint is not null) DbContext.UserRestraintData.Remove(restraint);
+        if (collar is not null) DbContext.UserCollarData.Remove(collar);
+
+        // Remove all related pattern and moodle likes.
+        DbContext.LikesMoodles.RemoveRange(likesMoodles);
+        DbContext.LikesPatterns.RemoveRange(likesPatterns);
+
+        // Remove the other ended client pairs
+        DbContext.ClientPairs.RemoveRange(otherPairs);
+        // Remove final user & auth.
         DbContext.Users.Remove(user);
         DbContext.Auth.Remove(auth);
+
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        _metrics.IncCounter(MetricsAPI.CounterUsersRegisteredDeleted);
     }
 
     /// <summary> 
@@ -201,8 +212,6 @@ public partial class GagspeakHub
         List<User> syncedUsers = await syncedPairsQuery.Distinct().ToListAsync().ConfigureAwait(false);
         return syncedUsers;
     }
-
-
 
     /// <summary> 
     /// A helper function to get the pair information of a user and another user from the database.

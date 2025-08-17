@@ -26,15 +26,14 @@ public class MetricsAPI
     public const string CounterUploadedPatterns = "gagspeak_uploaded_patterns";
     public const string CounterUploadedMoodles = "gagspeak_uploaded_moodles";
     public const string CounterPatternDownloads = "gagspeak_pattern_downloads";
-    public const string CounterPatternLikes = "gagspeak_pattern_likes";
-    public const string CounterMoodleLikes = "gagspeak_moodle_likes";
+    public const string GaugePatternLikes = "gagspeak_pattern_likes";
+    public const string GaugeMoodleLikes = "gagspeak_moodle_likes";
     public const string CounterShareHubSearches = "gagspeak_sharehub_searches";
 
     // Chat & KinkPlates™.
     public const string CounterGlobalChatMessages = "gagspeak_global_chat_messages";
     public const string CounterKinkPlateUpdates = "gagspeak_kinkplate_updates";
     public const string CounterKinkPlateReportsCreated = "gagspeak_kinkplate_reports_created";
-    public const string GaugeKinkPlateReports = "gagspeak_kinkplate_reports";
 
     // IPC
     public const string CounterStateTransfersIpcFull = "gagspeak_statetransfers_ipc_full";
@@ -53,6 +52,7 @@ public class MetricsAPI
     public const string CounterStateTransferRestraint = "gagspeak_statetransfers_restraint";
     public const string CounterStateTransferCollar = "gagspeak_statetransfers_collar";
     public const string CounterStateTransferLoot = "gagspeak_statetransfers_loot";
+    public const string CounterStateTransferToys = "gagspeak_statetransfers_toys";
     public const string CounterStateTransferPattern = "gagspeak_statetransfers_pattern";
     public const string CounterStateTransferAlarms = "gagspeak_statetransfers_alarms";
     public const string CounterStateTransferTriggers = "gagspeak_statetransfers_triggers";
@@ -86,6 +86,7 @@ public class MetricsAPI
 
     // Misc
     public const string CounterSafewordUsed = "gagspeak_safeword_used";
+    public const string CounterNamesSent = "gagspeak_names_sent";
     public const string CounterHypnoticEffectsSent = "gagspeak_hypnotic_effects_sent";
     public const string CounterKinkstersShocked = "gagspeak_kinksters_shocked";
 

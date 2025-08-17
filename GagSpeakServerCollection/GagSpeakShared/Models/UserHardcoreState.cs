@@ -1,8 +1,6 @@
 using GagspeakAPI.Data.Permissions;
-using GagspeakAPI.Network;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using System.Numerics;
 
 namespace GagspeakShared.Models;
 

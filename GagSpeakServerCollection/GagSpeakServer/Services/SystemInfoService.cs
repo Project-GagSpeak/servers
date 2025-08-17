@@ -63,11 +63,6 @@ public sealed class SystemInfoService : BackgroundService
                     _metrics.SetGaugeTo(MetricsAPI.GaugeAuthorizedConnections, onlineUsers);
                     _metrics.SetGaugeTo(MetricsAPI.GaugePairs, db.ClientPairs.AsNoTracking().Count());
                     _metrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, db.Users.AsNoTracking().Count());
-                    _metrics.SetGaugeTo(MetricsAPI.GaugeShareHubPatterns, db.Patterns.AsNoTracking().Count());
-                    _metrics.SetGaugeTo(MetricsAPI.GaugeShareHubMoodles, db.Moodles.AsNoTracking().Count());
-                    _metrics.SetGaugeTo(MetricsAPI.GaugeKinkPlateReports, db.UserProfileReports.AsNoTracking().Count());
-                    _metrics.SetGaugeTo(MetricsAPI.GaugePendingKinksterRequests, db.KinksterPairRequests.AsNoTracking().Count());
-                    _metrics.SetGaugeTo(MetricsAPI.GaugePendingCollarRequests, db.CollarRequests.AsNoTracking().Count());
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(timeOut), ct).ConfigureAwait(false);

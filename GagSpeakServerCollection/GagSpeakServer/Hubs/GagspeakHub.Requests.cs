@@ -4,6 +4,7 @@ using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakServer.Utils;
+using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -55,14 +56,12 @@ public partial class GagspeakHub
         // send back to both pairs that they have a new kinkster request.
         KinksterPairRequest newDto = new(user.ToUserData(), otherUser.ToUserData(), dto.Message, newRequest.CreationTime);
         await Clients.User(UserUID).Callback_AddPairRequest(newDto).ConfigureAwait(false);
-        
-        // send the request to them if the other user is online as well.
-        string? otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
-        if (otherIdent is null)
-            return HubResponseBuilder.Yippee();
 
-        // if they are, send the request to them.
-        await Clients.User(otherUser.UID).Callback_AddPairRequest(newDto).ConfigureAwait(false);
+        if (await GetUserIdent(dto.User.UID).ConfigureAwait(false) is not null)
+            await Clients.User(otherUser.UID).Callback_AddPairRequest(newDto).ConfigureAwait(false);
+
+        _metrics.IncCounter(MetricsAPI.CounterKinksterRequestsCreated);
+        _metrics.IncGauge(MetricsAPI.GaugePendingKinksterRequests);
         return HubResponseBuilder.Yippee();
     }
 
@@ -99,6 +98,8 @@ public partial class GagspeakHub
         // remove request from db and return.
         DbContext.KinksterPairRequests.Remove(existingRequest);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        _metrics.DecGauge(MetricsAPI.GaugePendingKinksterRequests);
         return HubResponseBuilder.Yippee();
     }
 
@@ -286,21 +287,24 @@ public partial class GagspeakHub
         await Clients.User(UserUID).Callback_RemovePairRequest(toRemove).ConfigureAwait(false);
         await Clients.User(pairRequestAcceptingUser.UID).Callback_AddClientPair(pairRequestAcceptingUserResponse).ConfigureAwait(false);
 
-        // check if other user is online
-        string? otherIdent = await GetUserIdent(pairRequesterUser.UID).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterKinksterRequestsAccepted);
+
         // do not send update to other user if they are not online.
-        if (otherIdent is null)
-            return HubResponseBuilder.Yippee();
+        if (await GetUserIdent(pairRequesterUser.UID).ConfigureAwait(false) is { } otherIdent)
+        {
+            KinksterPair pairRequesterUserResponse = new(pairRequestAcceptingUser.ToUserData(), otherPermsApi, otherPermAccessApi,
+                ownGlobalsApi, ownHardcoreApi, ownPermsApi, ownPermAccessApi);
 
-        KinksterPair pairRequesterUserResponse = new(pairRequestAcceptingUser.ToUserData(), otherPermsApi, otherPermAccessApi, 
-            ownGlobalsApi, ownHardcoreApi, ownPermsApi, ownPermAccessApi);
+            // They are online, so let them know to add the client pair to their pair manager.
+            await Clients.User(pairRequesterUser.UID).Callback_RemovePairRequest(toRemove).ConfigureAwait(false);
+            await Clients.User(pairRequesterUser.UID).Callback_AddClientPair(pairRequesterUserResponse).ConfigureAwait(false);
 
-        // They are online, so let them know to add the client pair to their pair manager.
-        await Clients.User(pairRequesterUser.UID).Callback_RemovePairRequest(toRemove).ConfigureAwait(false);
-        await Clients.User(pairRequesterUser.UID).Callback_AddClientPair(pairRequesterUserResponse).ConfigureAwait(false);
+            await Clients.User(UserUID).Callback_KinksterOnline(new(pairRequesterUser.ToUserData(), otherIdent)).ConfigureAwait(false);
+            await Clients.User(pairRequesterUser.UID).Callback_KinksterOnline(new(pairRequestAcceptingUser.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
 
-        await Clients.User(UserUID).Callback_KinksterOnline(new(pairRequesterUser.ToUserData(), otherIdent)).ConfigureAwait(false);
-        await Clients.User(pairRequesterUser.UID).Callback_KinksterOnline(new(pairRequestAcceptingUser.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
+        }
+        _metrics.IncCounter(MetricsAPI.CounterKinksterRequestsAccepted);
+        _metrics.DecGauge(MetricsAPI.GaugePendingKinksterRequests);
         return HubResponseBuilder.Yippee();
     }
 
@@ -321,14 +325,15 @@ public partial class GagspeakHub
         KinksterPairRequest rejectionDto = new(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
         await Clients.User(UserUID).Callback_RemovePairRequest(rejectionDto).ConfigureAwait(false);
 
-        // send it to the other person if they are online at the time as well.
-        string? otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
-        if (otherIdent is not null)
+        if (await GetUserIdent(dto.User.UID).ConfigureAwait(false) is not null)
             await Clients.User(dto.User.UID).Callback_RemovePairRequest(rejectionDto).ConfigureAwait(false);
 
         // remove the request from the database.
         DbContext.KinksterPairRequests.Remove(existingRequest);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        _metrics.IncCounter(MetricsAPI.CounterKinksterRequestsRejected);
+        _metrics.DecGauge(MetricsAPI.GaugePendingKinksterRequests);
         return HubResponseBuilder.Yippee();
     }
 
@@ -376,13 +381,11 @@ public partial class GagspeakHub
         var callback = new CollarOwnershipRequest(user.ToUserData(), otherUser.ToUserData(), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
         await Clients.User(UserUID).Callback_AddCollarRequest(callback).ConfigureAwait(false);
 
-        // send the request to them if the other user is online as well.
-        string? otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
-        if (otherIdent is null)
-            return HubResponseBuilder.Yippee();
+        if (await GetUserIdent(otherUser.UID).ConfigureAwait(false) is { } otherIdent)
+            await Clients.User(otherUser.UID).Callback_AddCollarRequest(callback).ConfigureAwait(false);
 
-        // if they are, send the request to them.
-        await Clients.User(otherUser.UID).Callback_AddCollarRequest(callback).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterCollarRequestsCreated);
+        _metrics.IncGauge(MetricsAPI.GaugePendingCollarRequests);
         return HubResponseBuilder.Yippee();
     }
 
@@ -418,6 +421,7 @@ public partial class GagspeakHub
         // remove request from db and return.
         DbContext.KinksterPairRequests.Remove(request);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        _metrics.DecGauge(MetricsAPI.GaugePendingCollarRequests);
         return HubResponseBuilder.Yippee();
     }
 
@@ -483,7 +487,6 @@ public partial class GagspeakHub
         // Regardless of the case, we should add the owner to it and update and save.
         var newOwner = new CollarOwner() { Owner = newOwnerUser, CollaredUserData = existingCollar };
         await DbContext.CollarOwners.AddAsync(newOwner).ConfigureAwait(false);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         var toRemove = PermissionsEx.CollarRequestRemoval(user.ToUserData(), newOwnerUser.ToUserData());
         // Remove the request from the database.
@@ -495,6 +498,9 @@ public partial class GagspeakHub
         var newActive = new KinksterUpdateActiveCollar(user.ToUserData(), user.ToUserData(), collarApi, DataUpdateType.RequestAccepted);
         await Clients.Users([UserUID, newOwnerUser.UID]).Callback_RemoveCollarRequest(toRemove).ConfigureAwait(false);
         await Clients.Users([UserUID, newOwnerUser.UID]).Callback_KinksterUpdateActiveCollar(newActive).ConfigureAwait(false);
+
+        _metrics.IncCounter(MetricsAPI.CounterCollarRequestsAccepted);
+        _metrics.DecGauge(MetricsAPI.GaugePendingCollarRequests);
         return HubResponseBuilder.Yippee();
     }
 
@@ -514,6 +520,9 @@ public partial class GagspeakHub
         // Request can be rejected, so get a removal api message and push to both kinksters.
         var toRemove = PermissionsEx.CollarRequestRemoval(dto.User, new(UserUID));
         await Clients.Users([UserUID, dto.User.UID]).Callback_RemoveCollarRequest(toRemove).ConfigureAwait(false);
+
+        _metrics.IncCounter(MetricsAPI.CounterCollarRequestsRejected);
+        _metrics.DecGauge(MetricsAPI.GaugePendingCollarRequests);
         return HubResponseBuilder.Yippee();
     }
 }

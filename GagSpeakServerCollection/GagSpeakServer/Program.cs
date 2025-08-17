@@ -4,6 +4,7 @@ using GagspeakShared.Metrics;
 using GagspeakShared.Services;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Prometheus;
 
 namespace GagspeakServer;
 
@@ -53,6 +54,12 @@ public class Program
 
             metrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, context.Users.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugePairs, context.ClientPairs.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugePatternLikes, context.LikesPatterns.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugeMoodleLikes, context.LikesMoodles.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugeShareHubPatterns, context.Patterns.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugeShareHubMoodles, context.Moodles.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugePendingKinksterRequests, context.KinksterPairRequests.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugePendingCollarRequests, context.CollarRequests.AsNoTracking().Count());
         }
 
         // now that the scope is done, we will check if the first argument is "dry"

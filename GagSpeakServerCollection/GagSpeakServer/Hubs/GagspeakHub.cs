@@ -52,31 +52,33 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     private GagspeakDbContext DbContext => _dbContextLazy.Value;
 
     // Constructor for GagspeakHub
-    public GagspeakHub(GagspeakMetrics metrics, OnlineSyncedPairCacheService onlineSyncService,
-        IDbContextFactory<GagspeakDbContext> GagSpeakDbContextFactory, ILogger<GagspeakHub> logger, 
-        SystemInfoService systemInfoService, IRedisDatabase redis,
-        IConfigurationService<ServerConfiguration> configuration, IHttpContextAccessor contextAccessor)
+    public GagspeakHub(
+        ILogger<GagspeakHub> logger,
+        IDbContextFactory<GagspeakDbContext> dbFactory,
+        IConfigurationService<ServerConfiguration> config,
+        GagspeakMetrics metrics,
+        OnlineSyncedPairCacheService onlineSyncService,
+        SystemInfoService systemInfoService,
+        IRedisDatabase redis,
+        IHttpContextAccessor contextAccessor)
     {
+        _logger = new GagspeakHubLogger(this, logger);
+        _dbContextLazy = new Lazy<GagspeakDbContext>(() => dbFactory.CreateDbContext());
         _metrics = metrics;
         _onlineSyncedPairCacheService = onlineSyncService;
         _systemInfoService = systemInfoService;
-        _expectedClientVersion = configuration.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
-        _contextAccessor = contextAccessor;
         _redis = redis;
-        _logger = new GagspeakHubLogger(this, logger);
-        _dbContextLazy = new Lazy<GagspeakDbContext>(() => GagSpeakDbContextFactory.CreateDbContext());
+        _contextAccessor = contextAccessor;
+
+        _expectedClientVersion = config.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
     }
 
     /// <summary> Disposes of the database context if created upon the GagSpeak hub's disposal.</summary>
     protected override void Dispose(bool disposing)
     {
-        // if disposing is true
-        if (disposing)
-        {
-            // and the lazy value is created, dispose of the database context
-            if (_dbContextLazy.IsValueCreated) DbContext.Dispose();
-        }
-        // then dispose the base with true set
+        if (disposing && _dbContextLazy.IsValueCreated)
+            DbContext.Dispose();
+
         base.Dispose(disposing);
     }
 
