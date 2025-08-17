@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Attributes;
+﻿using GagspeakAPI;
+using GagspeakAPI.Attributes;
 using GagspeakAPI.Data;
 using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Enums;
@@ -17,382 +18,6 @@ namespace GagspeakServer.Hubs;
 
 public partial class GagspeakHub
 {
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserSendKinksterRequest(CreateKinksterRequest dto)
-    {
-        // log the call info.
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        // ensure that the user we want to send a request to is not ourselves.
-        string uid = dto.User.UID.Trim();
-
-        // return invalid if the user we wanna add is not in the database.
-        User? otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
-        if (otherUser is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot send Kinkster Request to {dto.User.UID}, the UID does not exist").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
-
-        // if this "otherUser" is ourselves, return invalid.
-        if (string.Equals(otherUser.UID, UserUID, StringComparison.Ordinal))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot send Kinkster Request to self").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
-
-        // if a client pair relation between you and the other user already exists in client pairs. return invalid.
-        bool existingPair = await DbContext.ClientPairs.AnyAsync(p => (p.UserUID == UserUID && p.OtherUserUID == otherUser.UID) || (p.UserUID == otherUser.UID && p.OtherUserUID == UserUID)).ConfigureAwait(false);
-        if (existingPair)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot send Kinkster Request to {dto.User.UID}, already paired").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.AlreadyPaired);
-        }
-
-
-        // verify an existing entry does not already exist.
-        bool existingRequest = await DbContext.KinksterPairRequests.AnyAsync(k => (k.UserUID == UserUID && k.OtherUserUID == otherUser.UID) || (k.UserUID == otherUser.UID && k.OtherUserUID == UserUID)).ConfigureAwait(false);
-        if (existingRequest)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"A Request for this Kinkster is already present").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.KinksterRequestExists);
-        }
-
-        User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        // create a new KinksterPairRequest object, and add it to the database.
-        KinksterRequest newRequest = new KinksterRequest()
-        {
-            User = user,
-            OtherUser = otherUser,
-            AttachedMessage = dto.Message,
-            CreationTime = DateTime.UtcNow,
-        };
-        // append the request to the DB.
-        await DbContext.KinksterPairRequests.AddAsync(newRequest).ConfigureAwait(false);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // send back to both pairs that they have a new kinkster request.
-        KinksterRequestEntry newDto = new(user.ToUserData(), otherUser.ToUserData(), dto.Message, newRequest.CreationTime);
-        await Clients.User(UserUID).Callback_AddPairRequest(newDto).ConfigureAwait(false);
-        
-        // send the request to them if the other user is online as well.
-        string? otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
-        if (otherIdent is null)
-            return HubResponseBuilder.Yippee();
-
-        // if they are, send the request to them.
-        await Clients.User(otherUser.UID).Callback_AddPairRequest(newDto).ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
-
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserCancelKinksterRequest(KinksterBase dto)
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        // ensure that the user we want to cancel a request to is not ourselves.
-        string uid = dto.User.UID.Trim();
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(dto.User.UID))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot cancel a Kinkster Request to self").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
-
-        // return invalid if the user we wanna add is not in the database.
-        User? otherUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false);
-        if (otherUser is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot cancel Kinkster Request to {dto.User.UID}, the UID does not exist").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
-
-        // if the existing entry was removed or no longer exists, notify them it was expired.
-        KinksterRequest? existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == UserUID && k.OtherUserUID == otherUser.UID).ConfigureAwait(false);
-        if (existingRequest is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot cancel Kinkster Request to {dto.User.UID}, the request does not exist").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.KinksterRequestNotFound);
-        }
-
-        User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-
-        // notify the client caller and the recipient that the request was cancelled.
-        KinksterRequestEntry newDto = new(user.ToUserData(), otherUser.ToUserData(), string.Empty, existingRequest.CreationTime);
-        await Clients.User(UserUID).Callback_RemovePairRequest(newDto).ConfigureAwait(false);
-
-        // send off to the other user.
-        string? otherIdent = await GetUserIdent(otherUser.UID).ConfigureAwait(false);
-        if (otherIdent is not null) 
-            await Clients.User(otherUser.UID).Callback_RemovePairRequest(newDto).ConfigureAwait(false);
-
-        // now we can safely remove it from the DB and save changes.
-        DbContext.KinksterPairRequests.Remove(existingRequest);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
-
-    /// <summary> 
-    ///     PLEASE KEEP IN MIND THAT THE PERSON ACCEPTING THIS IS NOT THE PERSON WHO MADE THE INVITE, 
-    ///     YOU MUST INVERT THE ORDER TO MATCH.
-    /// </summary>
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserAcceptKinksterRequest(KinksterBase dto)
-    {
-        // verify that we did not try to accept ourselves.
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(dto.User.UID))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-
-        // Verify the person who sent this request still has an account.
-        User? pairRequesterUser = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == dto.User.UID || u.Alias == dto.User.UID).ConfigureAwait(false);
-        if (pairRequesterUser is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot accept Kinkster Request from {dto.User.UID}, the UID does not exist").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
-
-        // verify that the request exists in the database. (the pairRequesterUser would be the UserUID, we are OtherUserUID)
-        KinksterRequest? existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == pairRequesterUser.UID && k.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (existingRequest is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot accept Kinkster Request from {dto.User.UID}, the request does not exist").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.KinksterRequestNotFound);
-        }
-
-        // ensure that the client pair entry is not already existing.
-        ClientPair? existingEntry = await DbContext.ClientPairs.AsNoTracking().FirstOrDefaultAsync(p => p.User.UID == UserUID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
-        if (existingEntry is not null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot pair with {dto.User.UID}, already paired").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.AlreadyPaired);
-        }
-
-        // create a client pair entry for the client caller and the other user.
-        User pairRequestAcceptingUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-
-        ClientPair callerToRecipient = new ClientPair() { User = pairRequestAcceptingUser, OtherUser = pairRequesterUser, };
-        ClientPair recipientToCaller = new ClientPair() { User = pairRequesterUser, OtherUser = pairRequestAcceptingUser, };
-        // add this clientpair relation to the database
-        await DbContext.ClientPairs.AddAsync(callerToRecipient).ConfigureAwait(false);
-        await DbContext.ClientPairs.AddAsync(recipientToCaller).ConfigureAwait(false);
-
-        // Obtain ALL relevant information about the relationship between these pairs.
-        // This includes their current global perms, pair perms, and pair perms access.
-        // If none are present, creates new versions.
-        UserInfo? existingData = await GetPairInfo(UserUID, pairRequesterUser.UID).ConfigureAwait(false);
-
-
-        // store the existing data permission items to objects for setting if null.
-        UserGlobalPermissions? ownGlobals = existingData?.ownGlobalPerms;
-        ClientPairPermissions? ownPairPerms = existingData?.ownPairPermissions;
-        ClientPairPermissionAccess? ownPairPermsAccess = existingData?.ownPairPermissionAccess;
-        UserGlobalPermissions? otherGlobals = existingData?.otherGlobalPerms;
-        ClientPairPermissions? otherPairPerms = existingData?.otherPairPermissions;
-        ClientPairPermissionAccess? otherPairPermsAccess = existingData?.otherPairPermissionAccess;
-        // Handle OwnGlobals
-        if (ownGlobals is null)
-        {
-            UserGlobalPermissions? existingOwnGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
-            if (existingOwnGlobals is null)
-            {
-                ownGlobals = new UserGlobalPermissions() { User = pairRequestAcceptingUser };
-                await DbContext.UserGlobalPermissions.AddAsync(ownGlobals).ConfigureAwait(false);
-            }
-            else
-            {
-                DbContext.UserGlobalPermissions.Update(existingOwnGlobals);
-            }
-        }
-        // Handle OwnPerms
-        if (ownPairPerms is null)
-        {
-            ClientPairPermissions? existingOwnPairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
-            if (existingOwnPairPerms is null)
-            {
-                ownPairPerms = new ClientPairPermissions() { User = pairRequestAcceptingUser, OtherUser = pairRequesterUser };
-                await DbContext.ClientPairPermissions.AddAsync(ownPairPerms).ConfigureAwait(false);
-            }
-            else
-            {
-                DbContext.ClientPairPermissions.Update(existingOwnPairPerms);
-            }
-        }
-
-        if (ownPairPermsAccess is null)
-        {
-            ClientPairPermissionAccess? existingOwnPairPermsAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == pairRequestAcceptingUser.UID && p.OtherUserUID == pairRequesterUser.UID).ConfigureAwait(false);
-            if (existingOwnPairPermsAccess is null)
-            {
-                ownPairPermsAccess = new ClientPairPermissionAccess() { User = pairRequestAcceptingUser, OtherUser = pairRequesterUser };
-                await DbContext.ClientPairPermissionAccess.AddAsync(ownPairPermsAccess).ConfigureAwait(false);
-            }
-            else
-            {
-                DbContext.ClientPairPermissionAccess.Update(existingOwnPairPermsAccess);
-            }
-        }
-
-        if (otherGlobals is null)
-        {
-            UserGlobalPermissions? existingOtherGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID).ConfigureAwait(false);
-            if (existingOtherGlobals is null)
-            {
-                otherGlobals = new UserGlobalPermissions() { User = pairRequesterUser };
-                await DbContext.UserGlobalPermissions.AddAsync(otherGlobals).ConfigureAwait(false);
-            }
-            else
-            {
-                DbContext.UserGlobalPermissions.Update(existingOtherGlobals);
-            }
-        }
-
-        if (otherPairPerms is null)
-        {
-            ClientPairPermissions? existingOtherPairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID && p.OtherUserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
-            if (existingOtherPairPerms is null)
-            {
-                otherPairPerms = new ClientPairPermissions() { User = pairRequesterUser, OtherUser = pairRequestAcceptingUser };
-                await DbContext.ClientPairPermissions.AddAsync(otherPairPerms).ConfigureAwait(false);
-            }
-            else
-            {
-                DbContext.ClientPairPermissions.Update(existingOtherPairPerms);
-            }
-        }
-
-        if (otherPairPermsAccess is null)
-        {
-            ClientPairPermissionAccess? existingOtherPairPermsAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == pairRequesterUser.UID && p.OtherUserUID == pairRequestAcceptingUser.UID).ConfigureAwait(false);
-            if (existingOtherPairPermsAccess is null)
-            {
-                otherPairPermsAccess = new ClientPairPermissionAccess() { User = pairRequesterUser, OtherUser = pairRequestAcceptingUser };
-                await DbContext.ClientPairPermissionAccess.AddAsync(otherPairPermsAccess).ConfigureAwait(false);
-            }
-            else
-            {
-                DbContext.ClientPairPermissionAccess.Update(existingOtherPairPermsAccess);
-            }
-        }
-
-        // remove the actual request from the database.
-        DbContext.KinksterPairRequests.Remove(existingRequest);
-
-        // save the changes to the database
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // compile the api data objects.
-        GlobalPerms ownGlobalsApi = ownGlobals.ToApiGlobalPerms();
-        PairPerms ownPairPermsApi = ownPairPerms.ToApiKinksterPerms();
-        PairPermAccess ownPairPermsAccessApi = ownPairPermsAccess.ToApiKinksterEditAccess();
-        GlobalPerms otherGlobalsApi = otherGlobals.ToApiGlobalPerms();
-        PairPerms otherPairPermsApi = otherPairPerms.ToApiKinksterPerms();
-        PairPermAccess otherPairPermsAccessApi = otherPairPermsAccess.ToApiKinksterEditAccess();
-
-        // construct a new UserPairDto based on the response
-        KinksterPair pairRequestAcceptingUserResponse = new(pairRequesterUser.ToUserData(), ownPairPermsApi,
-            ownPairPermsAccessApi, otherGlobalsApi, otherPairPermsApi, otherPairPermsAccessApi);
-
-        // inform the client caller's user that the pair was added successfully, to add the pair to their pair manager.
-        KinksterRequestEntry removeRequest = new(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
-        await Clients.User(UserUID).Callback_RemovePairRequest(removeRequest).ConfigureAwait(false);
-        await Clients.User(pairRequestAcceptingUser.UID).Callback_AddClientPair(pairRequestAcceptingUserResponse).ConfigureAwait(false);
-
-        // check if other user is online
-        string? otherIdent = await GetUserIdent(pairRequesterUser.UID).ConfigureAwait(false);
-        // do not send update to other user if they are not online.
-        if (otherIdent is null)
-            return HubResponseBuilder.Yippee();
-
-        KinksterPair pairRequesterUserResponse = new(pairRequestAcceptingUser.ToUserData(), otherPairPermsApi,
-            otherPairPermsAccessApi, ownGlobalsApi, ownPairPermsApi, ownPairPermsAccessApi);
-
-        // They are online, so let them know to add the client pair to their pair manager.
-        await Clients.User(pairRequesterUser.UID).Callback_RemovePairRequest(removeRequest).ConfigureAwait(false);
-        await Clients.User(pairRequesterUser.UID).Callback_AddClientPair(pairRequesterUserResponse).ConfigureAwait(false);
-
-        await Clients.User(UserUID).Callback_KinksterOnline(new(pairRequesterUser.ToUserData(), otherIdent)).ConfigureAwait(false);
-        await Clients.User(pairRequesterUser.UID).Callback_KinksterOnline(new(pairRequestAcceptingUser.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
-
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserRejectKinksterRequest(KinksterBase dto)
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        // grab the existing request from the database.
-        KinksterRequest? existingRequest = await DbContext.KinksterPairRequests.SingleOrDefaultAsync(k => k.UserUID == dto.User.UID && k.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (existingRequest is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot reject Kinkster Request from {dto.User.UID}, the request does not exist").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.KinksterRequestNotFound);
-        }
-
-        // send to both users to remove the kinkster request.
-        KinksterRequestEntry rejectionDto = new(new(existingRequest.UserUID), new(existingRequest.OtherUserUID), string.Empty, existingRequest.CreationTime);
-        await Clients.User(UserUID).Callback_RemovePairRequest(rejectionDto).ConfigureAwait(false);
-
-        // send it to the other person if they are online at the time as well.
-        string? otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
-        if (otherIdent is not null)
-        {
-            await Clients.User(dto.User.UID).Callback_RemovePairRequest(rejectionDto).ConfigureAwait(false);
-        }
-
-        // remove the request from the database.
-        DbContext.KinksterPairRequests.Remove(existingRequest);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
-
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserRemoveKinkster(KinksterBase dto)
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        // Dont allow removing self
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-
-        // See if clientPair exists at all in the database
-        ClientPair? callerPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == UserUID && w.OtherUserUID == dto.User.UID).ConfigureAwait(false);
-        if (callerPair is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot remove {dto.User.UID} from your client pair list, the pair does not exist").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-        }
-
-        // Get pair info of the user we are removing
-        UserInfo? pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
-
-        // remove the client pair from the database and all associated permissions. And then update changes
-        DbContext.ClientPairs.Remove(callerPair);
-        if (pairData?.ownPairPermissions is not null) DbContext.ClientPairPermissions.Remove(pairData.ownPairPermissions);
-        if (pairData?.ownPairPermissionAccess is not null) DbContext.ClientPairPermissionAccess.Remove(pairData.ownPairPermissionAccess);
-        // remove the other user's permissions as well.
-        // grab the clientPairs item for the other direction.
-        ClientPair? otherPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == dto.User.UID && w.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (otherPair is not null)
-        {
-            DbContext.ClientPairs.Remove(otherPair);
-            if (pairData?.otherPairPermissions is not null) DbContext.ClientPairPermissions.Remove(pairData.otherPairPermissions);
-            if (pairData?.otherPairPermissionAccess is not null) DbContext.ClientPairPermissionAccess.Remove(pairData.otherPairPermissionAccess);
-        }
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto, "Success"));
-        // return to the client callers callback functions that we should remove them from the client callers pair manager.
-        await Clients.User(UserUID).Callback_RemoveClientPair(dto).ConfigureAwait(false);
-
-        // Check if the other user is online.
-        string? otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
-        if (otherIdent is null)
-            return HubResponseBuilder.Yippee();
-
-        // if they are, we should ask them to remove the client pair from thier listing as well.
-        await Clients.User(dto.User.UID).Callback_RemoveClientPair(new(new(UserUID))).ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
-
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeKinksterActiveGag(PushKinksterActiveGagSlot dto)
     {
@@ -801,11 +426,9 @@ public partial class GagspeakHub
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        Dictionary<string, string> allOnlinePairsOfAffectedPair = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        List<string> allOnlinePairsOfAffectedPairUids = allOnlinePairsOfAffectedPair.Select(p => p.Key).ToList();
-        // remove the dto.User from the list of all online pairs, so we can send them a self update message.
-        allOnlinePairsOfAffectedPairUids.Remove(dto.User.UID);
+        List<string> allPairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> onlinePairsOfTarget = await GetOnlineUsers(allPairsOfTarget).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = onlinePairsOfTarget.Keys;
 
         CharaActiveRestraint updatedWardrobeData = curRestraintSetData.ToApiRestraintData();
         KinksterUpdateActiveRestraint recipientDto = new(dto.User, new(UserUID), updatedWardrobeData, dto.Type)
@@ -815,10 +438,102 @@ public partial class GagspeakHub
             PreviousPadlock = prevPadlock
         };
 
-        await Clients.User(dto.User.UID).Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
-        await Clients.Users(allOnlinePairsOfAffectedPairUids).Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
+        await Clients.Users([.. callbackUids, dto.Target.UID]).Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeKinksterActiveCollar(PushKinksterActiveCollar dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        // must edit Other
+        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
+        // must be paired.
+        if (!await DbContext.ClientPairs.AnyAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+
+        // Target must be collared to do this.
+        var collar = await DbContext.UserCollarData.Include(c => c.Owners).FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        if (collar is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotCollared);
+
+        // Caller must be one of the Collar Owners.
+        if (!collar.Owners.Any(o => o.OwnerUID.Equals(UserUID, StringComparison.Ordinal)))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotCollarOwner);
+
+        // Mark prev collar and perform changes.
+        var prevCollar = collar.Identifier;
+
+        // Must reject if a change is attempted that Collared Kinkster does not have access to.
+        switch (dto.Type)
+        {
+            case DataUpdateType.VisibilityChange:
+                if (!collar.OwnerEditAccess.HasAny(CollarAccess.Visuals))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.Visuals = !collar.Visuals;
+                break;
+
+            case DataUpdateType.DyesChange:
+                if (!collar.OwnerEditAccess.HasAny(CollarAccess.Dyes))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.Dye1 = dto.Dye1;
+                collar.Dye2 = dto.Dye2;
+                break;
+
+            case DataUpdateType.CollarMoodleChange:
+                if (!collar.OwnerEditAccess.HasAny(CollarAccess.Moodle))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.MoodleId = dto.Moodle.GUID;
+                collar.MoodleIconId = dto.Moodle.IconID;
+                collar.MoodleTitle = dto.Moodle.Title;
+                collar.MoodleDescription = dto.Moodle.Description;
+                collar.MoodleType = (byte)dto.Moodle.Type;
+                collar.MoodleVFXPath = dto.Moodle.CustomVFXPath;
+                break;
+
+            case DataUpdateType.CollarWritingChange:
+                if (!collar.OwnerEditAccess.HasAny(CollarAccess.Writing))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.Writing = dto.Writing;
+                break;
+
+            case DataUpdateType.CollarRemoved:
+                // maybe add some safeguard down the line here, but
+                // this should be easily triggerable with a safeword for obvious reasons.
+                collar.Identifier = Guid.Empty;
+                collar.Visuals = true; // reset visuals to true.
+                collar.Dye1 = 0; // reset dye1 to default.
+                collar.Dye2 = 0; // reset dye2 to default.
+                collar.MoodleId = Guid.Empty; // reset moodle to default.
+                collar.MoodleIconId = 0; // reset moodle icon to default.
+                collar.MoodleTitle = string.Empty; // reset moodle title to default.
+                collar.MoodleDescription = string.Empty; // reset moodle description to default.
+                collar.MoodleType = 0; // reset moodle type to default.
+                collar.MoodleVFXPath = string.Empty; // reset moodle vfx path to default.
+                collar.Writing = string.Empty; // reset writing to default.
+                collar.EditAccess = CollarAccess.None; // reset edit access to none.
+                collar.OwnerEditAccess = CollarAccess.None; // reset owner edit access to none.
+                // remove all owners.
+                DbContext.CollarOwners.RemoveRange(collar.Owners);
+                break;
+
+            default:
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+        }
+
+        // Grabs all Pairs of the affected pair
+        List<string> allPairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        Dictionary<string, string> onlinePairsOfTarget = await GetOnlineUsers(allPairsOfTarget).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = onlinePairsOfTarget.Keys;
+        
+        var newData = collar.ToApiCollarData();
+        var callbackDto = new KinksterUpdateActiveCollar(dto.User, new(UserUID), newData, dto.Type) { PreviousCollar = prevCollar };
+        await Clients.Users([.. callbackUids, dto.Target.UID]).Callback_KinksterUpdateActiveCollar(callbackDto).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
 
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeKinksterActivePattern(PushKinksterActivePattern dto)
@@ -850,9 +565,9 @@ public partial class GagspeakHub
         }
 
         // Grabs all Pairs of the affected pair
-        List<string> allPairsOfAffectedPair = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
-        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairsOfAffectedPair).ConfigureAwait(false);
-        IEnumerable<string> callbackUids = pairsOfClient.Keys;
+        List<string> allPairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        Dictionary<string, string> onlinePairsOfTarget = await GetOnlineUsers(allPairsOfTarget).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = onlinePairsOfTarget.Keys;
 
         await Clients.Users([ ..callbackUids, dto.Target.UID]).Callback_KinksterUpdateActivePattern(new(dto.Target, new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -894,8 +609,7 @@ public partial class GagspeakHub
         if (dto.Type is not DataUpdateType.TriggerToggled)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
 
-        ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false);
-        if (pairPerms is null)
+        if (await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         if (!pairPerms.ToggleTriggers)
@@ -931,29 +645,19 @@ public partial class GagspeakHub
     public async Task<HubResponse> UserChangeOtherGlobalPerm(SingleChangeGlobal dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        // Make sure the UserData within is for ourselves, since we called the [UpdateOwnGlobalPerm]
+        
+        // Cannot update self.
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Don't modify own perms on a UpdateOther call").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
 
-        // fetch the global permission table row belonging to the user in the Dto
-        UserGlobalPermissions? perms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (perms is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-        }
+        // Perms must exist.
+        if (await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Attempt to make the change.
         if (!PropertyChanger.TrySetProperty(perms, dto.NewPerm.Key, dto.NewPerm.Value, out object? convertedValue))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Failed to set property to new Value!").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.IncorrectDataType);
-        }
 
-        // update the database with the new global permission & save DB changes
         DbContext.Update(perms);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
@@ -961,45 +665,204 @@ public partial class GagspeakHub
         List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
         Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
         IEnumerable<string> callbackUids = pairsOfClient.Keys;
-        // send callback to all the paired users of the userpair we modified, informing them of the update (includes the client caller)
-        await Clients.Users(callbackUids).Callback_SingleChangeGlobal(new(dto.User, dto.NewPerm, UpdateDir.Other, dto.Enactor)).ConfigureAwait(false);
-        // finally, send a callback to the client pair who just had their permissions updated.
-        await Clients.User(dto.User.UID).Callback_SingleChangeGlobal(new(dto.User, dto.NewPerm, UpdateDir.Own, dto.Enactor)).ConfigureAwait(false);
+
+        await Clients.Users([ ..callbackUids, dto.User.UID]).Callback_SingleChangeGlobal(new(dto.User, dto.NewPerm, dto.Enactor)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeOtherPairPerm(SingleChangeUnique dto)
     {
-        // no way to verify if we are using it properly, so just make the assumption that we are.
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
-        // grab the pair permission row belonging to the paired user so we can modify it.
-        ClientPairPermissions? perms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (perms is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Pair permission not found").ConfigureAwait(false);
+        // Must be paired.
+        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } perms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-        }
 
-        // Attempt to make the change.
+        // Property must be successfully set.
         if (!PropertyChanger.TrySetProperty(perms, dto.NewPerm.Key, dto.NewPerm.Value, out object? convertedValue))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Failed to set property to new Value!").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.IncorrectDataType);
-        }
 
         DbContext.Update(perms);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // inform the userpair we modified to update their own permissions
         await Clients.User(dto.User.UID).Callback_SingleChangeUnique(new(new(UserUID), dto.NewPerm, UpdateDir.Own, dto.Enactor)).ConfigureAwait(false);
-        // inform the client caller to update the modified userpairs permission
         await Clients.Caller.Callback_SingleChangeUnique(new(dto.User, dto.NewPerm, UpdateDir.Other, dto.Enactor)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserChangeHardcoreState(HardcoreStateChange dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        // Reject hypnosis.
+        if (dto.Changed is HcAttribute.HypnoticEffect)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.IncorrectDataType);
+
+        // Cannot update self.
+        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+
+        // Pair Permissions must exist.
+        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+
+        // Perms must exist.
+        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } hcState)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+
+        // Make changes based on the attribute type, if allowed.
+        switch (dto.Changed)
+        {
+            case HcAttribute.Follow:
+                if (!pairPerms.AllowLockedFollowing)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (!hcState.CanChange(HcAttribute.Follow, UserUID))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // State changes must be toggled
+                var followActive = !string.IsNullOrEmpty(hcState.LockedFollowing);
+                if (followActive && dto.NewData.LockedFollowing.Length > 0 || !followActive && dto.NewData.LockedFollowing == string.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+
+                // perform the updates on the values.
+                hcState.LockedFollowing = dto.NewData.LockedFollowing;
+                break;
+
+            case HcAttribute.EmoteState:
+                var sitEmoteAllowed = pairPerms.AllowLockedSitting;
+                var anyEmoteAllowed = pairPerms.AllowLockedEmoting;
+                if (!sitEmoteAllowed && !anyEmoteAllowed)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                // if emoteID is not a sit emote and we dont have locked emoting, reject.
+                if (!dto.NewData.InAnySitEmote() && !anyEmoteAllowed)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                // we are able to swap between emotes if allowed, but validate with devotional lock first.
+                if (!hcState.CanChange(HcAttribute.EmoteState, UserUID))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+                // Update the state.
+                hcState.LockedEmoteState = dto.NewData.LockedEmoteState;
+                hcState.EmoteExpireTime = dto.NewData.EmoteExpireTime;
+                hcState.EmoteId = dto.NewData.EmoteId;
+                hcState.EmoteCyclePose = dto.NewData.EmoteCyclePose;
+                break;
+
+            case HcAttribute.Confinement:
+                if (!pairPerms.AllowIndoorConfinement)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (!hcState.CanChange(HcAttribute.Confinement, UserUID))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // State changes must be toggled between on and off, not swapped.
+                var isActive = !string.IsNullOrEmpty(hcState.IndoorConfinement);
+                if (isActive && dto.NewData.LockedFollowing.Length > 0 || !isActive && dto.NewData.LockedFollowing == string.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+
+                // perform the updates on the values.
+                hcState.IndoorConfinement = dto.NewData.IndoorConfinement;
+                hcState.ConfinementTimer = dto.NewData.ConfinementTimer;
+                hcState.ConfinedWorld = dto.NewData.ConfinedWorld;
+                hcState.ConfinedCity = dto.NewData.ConfinedCity;
+                hcState.ConfinedWard = dto.NewData.ConfinedWard;
+                hcState.ConfinedPlaceId = dto.NewData.ConfinedPlaceId;
+                hcState.ConfinedInApartment = dto.NewData.ConfinedInApartment;
+                hcState.ConfinedInSubdivision = dto.NewData.ConfinedInSubdivision;
+                break;
+
+            case HcAttribute.Imprisonment:
+                if (!pairPerms.AllowImprisonment)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (!hcState.CanChange(HcAttribute.Imprisonment, UserUID))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // States must be toggled between on and off, not swapped. (they technically dont,
+                // but if we made it possible we would need to run checks for matching territory ID's
+                // and account for things being in the way ext.)
+                var isImprisoned = !string.IsNullOrEmpty(hcState.Imprisonment);
+                if (isImprisoned && dto.NewData.Imprisonment.Length > 0 || !isImprisoned && dto.NewData.Imprisonment == string.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+
+                // perform the updates on the values.
+                hcState.Imprisonment = dto.NewData.Imprisonment;
+                hcState.ImprisonmentTimer = dto.NewData.ImprisonmentTimer;
+                hcState.ImprisonedTerritory = dto.NewData.ImprisonedTerritory;
+                hcState.ImprisonedPosX = dto.NewData.ImprisonedPos.X;
+                hcState.ImprisonedPosY = dto.NewData.ImprisonedPos.Y;
+                hcState.ImprisonedPosZ = dto.NewData.ImprisonedPos.Z;
+                hcState.ImprisonedRadius = dto.NewData.ImprisonedRadius;
+                break;
+
+            case HcAttribute.HiddenChatBox:
+                if (!pairPerms.AllowHidingChatBoxes)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (!hcState.CanChange(HcAttribute.HiddenChatBox, UserUID))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // State changes must be toggled
+                var isChatHidden = !string.IsNullOrEmpty(hcState.ChatBoxesHidden);
+                if (isChatHidden && dto.NewData.ChatBoxesHidden.Length > 0 || !isChatHidden && dto.NewData.LockedFollowing == string.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+                // perform the updates on the values.
+                hcState.ChatBoxesHidden = dto.NewData.ChatBoxesHidden;
+                hcState.ChatBoxesHiddenTimer = dto.NewData.ChatBoxesHiddenTimer;
+                break;
+
+            case HcAttribute.HiddenChatInput:
+                if (!pairPerms.AllowHidingChatInput)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+                if (!hcState.CanChange(HcAttribute.HiddenChatInput, UserUID))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
+                // State changes must be toggled
+                var isInputHidden = !string.IsNullOrEmpty(hcState.ChatInputHidden);
+                if (isInputHidden && dto.NewData.ChatInputHidden.Length > 0 || !isInputHidden && dto.NewData.ChatInputHidden == string.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+
+                // perform the updates on the values.
+                hcState.ChatInputHidden = dto.NewData.ChatInputHidden;
+                hcState.ChatInputHiddenTimer = dto.NewData.ChatInputHiddenTimer;
+                break;
+
+            case HcAttribute.BlockedChatInput:
+                if (!pairPerms.AllowChatInputBlocking)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                if (!hcState.CanChange(HcAttribute.BlockedChatInput, UserUID))
+
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+                // State changes must be toggled
+                var isInputBlocked = !string.IsNullOrEmpty(hcState.ChatInputBlocked);
+                if (isInputBlocked && dto.NewData.ChatInputBlocked.Length > 0 || !isInputBlocked && dto.NewData.ChatInputBlocked == string.Empty)
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+                // perform the updates on the values.
+                hcState.ChatInputBlocked = dto.NewData.ChatInputBlocked;
+                hcState.ChatInputBlockedTimer = dto.NewData.ChatInputBlockedTimer;
+                break;
+
+            default:
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+
+        }
+
+        // update the hardcore state and save the database changes.
+        DbContext.Update(hcState);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        // make an api version of the hardcore state.
+        var newData = hcState.ToApiHardcoreState();
+
+        // grab the user pairs that the paired user we are updating has.
+        List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
+        IEnumerable<string> callbackUids = pairsOfClient.Keys;
+
+        await Clients.Users([.. callbackUids, dto.User.UID]).Callback_StateChangeHardcore(new(dto.User, newData, dto.Changed, dto.Enactor)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
 
     /// <summary>
     ///     Sends a custom Hypnosis effect to another kinkster, which they will execute. <para />
@@ -1058,115 +921,50 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
-    /// <summary>
-    ///     Instructs a Kinkster to be defined by a set address. <para />
-    /// 
-    ///     Because there is no way to know if the pair's IPC is valid outside of allowed permissions,
-    ///     the operation will attmept, and fallback to nearest node. <para />
-    ///     
-    ///     If the task throws an exception due to an IPC failure or no nearest node being available, the
-    ///     setting will be reverted by the target.
-    /// </summary>
-    /// <remarks> Permission validation is not set yet for self-call test loops. </remarks>
+
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserConfineKinksterByAddress(ConfineByAddress dto)
+    public async Task<HubResponse> UserRemoveKinkster(KinksterBase dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
+        // Dont allow removing self
         if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
 
-        // make sure they are added as a pair of the client caller.
-        var pairGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (pairGlobals is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Global Perms do not exist!").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-        }
-
-        var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairGlobals is null || pairPerms is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
+        // See if clientPair exists at all in the database
+        ClientPair? callerPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == UserUID && w.OtherUserUID == dto.User.UID).ConfigureAwait(false);
+        if (callerPair is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+
+        // Get pair info of the user we are removing
+        UserInfo? pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
+
+        // remove the client pair from the database and all associated permissions. And then update changes
+        DbContext.ClientPairs.Remove(callerPair);
+        if (pairData?.ownPairPermissions is not null) DbContext.ClientPairPermissions.Remove(pairData.ownPairPermissions);
+        if (pairData?.ownPairPermissionAccess is not null) DbContext.ClientPairPermissionAccess.Remove(pairData.ownPairPermissionAccess);
+        // remove the other user's permissions as well.
+        // grab the clientPairs item for the other direction.
+        ClientPair? otherPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == dto.User.UID && w.OtherUserUID == UserUID).ConfigureAwait(false);
+        if (otherPair is not null)
+        {
+            DbContext.ClientPairs.Remove(otherPair);
+            if (pairData?.otherPairPermissions is not null) DbContext.ClientPairPermissions.Remove(pairData.otherPairPermissions);
+            if (pairData?.otherPairPermissionAccess is not null) DbContext.ClientPairPermissionAccess.Remove(pairData.otherPairPermissionAccess);
         }
-
-        // Fail if in a confinement task already, or we are already confined.
-        if (pairGlobals.HcConfinedState())
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-
-        // Otherwise we can set it (assuming the permissions are valid) and should also inform all of this pair's pairs.
-        List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
-        IEnumerable<string> callbackUids = pairsOfClient.Keys;
-
-        // update the global permission value. (add devotional pairlock here if nessisary)
-        pairGlobals.IndoorConfinement = UserUID;
-        DbContext.Update(pairGlobals);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // send the globals update to the correct people.
-        var newPerm = new KeyValuePair<string, object>(nameof(GlobalPerms.HypnosisCustomEffect), UserUID);
-        await Clients.Users(callbackUids).Callback_SingleChangeGlobal(new(dto.User, newPerm, UpdateDir.Other, new(UserUID))).ConfigureAwait(false);
-        // this will indirectly update their global permission we are changing as well, as we pass the UserUID into the callback.
-        await Clients.User(dto.User.UID).Callback_ConfineToAddress(new(new(UserUID), dto.SpesificAddress)).ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto, "Success"));
+        // return to the client callers callback functions that we should remove them from the client callers pair manager.
+        await Clients.User(UserUID).Callback_RemoveClientPair(dto).ConfigureAwait(false);
 
-    /// <summary>
-    ///     Instructs a Kinkster to be anchors to a defined position. <para />
-    ///     The Kinkster will not be able to stray further than the dto's defined radius. <para />
-    ///     If the Kinkster is currently in a confinement task, this should fail.
-    /// </summary>
-    /// <remarks> Permission validation is not set yet for self-call test loops. </remarks>
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserImprisonKinkster(ImprisonAtPosition dto)
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        // Check if the other user is online.
+        string? otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
+        if (otherIdent is null)
+            return HubResponseBuilder.Yippee();
 
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
-
-        // make sure they are added as a pair of the client caller.
-        var pairGlobals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (pairGlobals is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Global Perms do not exist!").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-        }
-
-        var pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (pairGlobals is null || pairPerms is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-        }
-
-        // Fail if in a confinement task already, or we are already confined.
-        if (pairGlobals.HcCageState())
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-
-        // Otherwise we can set it (assuming the permissions are valid) and should also inform all of this pair's pairs.
-        List<string> allPairedUsersOfClient = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
-        Dictionary<string, string> pairsOfClient = await GetOnlineUsers(allPairedUsersOfClient).ConfigureAwait(false);
-        IEnumerable<string> callbackUids = pairsOfClient.Keys;
-
-        // update the global permission value. (add devotional pairlock here if nessisary)
-        pairGlobals.Imprisonment = UserUID;
-        DbContext.Update(pairGlobals);
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        // send the globals update to the correct people.
-        var newPerm = new KeyValuePair<string, object>(nameof(GlobalPerms.Imprisonment), UserUID);
-        await Clients.Users(callbackUids).Callback_SingleChangeGlobal(new(dto.User, newPerm, UpdateDir.Other, new(UserUID))).ConfigureAwait(false);
-        // this will indirectly update their global permission we are changing as well, as we pass the UserUID into the callback.
-        await Clients.User(dto.User.UID).Callback_ImprisonAtPosition(new(new(UserUID), dto.Position, dto.MaxRadiusAllowed)).ConfigureAwait(false);
+        // if they are, we should ask them to remove the client pair from their listing as well.
+        await Clients.User(dto.User.UID).Callback_RemoveClientPair(new(new(UserUID))).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 

@@ -6,15 +6,14 @@ namespace GagspeakShared.Models;
 
 public class UserProfileData
 {
-    // the UserUID is a foreign key to the User table
-    // this means that the UserUID must be a primary key in the User table,
-    // and also that the UserUID must be unique in the User table
-    // (This is also the primary key for this class)
-    [Required]
     [Key]
-    [ForeignKey(nameof(User))]
     public string UserUID { get; set; }
-    public User User { get; set; }
+    
+    [ForeignKey(nameof(UserUID))]
+    public virtual User User { get; set; }
+
+    [ForeignKey(nameof(UserUID))]
+    public virtual UserCollarData UserCollar { get; set; }
 
     /// <summary>
     /// Defines if a profile is displayed to any user that is not a direct pair of them.
@@ -36,7 +35,7 @@ public class UserProfileData
     public bool ProfileDisabled { get; set; } = false;
 
     /// <summary>
-    /// The number of warnings that this profile has recieved.
+    /// The number of warnings that this profile has received.
     /// Profile warnings go up by one whenever a profile is cleared, or whenever a malicious report attempt is made.
     /// Warning strikes are a simple way to show the CK Team how many repeat offenses a profile has had when we evalulate reports.
     /// </summary>

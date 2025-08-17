@@ -87,15 +87,11 @@ public class Startup
         services.Configure<ServerConfiguration>(Configuration.GetRequiredSection("GagSpeak"));
         services.Configure<GagspeakConfigurationBase>(Configuration.GetRequiredSection("GagSpeak"));
         _logger.LogInformation("Server Configurations configured");
-        // next, add the server token generator, systeminfo service, and online synced pair cache service to the services
+        // next, add the server token generator, system info service, and online synced pair cache service to the services
         services.AddSingleton<ServerTokenGenerator>();
         services.AddSingleton<SystemInfoService>();
         services.AddSingleton<OnlineSyncedPairCacheService>();
-
-        _logger.LogInformation("Server Token Generator, System Info Service, and Online Synced Pair Cache Service added");
-
-        // next, add the hosted service for the system info service
-        services.AddHostedService(provider => provider.GetService<SystemInfoService>() ?? throw new InvalidOperationException("SystemInfoService not found"));
+        services.AddHostedService(provider => provider.GetService<SystemInfoService>());
         _logger.LogInformation("System Info Service Hosted Service added");
 
         // configure services for the main server status
@@ -103,9 +99,9 @@ public class Startup
         services.AddSingleton<IConfigurationService<GagspeakConfigurationBase>, GagspeakConfigServiceServer<GagspeakConfigurationBase>>();
         _logger.LogInformation("Main Server Status Configurations configured");
 
-        // add the services for the user cleanup so database isnt overloaded as fuck
+        // add the services for the user cleanup so database isn't bloated af.
         services.AddSingleton<UserCleanupService>();
-        services.AddHostedService(provider => provider.GetService<UserCleanupService>() ?? throw new InvalidOperationException("UserCleanupService not found"));
+        services.AddHostedService(provider => provider.GetService<UserCleanupService>());
         _logger.LogInformation("Cleanup services appended, and hosted service appended");
 
         // add the hosted service for the DBListener

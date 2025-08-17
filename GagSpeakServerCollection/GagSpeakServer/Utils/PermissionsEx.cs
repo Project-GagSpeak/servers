@@ -1,5 +1,8 @@
-﻿using GagspeakAPI.Data;
+﻿using GagspeakAPI.Attributes;
+using GagspeakAPI.Data;
 using GagspeakAPI.Data.Permissions;
+using GagspeakAPI.Network;
+using GagspeakAPI.Util;
 using GagspeakShared.Models;
 
 namespace GagspeakServer.Utils;
@@ -48,50 +51,69 @@ public static class PermissionsEx
             PadlockAssigner = restraintSet.PadlockAssigner
         };
     }
+
+    public static CharaActiveCollar ToApiCollarData(this UserCollarData data)
+    {
+        return new CharaActiveCollar
+        {
+            Identifier = data.Identifier,
+            OwnerUIDs = data.Owners.Select(o => o.OwnerUID).ToList(),
+            Visuals = data.Visuals,
+            Dye1 = data.Dye1,
+            Dye2 = data.Dye2,
+            Moodle = MoodleConverter.FromValues(data.MoodleId, data.MoodleIconId, data.MoodleTitle,
+                data.MoodleDescription, data.MoodleType, data.MoodleVFXPath),
+            Writing = data.Writing
+        };
+    }
+
+    public static KinksterPairRequest ToApiPairRequest(this KinksterRequest request)
+        => new KinksterPairRequest(request.User.ToUserData(), request.OtherUser.ToUserData(), request.AttachedMessage, request.CreationTime);
+
+    public static CollarOwnershipRequest ToApiCollarRequest(this CollarRequest request)
+        => new CollarOwnershipRequest(request.User.ToUserData(), request.OtherUser.ToUserData(), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
+    
+    public static KinksterPairRequest PairRequestRemoval(UserData user, UserData target) =>
+        new(user, target, string.Empty, DateTime.MinValue);
+
+    public static CollarOwnershipRequest CollarRequestRemoval(UserData user, UserData target) =>
+        new(user, target, string.Empty, DateTime.MinValue, CollarAccess.None, CollarAccess.None);
+
     #endregion CacheDataMigrations
 
-    public static GlobalPerms ToApiGlobalPerms(this UserGlobalPermissions? databasePerms)
+    public static GlobalPerms ToApiGlobalPerms(this UserGlobalPermissions? dbState)
     {
         var apiPerms = new GlobalPerms();
 
-        if (databasePerms is null)
+        if (dbState is null)
             return apiPerms;
 
-        apiPerms.AllowedGarblerChannels = databasePerms.AllowedGarblerChannels;
-        apiPerms.ChatGarblerActive = databasePerms.ChatGarblerActive;
-        apiPerms.ChatGarblerLocked = databasePerms.ChatGarblerLocked;
-        apiPerms.GaggedNameplate = databasePerms.GaggedNameplate;
+        apiPerms.AllowedGarblerChannels = dbState.AllowedGarblerChannels;
+        apiPerms.ChatGarblerActive = dbState.ChatGarblerActive;
+        apiPerms.ChatGarblerLocked = dbState.ChatGarblerLocked;
+        apiPerms.GaggedNameplate = dbState.GaggedNameplate;
 
-        apiPerms.WardrobeEnabled = databasePerms.WardrobeEnabled;
-        apiPerms.GagVisuals = databasePerms.GagVisuals;
-        apiPerms.RestrictionVisuals = databasePerms.RestrictionVisuals;
-        apiPerms.RestraintSetVisuals = databasePerms.RestraintSetVisuals;
+        apiPerms.WardrobeEnabled = dbState.WardrobeEnabled;
+        apiPerms.GagVisuals = dbState.GagVisuals;
+        apiPerms.RestrictionVisuals = dbState.RestrictionVisuals;
+        apiPerms.RestraintSetVisuals = dbState.RestraintSetVisuals;
 
-        apiPerms.PuppeteerEnabled = databasePerms.PuppeteerEnabled;
-        apiPerms.TriggerPhrase = databasePerms.TriggerPhrase;
-        apiPerms.PuppetPerms = databasePerms.PuppetPerms;
+        apiPerms.PuppeteerEnabled = dbState.PuppeteerEnabled;
+        apiPerms.TriggerPhrase = dbState.TriggerPhrase;
+        apiPerms.PuppetPerms = dbState.PuppetPerms;
 
-        apiPerms.ToyboxEnabled = databasePerms.ToyboxEnabled;
-        apiPerms.ToysAreInteractable = databasePerms.ToysAreInteractable;
-        apiPerms.InVibeRoom = databasePerms.InVibeRoom;
-        apiPerms.SpatialAudio = databasePerms.SpatialAudio;
+        apiPerms.ToyboxEnabled = dbState.ToyboxEnabled;
+        apiPerms.ToysAreInteractable = dbState.ToysAreInteractable;
+        apiPerms.InVibeRoom = dbState.InVibeRoom;
+        apiPerms.SpatialAudio = dbState.SpatialAudio;
 
-        apiPerms.LockedFollowing = databasePerms.LockedFollowing;
-        apiPerms.LockedEmoteState = databasePerms.LockedEmoteState;
-        apiPerms.IndoorConfinement = databasePerms.IndoorConfinement;
-        apiPerms.ChatBoxesHidden = databasePerms.ChatBoxesHidden;
-        apiPerms.ChatInputHidden = databasePerms.ChatInputHidden;
-        apiPerms.ChatInputBlocked = databasePerms.ChatInputBlocked;
-
-        apiPerms.HypnosisCustomEffect = databasePerms.HypnosisCustomEffect;
-
-        apiPerms.GlobalShockShareCode = databasePerms.GlobalShockShareCode;
-        apiPerms.AllowShocks = databasePerms.AllowShocks;
-        apiPerms.AllowVibrations = databasePerms.AllowVibrations;
-        apiPerms.AllowBeeps = databasePerms.AllowBeeps;
-        apiPerms.MaxIntensity = databasePerms.MaxIntensity;
-        apiPerms.MaxDuration = databasePerms.MaxDuration;
-        apiPerms.ShockVibrateDuration = databasePerms.ShockVibrateDuration;
+        apiPerms.GlobalShockShareCode = dbState.GlobalShockShareCode;
+        apiPerms.AllowShocks = dbState.AllowShocks;
+        apiPerms.AllowVibrations = dbState.AllowVibrations;
+        apiPerms.AllowBeeps = dbState.AllowBeeps;
+        apiPerms.MaxIntensity = dbState.MaxIntensity;
+        apiPerms.MaxDuration = dbState.MaxDuration;
+        apiPerms.ShockVibrateDuration = dbState.ShockVibrateDuration;
 
         return apiPerms;
     }
@@ -120,15 +142,6 @@ public static class PermissionsEx
         current.InVibeRoom = apiPerms.InVibeRoom;
         current.SpatialAudio = apiPerms.SpatialAudio;
 
-        current.LockedFollowing = apiPerms.LockedFollowing;
-        current.LockedEmoteState = apiPerms.LockedEmoteState;
-        current.IndoorConfinement = apiPerms.IndoorConfinement;
-        current.ChatBoxesHidden = apiPerms.ChatBoxesHidden;
-        current.ChatInputHidden = apiPerms.ChatInputHidden;
-        current.ChatInputBlocked = apiPerms.ChatInputBlocked;
-
-        current.HypnosisCustomEffect = apiPerms.HypnosisCustomEffect;
-
         current.GlobalShockShareCode = apiPerms.GlobalShockShareCode;
         current.AllowShocks = apiPerms.AllowShocks;
         current.AllowVibrations = apiPerms.AllowVibrations;
@@ -140,272 +153,358 @@ public static class PermissionsEx
         return current;
     }
 
-    public static PairPerms ToApiKinksterPerms(this ClientPairPermissions? databasePerms)
+    public static HardcoreState ToApiHardcoreState(this UserHardcoreState? dbState)
+    {
+        var apiState = new HardcoreState();
+        if (dbState is null)
+            return apiState;
+
+        // Otherwise update it.
+        apiState.LockedFollowing = dbState.LockedFollowing;
+
+        apiState.LockedEmoteState = dbState.LockedEmoteState;
+        apiState.EmoteExpireTime = dbState.EmoteExpireTime;
+        apiState.EmoteId = dbState.EmoteId;
+        apiState.EmoteCyclePose = dbState.EmoteCyclePose;
+
+        apiState.IndoorConfinement = dbState.IndoorConfinement;
+        apiState.ConfinementTimer = dbState.ConfinementTimer;
+        apiState.ConfinedWorld = dbState.ConfinedWorld;
+        apiState.ConfinedCity = dbState.ConfinedCity;
+        apiState.ConfinedWard = dbState.ConfinedWard;
+        apiState.ConfinedPlaceId = dbState.ConfinedPlaceId;
+        apiState.ConfinedInApartment = dbState.ConfinedInApartment;
+        apiState.ConfinedInSubdivision = dbState.ConfinedInSubdivision;
+
+        apiState.Imprisonment = dbState.Imprisonment;
+        apiState.ImprisonmentTimer = dbState.ImprisonmentTimer;
+        apiState.ImprisonedTerritory = dbState.ImprisonedTerritory;
+        apiState.ImprisonedPos = new(dbState.ImprisonedPosX, dbState.ImprisonedPosY, dbState.ImprisonedPosZ);
+        apiState.ImprisonedRadius = dbState.ImprisonedRadius;
+
+        apiState.ChatBoxesHidden = dbState.ChatBoxesHidden;
+        apiState.ChatBoxesHiddenTimer = dbState.ChatBoxesHiddenTimer;
+
+        apiState.ChatInputHidden = dbState.ChatInputHidden;
+        apiState.ChatInputHiddenTimer = dbState.ChatInputHiddenTimer;
+
+        apiState.ChatInputBlocked = dbState.ChatInputBlocked;
+        apiState.ChatInputBlockedTimer = dbState.ChatInputBlockedTimer;
+
+        apiState.HypnoticEffect = dbState.HypnoticEffect;
+        apiState.HypnoticEffectTimer = dbState.HypnoticEffectTimer;
+        return apiState;
+    }
+
+    public static UserHardcoreState ToModelHardcoreState(this HardcoreState apiState, UserHardcoreState current)
+    {
+        if (apiState is null)
+            return current;
+
+        current.LockedFollowing = apiState.LockedFollowing;
+
+        current.LockedEmoteState = apiState.LockedEmoteState;
+        current.EmoteExpireTime = apiState.EmoteExpireTime;
+        current.EmoteId = apiState.EmoteId;
+        current.EmoteCyclePose = apiState.EmoteCyclePose;
+
+        current.IndoorConfinement = apiState.IndoorConfinement;
+        current.ConfinementTimer = apiState.ConfinementTimer;
+        current.ConfinedWorld = apiState.ConfinedWorld;
+        current.ConfinedCity = apiState.ConfinedCity;
+        current.ConfinedWard = apiState.ConfinedWard;
+        current.ConfinedPlaceId = apiState.ConfinedPlaceId;
+        current.ConfinedInApartment = apiState.ConfinedInApartment;
+        current.ConfinedInSubdivision = apiState.ConfinedInSubdivision;
+
+        current.Imprisonment = apiState.Imprisonment;
+        current.ImprisonmentTimer = apiState.ImprisonmentTimer;
+        current.ImprisonedTerritory = apiState.ImprisonedTerritory;
+        current.ImprisonedPosX = apiState.ImprisonedPos.X;
+        current.ImprisonedPosY = apiState.ImprisonedPos.Y;
+        current.ImprisonedPosZ = apiState.ImprisonedPos.Z;
+        current.ImprisonedRadius = apiState.ImprisonedRadius;
+
+        current.ChatBoxesHidden = apiState.ChatBoxesHidden;
+        current.ChatBoxesHiddenTimer = apiState.ChatBoxesHiddenTimer;
+
+        current.ChatInputHidden = apiState.ChatInputHidden;
+        current.ChatInputHiddenTimer = apiState.ChatInputHiddenTimer;
+
+        current.ChatInputBlocked = apiState.ChatInputBlocked;
+        current.ChatInputBlockedTimer = apiState.ChatInputBlockedTimer;
+
+        current.HypnoticEffect = apiState.HypnoticEffect;
+        current.HypnoticEffectTimer = apiState.HypnoticEffectTimer;
+        return current;
+    }
+
+    public static PairPerms ToApiKinksterPerms(this ClientPairPermissions? dbState)
     {
         var apiPerms = new PairPerms();
-        if (databasePerms is null)
+        if (dbState is null)
             return apiPerms;
 
         // Otherwise update it.
-        apiPerms.IsPaused = databasePerms.IsPaused;
+        apiPerms.IsPaused = dbState.IsPaused;
 
-        apiPerms.PermanentLocks = databasePerms.PermanentLocks;
-        apiPerms.OwnerLocks = databasePerms.OwnerLocks;
-        apiPerms.DevotionalLocks = databasePerms.DevotionalLocks;
+        apiPerms.PermanentLocks = dbState.PermanentLocks;
+        apiPerms.OwnerLocks = dbState.OwnerLocks;
+        apiPerms.DevotionalLocks = dbState.DevotionalLocks;
 
-        apiPerms.ApplyGags = databasePerms.ApplyGags;
-        apiPerms.LockGags = databasePerms.LockGags;
-        apiPerms.MaxGagTime = databasePerms.MaxGagTime;
-        apiPerms.UnlockGags = databasePerms.UnlockGags;
-        apiPerms.RemoveGags = databasePerms.RemoveGags;
+        apiPerms.ApplyGags = dbState.ApplyGags;
+        apiPerms.LockGags = dbState.LockGags;
+        apiPerms.MaxGagTime = dbState.MaxGagTime;
+        apiPerms.UnlockGags = dbState.UnlockGags;
+        apiPerms.RemoveGags = dbState.RemoveGags;
 
-        apiPerms.ApplyRestrictions = databasePerms.ApplyRestrictions;
-        apiPerms.LockRestrictions = databasePerms.LockRestrictions;
-        apiPerms.MaxRestrictionTime = databasePerms.MaxRestrictionTime;
-        apiPerms.UnlockRestrictions = databasePerms.UnlockRestrictions;
-        apiPerms.RemoveRestrictions = databasePerms.RemoveRestrictions;
+        apiPerms.ApplyRestrictions = dbState.ApplyRestrictions;
+        apiPerms.LockRestrictions = dbState.LockRestrictions;
+        apiPerms.MaxRestrictionTime = dbState.MaxRestrictionTime;
+        apiPerms.UnlockRestrictions = dbState.UnlockRestrictions;
+        apiPerms.RemoveRestrictions = dbState.RemoveRestrictions;
 
-        apiPerms.ApplyRestraintSets = databasePerms.ApplyRestraintSets;
-        apiPerms.ApplyLayers = databasePerms.ApplyLayers;
-        apiPerms.ApplyLayersWhileLocked = databasePerms.ApplyLayersWhileLocked;
-        apiPerms.LockRestraintSets = databasePerms.LockRestraintSets;
-        apiPerms.MaxRestraintTime = databasePerms.MaxRestraintTime;
-        apiPerms.UnlockRestraintSets = databasePerms.UnlockRestraintSets;
-        apiPerms.RemoveLayers = databasePerms.RemoveLayers;
-        apiPerms.RemoveLayersWhileLocked = databasePerms.RemoveLayersWhileLocked;
-        apiPerms.RemoveRestraintSets = databasePerms.RemoveRestraintSets;
+        apiPerms.ApplyRestraintSets = dbState.ApplyRestraintSets;
+        apiPerms.ApplyLayers = dbState.ApplyLayers;
+        apiPerms.ApplyLayersWhileLocked = dbState.ApplyLayersWhileLocked;
+        apiPerms.LockRestraintSets = dbState.LockRestraintSets;
+        apiPerms.MaxRestraintTime = dbState.MaxRestraintTime;
+        apiPerms.UnlockRestraintSets = dbState.UnlockRestraintSets;
+        apiPerms.RemoveLayers = dbState.RemoveLayers;
+        apiPerms.RemoveLayersWhileLocked = dbState.RemoveLayersWhileLocked;
+        apiPerms.RemoveRestraintSets = dbState.RemoveRestraintSets;
 
-        apiPerms.TriggerPhrase = databasePerms.TriggerPhrase;
-        apiPerms.StartChar = databasePerms.StartChar;
-        apiPerms.EndChar = databasePerms.EndChar;
-        apiPerms.PuppetPerms = databasePerms.PuppetPerms;
+        apiPerms.TriggerPhrase = dbState.TriggerPhrase;
+        apiPerms.StartChar = dbState.StartChar;
+        apiPerms.EndChar = dbState.EndChar;
+        apiPerms.PuppetPerms = dbState.PuppetPerms;
 
-        apiPerms.MoodlePerms = databasePerms.MoodlePerms;
-        apiPerms.MaxMoodleTime = databasePerms.MaxMoodleTime;
+        apiPerms.MoodlePerms = dbState.MoodlePerms;
+        apiPerms.MaxMoodleTime = dbState.MaxMoodleTime;
 
-        apiPerms.MaxHypnosisTime = databasePerms.MaxHypnosisTime;
-        apiPerms.HypnoEffectSending = databasePerms.HypnoEffectSending;
+        apiPerms.MaxHypnosisTime = dbState.MaxHypnosisTime;
+        apiPerms.HypnoEffectSending = dbState.HypnoEffectSending;
 
-        apiPerms.ExecutePatterns = databasePerms.ExecutePatterns;
-        apiPerms.StopPatterns = databasePerms.StopPatterns;
-        apiPerms.ToggleAlarms = databasePerms.ToggleAlarms;
-        apiPerms.ToggleTriggers = databasePerms.ToggleTriggers;
+        apiPerms.ExecutePatterns = dbState.ExecutePatterns;
+        apiPerms.StopPatterns = dbState.StopPatterns;
+        apiPerms.ToggleAlarms = dbState.ToggleAlarms;
+        apiPerms.ToggleTriggers = dbState.ToggleTriggers;
 
-        apiPerms.InHardcore = databasePerms.InHardcore;
-        apiPerms.PairLockedStates = databasePerms.PairLockedStates;
-        apiPerms.AllowLockedFollowing = databasePerms.AllowLockedFollowing;
-        apiPerms.AllowLockedSitting = databasePerms.AllowLockedSitting;
-        apiPerms.AllowLockedEmoting = databasePerms.AllowLockedEmoting;
-        apiPerms.AllowIndoorConfinement = databasePerms.AllowIndoorConfinement;
-        apiPerms.AllowImprisonment = databasePerms.AllowImprisonment;
-        apiPerms.AllowGarbleChannelEditing = databasePerms.AllowGarbleChannelEditing;
-        apiPerms.AllowHidingChatBoxes = databasePerms.AllowHidingChatBoxes;
-        apiPerms.AllowHidingChatInput = databasePerms.AllowHidingChatInput;
-        apiPerms.AllowChatInputBlocking = databasePerms.AllowChatInputBlocking;
-        apiPerms.AllowHypnoImageSending = databasePerms.AllowHypnoImageSending;
+        apiPerms.InHardcore = dbState.InHardcore;
+        apiPerms.PairLockedStates = dbState.PairLockedStates;
+        apiPerms.AllowLockedFollowing = dbState.AllowLockedFollowing;
+        apiPerms.AllowLockedSitting = dbState.AllowLockedSitting;
+        apiPerms.AllowLockedEmoting = dbState.AllowLockedEmoting;
+        apiPerms.AllowIndoorConfinement = dbState.AllowIndoorConfinement;
+        apiPerms.AllowImprisonment = dbState.AllowImprisonment;
+        apiPerms.AllowGarbleChannelEditing = dbState.AllowGarbleChannelEditing;
+        apiPerms.AllowHidingChatBoxes = dbState.AllowHidingChatBoxes;
+        apiPerms.AllowHidingChatInput = dbState.AllowHidingChatInput;
+        apiPerms.AllowChatInputBlocking = dbState.AllowChatInputBlocking;
+        apiPerms.AllowHypnoImageSending = dbState.AllowHypnoImageSending;
 
-        apiPerms.PiShockShareCode = databasePerms.PiShockShareCode;
-        apiPerms.AllowShocks = databasePerms.AllowShocks;
-        apiPerms.AllowVibrations = databasePerms.AllowVibrations;
-        apiPerms.AllowBeeps = databasePerms.AllowBeeps;
-        apiPerms.MaxIntensity = databasePerms.MaxIntensity;
-        apiPerms.MaxDuration = databasePerms.MaxDuration;
-        apiPerms.MaxVibrateDuration = databasePerms.MaxVibrateDuration;
+        apiPerms.PiShockShareCode = dbState.PiShockShareCode;
+        apiPerms.AllowShocks = dbState.AllowShocks;
+        apiPerms.AllowVibrations = dbState.AllowVibrations;
+        apiPerms.AllowBeeps = dbState.AllowBeeps;
+        apiPerms.MaxIntensity = dbState.MaxIntensity;
+        apiPerms.MaxDuration = dbState.MaxDuration;
+        apiPerms.MaxVibrateDuration = dbState.MaxVibrateDuration;
 
         return apiPerms;
     }
 
-    public static ClientPairPermissions ToModelKinksterPerms(this PairPerms apiPerms, ClientPairPermissions databasePerms)
+    public static ClientPairPermissions ToModelKinksterPerms(this PairPerms apiPerms, ClientPairPermissions dbState)
     {
         if (apiPerms is null)
-            return databasePerms;
+            return dbState;
 
-        databasePerms.IsPaused = apiPerms.IsPaused;
+        dbState.IsPaused = apiPerms.IsPaused;
 
-        databasePerms.PermanentLocks = apiPerms.PermanentLocks;
-        databasePerms.OwnerLocks = apiPerms.OwnerLocks;
-        databasePerms.DevotionalLocks = apiPerms.DevotionalLocks;
+        dbState.PermanentLocks = apiPerms.PermanentLocks;
+        dbState.OwnerLocks = apiPerms.OwnerLocks;
+        dbState.DevotionalLocks = apiPerms.DevotionalLocks;
 
-        databasePerms.ApplyGags = apiPerms.ApplyGags;
-        databasePerms.LockGags = apiPerms.LockGags;
-        databasePerms.MaxGagTime = apiPerms.MaxGagTime;
-        databasePerms.UnlockGags = apiPerms.UnlockGags;
-        databasePerms.RemoveGags = apiPerms.RemoveGags;
+        dbState.ApplyGags = apiPerms.ApplyGags;
+        dbState.LockGags = apiPerms.LockGags;
+        dbState.MaxGagTime = apiPerms.MaxGagTime;
+        dbState.UnlockGags = apiPerms.UnlockGags;
+        dbState.RemoveGags = apiPerms.RemoveGags;
 
-        databasePerms.ApplyRestrictions = apiPerms.ApplyRestrictions;
-        databasePerms.LockRestrictions = apiPerms.LockRestrictions;
-        databasePerms.MaxRestrictionTime = apiPerms.MaxRestrictionTime;
-        databasePerms.UnlockRestrictions = apiPerms.UnlockRestrictions;
-        databasePerms.RemoveRestrictions = apiPerms.RemoveRestrictions;
+        dbState.ApplyRestrictions = apiPerms.ApplyRestrictions;
+        dbState.LockRestrictions = apiPerms.LockRestrictions;
+        dbState.MaxRestrictionTime = apiPerms.MaxRestrictionTime;
+        dbState.UnlockRestrictions = apiPerms.UnlockRestrictions;
+        dbState.RemoveRestrictions = apiPerms.RemoveRestrictions;
 
-        databasePerms.ApplyRestraintSets = apiPerms.ApplyRestraintSets;
-        databasePerms.ApplyLayers = apiPerms.ApplyLayers;
-        databasePerms.ApplyLayersWhileLocked = apiPerms.ApplyLayersWhileLocked;
-        databasePerms.LockRestraintSets = apiPerms.LockRestraintSets;
-        databasePerms.MaxRestraintTime = apiPerms.MaxRestraintTime;
-        databasePerms.UnlockRestraintSets = apiPerms.UnlockRestraintSets;
-        databasePerms.RemoveLayers = apiPerms.RemoveLayers;
-        databasePerms.RemoveLayersWhileLocked = apiPerms.RemoveLayersWhileLocked;
-        databasePerms.RemoveRestraintSets = apiPerms.RemoveRestraintSets;
+        dbState.ApplyRestraintSets = apiPerms.ApplyRestraintSets;
+        dbState.ApplyLayers = apiPerms.ApplyLayers;
+        dbState.ApplyLayersWhileLocked = apiPerms.ApplyLayersWhileLocked;
+        dbState.LockRestraintSets = apiPerms.LockRestraintSets;
+        dbState.MaxRestraintTime = apiPerms.MaxRestraintTime;
+        dbState.UnlockRestraintSets = apiPerms.UnlockRestraintSets;
+        dbState.RemoveLayers = apiPerms.RemoveLayers;
+        dbState.RemoveLayersWhileLocked = apiPerms.RemoveLayersWhileLocked;
+        dbState.RemoveRestraintSets = apiPerms.RemoveRestraintSets;
 
-        databasePerms.TriggerPhrase = apiPerms.TriggerPhrase;
-        databasePerms.StartChar = apiPerms.StartChar;
-        databasePerms.EndChar = apiPerms.EndChar;
-        databasePerms.PuppetPerms = apiPerms.PuppetPerms;
+        dbState.TriggerPhrase = apiPerms.TriggerPhrase;
+        dbState.StartChar = apiPerms.StartChar;
+        dbState.EndChar = apiPerms.EndChar;
+        dbState.PuppetPerms = apiPerms.PuppetPerms;
 
-        databasePerms.MoodlePerms = apiPerms.MoodlePerms;
-        databasePerms.MaxMoodleTime = apiPerms.MaxMoodleTime;
+        dbState.MoodlePerms = apiPerms.MoodlePerms;
+        dbState.MaxMoodleTime = apiPerms.MaxMoodleTime;
 
-        databasePerms.MaxHypnosisTime = apiPerms.MaxHypnosisTime;
-        databasePerms.HypnoEffectSending = apiPerms.HypnoEffectSending;
+        dbState.MaxHypnosisTime = apiPerms.MaxHypnosisTime;
+        dbState.HypnoEffectSending = apiPerms.HypnoEffectSending;
 
-        databasePerms.ExecutePatterns = apiPerms.ExecutePatterns;
-        databasePerms.StopPatterns = apiPerms.StopPatterns;
-        databasePerms.ToggleAlarms = apiPerms.ToggleAlarms;
-        databasePerms.ToggleTriggers = apiPerms.ToggleTriggers;
+        dbState.ExecutePatterns = apiPerms.ExecutePatterns;
+        dbState.StopPatterns = apiPerms.StopPatterns;
+        dbState.ToggleAlarms = apiPerms.ToggleAlarms;
+        dbState.ToggleTriggers = apiPerms.ToggleTriggers;
 
-        databasePerms.InHardcore = apiPerms.InHardcore;
-        databasePerms.PairLockedStates = apiPerms.PairLockedStates;
-        databasePerms.AllowLockedFollowing = apiPerms.AllowLockedFollowing;
-        databasePerms.AllowLockedSitting = apiPerms.AllowLockedSitting;
-        databasePerms.AllowLockedEmoting = apiPerms.AllowLockedEmoting;
-        databasePerms.AllowIndoorConfinement = apiPerms.AllowIndoorConfinement;
-        databasePerms.AllowImprisonment = apiPerms.AllowImprisonment;
-        databasePerms.AllowGarbleChannelEditing = apiPerms.AllowGarbleChannelEditing;
-        databasePerms.AllowHidingChatBoxes = apiPerms.AllowHidingChatBoxes;
-        databasePerms.AllowHidingChatInput = apiPerms.AllowHidingChatInput;
-        databasePerms.AllowChatInputBlocking = apiPerms.AllowChatInputBlocking;
-        databasePerms.AllowHypnoImageSending = apiPerms.AllowHypnoImageSending;
+        dbState.InHardcore = apiPerms.InHardcore;
+        dbState.PairLockedStates = apiPerms.PairLockedStates;
+        dbState.AllowLockedFollowing = apiPerms.AllowLockedFollowing;
+        dbState.AllowLockedSitting = apiPerms.AllowLockedSitting;
+        dbState.AllowLockedEmoting = apiPerms.AllowLockedEmoting;
+        dbState.AllowIndoorConfinement = apiPerms.AllowIndoorConfinement;
+        dbState.AllowImprisonment = apiPerms.AllowImprisonment;
+        dbState.AllowGarbleChannelEditing = apiPerms.AllowGarbleChannelEditing;
+        dbState.AllowHidingChatBoxes = apiPerms.AllowHidingChatBoxes;
+        dbState.AllowHidingChatInput = apiPerms.AllowHidingChatInput;
+        dbState.AllowChatInputBlocking = apiPerms.AllowChatInputBlocking;
+        dbState.AllowHypnoImageSending = apiPerms.AllowHypnoImageSending;
 
-        databasePerms.PiShockShareCode = apiPerms.PiShockShareCode;
-        databasePerms.AllowShocks = apiPerms.AllowShocks;
-        databasePerms.AllowVibrations = apiPerms.AllowVibrations;
-        databasePerms.AllowBeeps = apiPerms.AllowBeeps;
-        databasePerms.MaxIntensity = apiPerms.MaxIntensity;
-        databasePerms.MaxDuration = apiPerms.MaxDuration;
-        databasePerms.MaxVibrateDuration = apiPerms.MaxVibrateDuration;
+        dbState.PiShockShareCode = apiPerms.PiShockShareCode;
+        dbState.AllowShocks = apiPerms.AllowShocks;
+        dbState.AllowVibrations = apiPerms.AllowVibrations;
+        dbState.AllowBeeps = apiPerms.AllowBeeps;
+        dbState.MaxIntensity = apiPerms.MaxIntensity;
+        dbState.MaxDuration = apiPerms.MaxDuration;
+        dbState.MaxVibrateDuration = apiPerms.MaxVibrateDuration;
 
-        return databasePerms;
+        return dbState;
     }
 
-    public static PairPermAccess ToApiKinksterEditAccess(this ClientPairPermissionAccess? databasePerms)
+    public static PairPermAccess ToApiKinksterEditAccess(this ClientPairPermissionAccess? dbState)
     {
         var apiPerms = new PairPermAccess();
-        if (databasePerms is null)
+        if (dbState is null)
             return apiPerms;
 
-        apiPerms.ChatGarblerActiveAllowed = databasePerms.ChatGarblerActiveAllowed;
-        apiPerms.ChatGarblerLockedAllowed = databasePerms.ChatGarblerLockedAllowed;
-        apiPerms.GaggedNameplateAllowed = databasePerms.GaggedNameplateAllowed;
+        apiPerms.ChatGarblerActiveAllowed = dbState.ChatGarblerActiveAllowed;
+        apiPerms.ChatGarblerLockedAllowed = dbState.ChatGarblerLockedAllowed;
+        apiPerms.GaggedNameplateAllowed = dbState.GaggedNameplateAllowed;
 
-        apiPerms.WardrobeEnabledAllowed = databasePerms.WardrobeEnabledAllowed;
-        apiPerms.GagVisualsAllowed = databasePerms.GagVisualsAllowed;
-        apiPerms.RestrictionVisualsAllowed = databasePerms.RestrictionVisualsAllowed;
-        apiPerms.RestraintSetVisualsAllowed = databasePerms.RestraintSetVisualsAllowed;
+        apiPerms.WardrobeEnabledAllowed = dbState.WardrobeEnabledAllowed;
+        apiPerms.GagVisualsAllowed = dbState.GagVisualsAllowed;
+        apiPerms.RestrictionVisualsAllowed = dbState.RestrictionVisualsAllowed;
+        apiPerms.RestraintSetVisualsAllowed = dbState.RestraintSetVisualsAllowed;
 
-        apiPerms.PermanentLocksAllowed = databasePerms.PermanentLocksAllowed;
-        apiPerms.OwnerLocksAllowed = databasePerms.OwnerLocksAllowed;
-        apiPerms.DevotionalLocksAllowed = databasePerms.DevotionalLocksAllowed;
+        apiPerms.PermanentLocksAllowed = dbState.PermanentLocksAllowed;
+        apiPerms.OwnerLocksAllowed = dbState.OwnerLocksAllowed;
+        apiPerms.DevotionalLocksAllowed = dbState.DevotionalLocksAllowed;
 
-        apiPerms.ApplyGagsAllowed = databasePerms.ApplyGagsAllowed;
-        apiPerms.LockGagsAllowed = databasePerms.LockGagsAllowed;
-        apiPerms.MaxGagTimeAllowed = databasePerms.MaxGagTimeAllowed;
-        apiPerms.UnlockGagsAllowed = databasePerms.UnlockGagsAllowed;
-        apiPerms.RemoveGagsAllowed = databasePerms.RemoveGagsAllowed;
+        apiPerms.ApplyGagsAllowed = dbState.ApplyGagsAllowed;
+        apiPerms.LockGagsAllowed = dbState.LockGagsAllowed;
+        apiPerms.MaxGagTimeAllowed = dbState.MaxGagTimeAllowed;
+        apiPerms.UnlockGagsAllowed = dbState.UnlockGagsAllowed;
+        apiPerms.RemoveGagsAllowed = dbState.RemoveGagsAllowed;
 
-        apiPerms.ApplyRestrictionsAllowed = databasePerms.ApplyRestrictionsAllowed;
-        apiPerms.LockRestrictionsAllowed = databasePerms.LockRestrictionsAllowed;
-        apiPerms.MaxRestrictionTimeAllowed = databasePerms.MaxRestrictionTimeAllowed;
-        apiPerms.UnlockRestrictionsAllowed = databasePerms.UnlockRestrictionsAllowed;
-        apiPerms.RemoveRestrictionsAllowed = databasePerms.RemoveRestrictionsAllowed;
+        apiPerms.ApplyRestrictionsAllowed = dbState.ApplyRestrictionsAllowed;
+        apiPerms.LockRestrictionsAllowed = dbState.LockRestrictionsAllowed;
+        apiPerms.MaxRestrictionTimeAllowed = dbState.MaxRestrictionTimeAllowed;
+        apiPerms.UnlockRestrictionsAllowed = dbState.UnlockRestrictionsAllowed;
+        apiPerms.RemoveRestrictionsAllowed = dbState.RemoveRestrictionsAllowed;
 
-        apiPerms.ApplyRestraintSetsAllowed = databasePerms.ApplyRestraintSetsAllowed;
-        apiPerms.ApplyLayersAllowed = databasePerms.ApplyLayersAllowed;
-        apiPerms.ApplyLayersWhileLockedAllowed = databasePerms.ApplyLayersWhileLockedAllowed;
-        apiPerms.LockRestraintSetsAllowed = databasePerms.LockRestraintSetsAllowed;
-        apiPerms.MaxRestraintTimeAllowed = databasePerms.MaxRestraintTimeAllowed;
-        apiPerms.UnlockRestraintSetsAllowed = databasePerms.UnlockRestraintSetsAllowed;
-        apiPerms.RemoveLayersAllowed = databasePerms.RemoveLayersAllowed;
-        apiPerms.RemoveLayersWhileLockedAllowed = databasePerms.RemoveLayersWhileLockedAllowed;
-        apiPerms.RemoveRestraintSetsAllowed = databasePerms.RemoveRestraintSetsAllowed;
+        apiPerms.ApplyRestraintSetsAllowed = dbState.ApplyRestraintSetsAllowed;
+        apiPerms.ApplyLayersAllowed = dbState.ApplyLayersAllowed;
+        apiPerms.ApplyLayersWhileLockedAllowed = dbState.ApplyLayersWhileLockedAllowed;
+        apiPerms.LockRestraintSetsAllowed = dbState.LockRestraintSetsAllowed;
+        apiPerms.MaxRestraintTimeAllowed = dbState.MaxRestraintTimeAllowed;
+        apiPerms.UnlockRestraintSetsAllowed = dbState.UnlockRestraintSetsAllowed;
+        apiPerms.RemoveLayersAllowed = dbState.RemoveLayersAllowed;
+        apiPerms.RemoveLayersWhileLockedAllowed = dbState.RemoveLayersWhileLockedAllowed;
+        apiPerms.RemoveRestraintSetsAllowed = dbState.RemoveRestraintSetsAllowed;
 
-        apiPerms.PuppeteerEnabledAllowed = databasePerms.PuppeteerEnabledAllowed;
-        apiPerms.PuppetPermsAllowed = databasePerms.PuppetPermsAllowed;
+        apiPerms.PuppeteerEnabledAllowed = dbState.PuppeteerEnabledAllowed;
+        apiPerms.PuppetPermsAllowed = dbState.PuppetPermsAllowed;
 
-        apiPerms.MoodlesEnabledAllowed = databasePerms.MoodlesEnabledAllowed;
-        apiPerms.MoodlePermsAllowed = databasePerms.MoodlePermsAllowed;
-        apiPerms.MaxMoodleTimeAllowed = databasePerms.MaxMoodleTimeAllowed;
+        apiPerms.MoodlesEnabledAllowed = dbState.MoodlesEnabledAllowed;
+        apiPerms.MoodlePermsAllowed = dbState.MoodlePermsAllowed;
+        apiPerms.MaxMoodleTimeAllowed = dbState.MaxMoodleTimeAllowed;
 
-        apiPerms.HypnosisMaxTimeAllowed = databasePerms.HypnosisMaxTimeAllowed;
-        apiPerms.HypnosisSendingAllowed = databasePerms.HypnosisSendingAllowed;
+        apiPerms.HypnosisMaxTimeAllowed = dbState.HypnosisMaxTimeAllowed;
+        apiPerms.HypnosisSendingAllowed = dbState.HypnosisSendingAllowed;
 
-        apiPerms.SpatialAudioAllowed = databasePerms.SpatialAudioAllowed;
-        apiPerms.ExecutePatternsAllowed = databasePerms.ExecutePatternsAllowed;
-        apiPerms.StopPatternsAllowed = databasePerms.StopPatternsAllowed;
-        apiPerms.ToggleAlarmsAllowed = databasePerms.ToggleAlarmsAllowed;
-        apiPerms.ToggleTriggersAllowed = databasePerms.ToggleTriggersAllowed;
+        apiPerms.SpatialAudioAllowed = dbState.SpatialAudioAllowed;
+        apiPerms.ExecutePatternsAllowed = dbState.ExecutePatternsAllowed;
+        apiPerms.StopPatternsAllowed = dbState.StopPatternsAllowed;
+        apiPerms.ToggleAlarmsAllowed = dbState.ToggleAlarmsAllowed;
+        apiPerms.ToggleTriggersAllowed = dbState.ToggleTriggersAllowed;
 
         return apiPerms;
     }
 
-    public static ClientPairPermissionAccess ToModelKinksterEditAccess(this PairPermAccess apiPerms, ClientPairPermissionAccess databasePerms)
+    public static ClientPairPermissionAccess ToModelKinksterEditAccess(this PairPermAccess apiPerms, ClientPairPermissionAccess dbState)
     {
         if (apiPerms is null)
-            return databasePerms;
+            return dbState;
 
         // Otherwise update it.
-        databasePerms.ChatGarblerActiveAllowed = apiPerms.ChatGarblerActiveAllowed;
-        databasePerms.ChatGarblerLockedAllowed = apiPerms.ChatGarblerLockedAllowed;
-        databasePerms.GaggedNameplateAllowed = apiPerms.GaggedNameplateAllowed;
+        dbState.ChatGarblerActiveAllowed = apiPerms.ChatGarblerActiveAllowed;
+        dbState.ChatGarblerLockedAllowed = apiPerms.ChatGarblerLockedAllowed;
+        dbState.GaggedNameplateAllowed = apiPerms.GaggedNameplateAllowed;
 
-        databasePerms.WardrobeEnabledAllowed = apiPerms.WardrobeEnabledAllowed;
-        databasePerms.GagVisualsAllowed = apiPerms.GagVisualsAllowed;
-        databasePerms.RestrictionVisualsAllowed = apiPerms.RestrictionVisualsAllowed;
-        databasePerms.RestraintSetVisualsAllowed = apiPerms.RestraintSetVisualsAllowed;
+        dbState.WardrobeEnabledAllowed = apiPerms.WardrobeEnabledAllowed;
+        dbState.GagVisualsAllowed = apiPerms.GagVisualsAllowed;
+        dbState.RestrictionVisualsAllowed = apiPerms.RestrictionVisualsAllowed;
+        dbState.RestraintSetVisualsAllowed = apiPerms.RestraintSetVisualsAllowed;
 
-        databasePerms.PermanentLocksAllowed = apiPerms.PermanentLocksAllowed;
-        databasePerms.OwnerLocksAllowed = apiPerms.OwnerLocksAllowed;
-        databasePerms.DevotionalLocksAllowed = apiPerms.DevotionalLocksAllowed;
+        dbState.PermanentLocksAllowed = apiPerms.PermanentLocksAllowed;
+        dbState.OwnerLocksAllowed = apiPerms.OwnerLocksAllowed;
+        dbState.DevotionalLocksAllowed = apiPerms.DevotionalLocksAllowed;
 
-        databasePerms.ApplyGagsAllowed = apiPerms.ApplyGagsAllowed;
-        databasePerms.LockGagsAllowed = apiPerms.LockGagsAllowed;
-        databasePerms.MaxGagTimeAllowed = apiPerms.MaxGagTimeAllowed;
-        databasePerms.UnlockGagsAllowed = apiPerms.UnlockGagsAllowed;
-        databasePerms.RemoveGagsAllowed = apiPerms.RemoveGagsAllowed;
+        dbState.ApplyGagsAllowed = apiPerms.ApplyGagsAllowed;
+        dbState.LockGagsAllowed = apiPerms.LockGagsAllowed;
+        dbState.MaxGagTimeAllowed = apiPerms.MaxGagTimeAllowed;
+        dbState.UnlockGagsAllowed = apiPerms.UnlockGagsAllowed;
+        dbState.RemoveGagsAllowed = apiPerms.RemoveGagsAllowed;
 
-        databasePerms.ApplyRestrictionsAllowed = apiPerms.ApplyRestrictionsAllowed;
-        databasePerms.LockRestrictionsAllowed = apiPerms.LockRestrictionsAllowed;
-        databasePerms.MaxRestrictionTimeAllowed = apiPerms.MaxRestrictionTimeAllowed;
-        databasePerms.UnlockRestrictionsAllowed = apiPerms.UnlockRestrictionsAllowed;
-        databasePerms.RemoveRestrictionsAllowed = apiPerms.RemoveRestrictionsAllowed;
+        dbState.ApplyRestrictionsAllowed = apiPerms.ApplyRestrictionsAllowed;
+        dbState.LockRestrictionsAllowed = apiPerms.LockRestrictionsAllowed;
+        dbState.MaxRestrictionTimeAllowed = apiPerms.MaxRestrictionTimeAllowed;
+        dbState.UnlockRestrictionsAllowed = apiPerms.UnlockRestrictionsAllowed;
+        dbState.RemoveRestrictionsAllowed = apiPerms.RemoveRestrictionsAllowed;
 
-        databasePerms.ApplyRestraintSetsAllowed = apiPerms.ApplyRestraintSetsAllowed;
-        databasePerms.ApplyLayersAllowed = apiPerms.ApplyLayersAllowed;
-        databasePerms.ApplyLayersWhileLockedAllowed = apiPerms.ApplyLayersWhileLockedAllowed;
-        databasePerms.LockRestraintSetsAllowed = apiPerms.LockRestraintSetsAllowed;
-        databasePerms.MaxRestraintTimeAllowed = apiPerms.MaxRestraintTimeAllowed;
-        databasePerms.UnlockRestraintSetsAllowed = apiPerms.UnlockRestraintSetsAllowed;
-        databasePerms.RemoveLayersAllowed = apiPerms.RemoveLayersAllowed;
-        databasePerms.RemoveLayersWhileLockedAllowed = apiPerms.RemoveLayersWhileLockedAllowed;
-        databasePerms.RemoveRestraintSetsAllowed = apiPerms.RemoveRestraintSetsAllowed;
+        dbState.ApplyRestraintSetsAllowed = apiPerms.ApplyRestraintSetsAllowed;
+        dbState.ApplyLayersAllowed = apiPerms.ApplyLayersAllowed;
+        dbState.ApplyLayersWhileLockedAllowed = apiPerms.ApplyLayersWhileLockedAllowed;
+        dbState.LockRestraintSetsAllowed = apiPerms.LockRestraintSetsAllowed;
+        dbState.MaxRestraintTimeAllowed = apiPerms.MaxRestraintTimeAllowed;
+        dbState.UnlockRestraintSetsAllowed = apiPerms.UnlockRestraintSetsAllowed;
+        dbState.RemoveLayersAllowed = apiPerms.RemoveLayersAllowed;
+        dbState.RemoveLayersWhileLockedAllowed = apiPerms.RemoveLayersWhileLockedAllowed;
+        dbState.RemoveRestraintSetsAllowed = apiPerms.RemoveRestraintSetsAllowed;
 
-        databasePerms.PuppeteerEnabledAllowed = apiPerms.PuppeteerEnabledAllowed;
-        databasePerms.PuppetPermsAllowed = apiPerms.PuppetPermsAllowed;
+        dbState.PuppeteerEnabledAllowed = apiPerms.PuppeteerEnabledAllowed;
+        dbState.PuppetPermsAllowed = apiPerms.PuppetPermsAllowed;
 
-        databasePerms.MoodlesEnabledAllowed = apiPerms.MoodlesEnabledAllowed;
-        databasePerms.MoodlePermsAllowed = apiPerms.MoodlePermsAllowed;
-        databasePerms.MaxMoodleTimeAllowed = apiPerms.MaxMoodleTimeAllowed;
+        dbState.MoodlesEnabledAllowed = apiPerms.MoodlesEnabledAllowed;
+        dbState.MoodlePermsAllowed = apiPerms.MoodlePermsAllowed;
+        dbState.MaxMoodleTimeAllowed = apiPerms.MaxMoodleTimeAllowed;
 
-        databasePerms.HypnosisMaxTimeAllowed = apiPerms.HypnosisMaxTimeAllowed;
-        databasePerms.HypnosisSendingAllowed = apiPerms.HypnosisSendingAllowed;
+        dbState.HypnosisMaxTimeAllowed = apiPerms.HypnosisMaxTimeAllowed;
+        dbState.HypnosisSendingAllowed = apiPerms.HypnosisSendingAllowed;
 
-        databasePerms.SpatialAudioAllowed = apiPerms.SpatialAudioAllowed;
-        databasePerms.ExecutePatternsAllowed = apiPerms.ExecutePatternsAllowed;
-        databasePerms.StopPatternsAllowed = apiPerms.StopPatternsAllowed;
-        databasePerms.ToggleAlarmsAllowed = apiPerms.ToggleAlarmsAllowed;
-        databasePerms.ToggleTriggersAllowed = apiPerms.ToggleTriggersAllowed;
+        dbState.SpatialAudioAllowed = apiPerms.SpatialAudioAllowed;
+        dbState.ExecutePatternsAllowed = apiPerms.ExecutePatternsAllowed;
+        dbState.StopPatternsAllowed = apiPerms.StopPatternsAllowed;
+        dbState.ToggleAlarmsAllowed = apiPerms.ToggleAlarmsAllowed;
+        dbState.ToggleTriggersAllowed = apiPerms.ToggleTriggersAllowed;
         
-        return databasePerms;
+        return dbState;
     }
 }
 #pragma warning restore MA0051

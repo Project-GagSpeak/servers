@@ -9,6 +9,8 @@ public class UserRestrictionData : IPadlockableRestriction
     [Key]
     [Column(Order = 0)]
     public string UserUID { get; set; }
+
+    [ForeignKey(nameof(UserUID))]
     public virtual User User { get; set; }
 
     [Key]

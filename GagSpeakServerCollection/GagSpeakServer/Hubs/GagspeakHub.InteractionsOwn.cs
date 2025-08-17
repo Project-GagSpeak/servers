@@ -1,6 +1,7 @@
 ﻿using GagspeakAPI.Attributes;
 using GagspeakAPI.Data;
 using GagspeakAPI.Enums;
+using GagspeakAPI.Extensions;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakAPI.Util;
@@ -298,6 +299,94 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushActiveCollar(PushClientActiveCollar dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+
+        // Client must be collared to do this.
+        UserCollarData? collar = dto.Type is DataUpdateType.CollarRemoved
+            ? await DbContext.UserCollarData.Include(c => c.Owners).FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false)
+            : await DbContext.UserCollarData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+        if (collar is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotCollared);
+
+        var prevCollar = collar.Identifier;
+
+        // Must reject if a change is attempted that Collared Kinkster does not have access to.
+        switch (dto.Type)
+        {
+            case DataUpdateType.VisibilityChange:
+                if (!collar.EditAccess.HasAny(CollarAccess.Visuals))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.Visuals = !collar.Visuals;
+                break;
+
+            case DataUpdateType.DyesChange:
+                if (!collar.EditAccess.HasAny(CollarAccess.Dyes))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.Dye1 = dto.Dye1;
+                collar.Dye2 = dto.Dye2;
+                break;
+
+            case DataUpdateType.CollarMoodleChange:
+                if (!collar.EditAccess.HasAny(CollarAccess.Moodle))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.MoodleId = dto.Moodle.GUID;
+                collar.MoodleIconId = dto.Moodle.IconID;
+                collar.MoodleTitle = dto.Moodle.Title;
+                collar.MoodleDescription = dto.Moodle.Description;
+                collar.MoodleType = (byte)dto.Moodle.Type;
+                collar.MoodleVFXPath = dto.Moodle.CustomVFXPath;
+                break;
+
+            case DataUpdateType.CollarWritingChange:
+                if (!collar.EditAccess.HasAny(CollarAccess.Writing))
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                collar.Writing = dto.Writing;
+                break;
+
+            case DataUpdateType.CollarRemoved:
+                // maybe add some safeguard down the line here, but
+                // this should be easily triggerable with a safeword for obvious reasons.
+                collar.Identifier = Guid.Empty;
+                collar.Visuals = true; // reset visuals to true.
+                collar.Dye1 = 0; // reset dye1 to default.
+                collar.Dye2 = 0; // reset dye2 to default.
+                collar.MoodleId = Guid.Empty; // reset moodle to default.
+                collar.MoodleIconId = 0; // reset moodle icon to default.
+                collar.MoodleTitle = string.Empty; // reset moodle title to default.
+                collar.MoodleDescription = string.Empty; // reset moodle description to default.
+                collar.MoodleType = 0; // reset moodle type to default.
+                collar.MoodleVFXPath = string.Empty; // reset moodle vfx path to default.
+                collar.Writing = string.Empty; // reset writing to default.
+                collar.EditAccess = CollarAccess.None; // reset edit access to none.
+                collar.OwnerEditAccess = CollarAccess.None; // reset owner edit access to none.
+                // remove all owners.
+                DbContext.CollarOwners.RemoveRange(collar.Owners);
+                break;
+
+            default:
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+        }
+
+        // update and save collar data.
+        DbContext.Update(collar);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // Package to API and run callback.
+        var newCollarData = collar.ToApiCollarData();
+        var callbackDto = new KinksterUpdateActiveCollar(new(UserUID), new(UserUID), newCollarData, dto.Type)
+        {
+            PreviousCollar = dto.Type is DataUpdateType.CollarRemoved ? prevCollar : Guid.Empty
+        };
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveCollar(callbackDto).ConfigureAwait(false);
+        await Clients.Caller.Callback_KinksterUpdateActiveCollar(callbackDto).ConfigureAwait(false);
+
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushActiveLoot(PushClientActiveLoot dto)
     {
         var recipientUids = dto.Recipients.Select(r => r.UID);
@@ -396,7 +485,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewGagData(PushClientDataChangeGag dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewGagData(new(new(UserUID), dto.GagType, dto.LightItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -405,7 +494,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewRestrictionData(PushClientDataChangeRestriction dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewRestrictionData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -414,16 +503,25 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewRestraintData(PushClientDataChangeRestraint dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewRestraintData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewCollarData(PushClientDataChangeCollar dto)
+    {
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewCollarData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewLootData(PushClientDataChangeLoot dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewLootData(new(new(UserUID), dto.Id, dto.LightItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -432,7 +530,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewPatternData(PushClientDataChangePattern dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewPatternData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -441,7 +539,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewAlarmData(PushClientDataChangeAlarm dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewAlarmData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -450,7 +548,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewTriggerData(PushClientDataChangeTrigger dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewTriggerData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -459,7 +557,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushNewAllowances(PushClientAllowances dto)
     {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewAllowances(new(new(UserUID), dto.Module, dto.AllowedUids)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
@@ -498,46 +596,6 @@ public partial class GagspeakHub
         await Clients.Users(pairsOfClient.Select(p => p.Key)).Callback_BulkChangeGlobal(new(new(UserUID), dto.NewPerms)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
-
-    // Understand Safewords Better First!
-    //[Authorize(Policy = "Identified")]
-    //public async Task<HubResponse> UserBulkChangeSafeword(BulkChangeAll dto)
-    //{
-    //    _logger.LogCallInfo();
-    //    if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-    //    {
-    //        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot perform this on anyone but yourself!").ConfigureAwait(false);
-    //        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-    //    }
-
-    //    // grab our pair permissions for this user.
-    //    ClientPairPermissions? pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
-    //    if (pairPerms is null)
-    //    {
-    //        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Pair Permission Not Found").ConfigureAwait(false);
-    //        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-    //    }
-    //    // grab the pair permission access for this user.
-    //    ClientPairPermissionAccess? pairAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false);
-    //    if (pairAccess is null)
-    //    {
-    //        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Pair permission access not found").ConfigureAwait(false);
-    //        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-    //    }
-
-    //    // Update the global permissions, pair permissions, and editAccess permissions with the new values.
-    //    ClientPairPermissions newPairPerms = dto.Unique.ToModelKinksterPerms(pairPerms);
-    //    ClientPairPermissionAccess newPairAccess = dto.Access.ToModelKinksterEditAccess(pairAccess);
-
-    //    // update the database with the new permissions & save DB changes
-    //    DbContext.Update(newPairPerms);
-    //    DbContext.Update(newPairAccess);
-    //    await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-    //    await Clients.Caller.Callback_BulkChangeUnique(new(dto.User, dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
-    //    await Clients.User(dto.User.UID).Callback_BulkChangeUnique(new(new(UserUID), dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
-    //    return HubResponseBuilder.Yippee();
-    //}
 
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserBulkChangeUnique(BulkChangeUnique dto)

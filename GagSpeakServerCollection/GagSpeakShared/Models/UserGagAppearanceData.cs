@@ -46,7 +46,9 @@ public class UserGagData : IPadlockableRestriction
     [Key]
     [Column(Order = 0)]
     public string UserUID { get; set; }
-    public User User { get; set; }
+
+    [ForeignKey(nameof(UserUID))]
+    public virtual User User { get; set; }
 
     [Key]
     [Column(Order = 1)]

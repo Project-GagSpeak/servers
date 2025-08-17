@@ -4,7 +4,6 @@ using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
 
 namespace GagspeakServer.Hubs;
 #pragma warning disable MA0016
@@ -19,7 +18,6 @@ public partial class GagspeakHub
     /// <summary> 
     /// Helper function to remove a assist with properly deleting a user from all locations in where it was stored.
     /// </summary>
-    /// <param name="user"> The User that we wish to remove from the Database </param>
     private async Task DeleteUser(User user)
     {
         // fetch all data related to the user about to be deleted from the database.
@@ -48,9 +46,9 @@ public partial class GagspeakHub
 
         // next remove the range of client pairs that fall under the own pair data
         DbContext.ClientPairs.RemoveRange(ownPairData);
-        var otherPairData = await DbContext.ClientPairs.Include(u => u.User).Where(u => u.OtherUser.UID == user.UID).AsNoTracking().ToListAsync().ConfigureAwait(false);
+        List<ClientPair> otherPairData = await DbContext.ClientPairs.Include(u => u.User).Where(u => u.OtherUser.UID == user.UID).AsNoTracking().ToListAsync().ConfigureAwait(false);
         // for each of the other pairs in the database, remove the user from their client pair list.
-        foreach (var pair in otherPairData)
+        foreach (ClientPair? pair in otherPairData)
         {
             await Clients.User(pair.UserUID).UserRemoveKinkster(new(user.ToUserData())).ConfigureAwait(false);
         }
@@ -105,14 +103,14 @@ public partial class GagspeakHub
     /// <summary> Helper to get the total number of users who are online currently from the list of passed in UID's.</summary>
     private async Task<Dictionary<string, string>> GetOnlineUsers(List<string> uids)
     {
-        var result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
+        IDictionary<string, string?> result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
 #pragma warning disable CS8619 // Nullability of reference types in value doesn't match target type.
         return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out string? ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["GagspeakHub:UID:" + u], StringComparer.Ordinal);
 #pragma warning restore CS8619 // Nullability of reference types in value doesn't match target type.
     }
 
     /// <summary> Helper function to get the user's identity from the redis by their UID </summary>
-    private async Task<string> GetUserIdent(string uid)
+    private async Task<string?> GetUserIdent(string uid)
     {
         if (uid.NullOrEmpty()) return string.Empty;
 #pragma warning disable CS8603 // Possible null reference return.
@@ -143,8 +141,8 @@ public partial class GagspeakHub
     private async Task<List<string>> SendOfflineToAllPairedUsers()
     {
         // grab all paired unpaused users, our user object, and send our offlineIdentDTO to the list of unpaused paired users.
-        var usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        List<string> usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        User self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         await Clients.Users(usersToSendDataTo).Callback_KinksterOffline(new(self.ToUserData())).ConfigureAwait(false);
         return usersToSendDataTo;
     }
@@ -159,8 +157,8 @@ public partial class GagspeakHub
     private async Task<List<string>> SendOnlineToAllPairedUsers()
     {
         // grab all paired unpaused users, our user object, and send our onlineIdentDTO to the list of unpaused paired users.
-        var usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        List<string> usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        User self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         await Clients.Users(usersToSendDataTo).Callback_KinksterOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
         // return the list of UID strings that we sent the online message to.
         return usersToSendDataTo;
@@ -175,17 +173,14 @@ public partial class GagspeakHub
         foreach (AccountClaimAuth auth in newlyAddedAccountClaims)
         {
             // locate the auth in the database with the matching hashed key
-            var matchingUserAuth = await DbContext.Auth.AsNoTracking().SingleAsync(u => u.HashedKey == auth.InitialGeneratedKey).ConfigureAwait(false);
+            Auth matchingUserAuth = await DbContext.Auth.AsNoTracking().SingleAsync(u => u.HashedKey == auth.InitialGeneratedKey).ConfigureAwait(false);
 
             // then locate the userUID of that auth object
-            var userUID = matchingUserAuth.UserUID;
+            string? userUID = matchingUserAuth.UserUID;
 
             // see if that user UID is in the list of user connections
             if (userUID is not null && _userConnections.ContainsKey(userUID))
-            {
-                // if it is, send the verification code to the user
                 await Clients.User(userUID).Callback_ShowVerification(new() { Code = auth.VerificationCode ?? "" }).ConfigureAwait(false);
-            }
         }
     }
 
@@ -195,7 +190,7 @@ public partial class GagspeakHub
     public async Task<List<User>> GetSyncedPairs(string uid)
     {
         // Query to find bidirectional (synced) client pairs
-        var syncedPairsQuery = from cp in DbContext.ClientPairs
+        IQueryable<User> syncedPairsQuery = from cp in DbContext.ClientPairs
                                join cp2 in DbContext.ClientPairs
                                on new { UserUID = cp.UserUID, OtherUserUID = cp.OtherUserUID }
                                equals new { UserUID = cp2.OtherUserUID, OtherUserUID = cp2.UserUID }
@@ -203,8 +198,7 @@ public partial class GagspeakHub
                                select cp.OtherUser; // Select the OtherUser object directly
 
         // Execute the query and return the list of User objects
-        var syncedUsers = await syncedPairsQuery.Distinct().ToListAsync().ConfigureAwait(false);
-
+        List<User> syncedUsers = await syncedPairsQuery.Distinct().ToListAsync().ConfigureAwait(false);
         return syncedUsers;
     }
 
@@ -277,7 +271,13 @@ public partial class GagspeakHub
                                 // Join for GlobalPerms for the other user
                             join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
-                                // Filter to include only pairs where the main user is involved
+                                // Join for HardcoreState for the main user.
+                            join uhc in DbContext.UserHardcoreState.AsNoTracking() on user.UserUID equals uhc.UserUID into userHardcoreState
+                            from userHardcore in userHardcoreState.DefaultIfEmpty()
+                                // Join for HardcoreState for the other user.
+                            join ohs in DbContext.UserHardcoreState.AsNoTracking() on user.OtherUserUID equals ohs.UserUID into otherUserHardcoreState
+                            from otherUserHcState in otherUserHardcoreState.DefaultIfEmpty()
+                            // Filter to include only pairs where the main user is involved
                             where user.UserUID == uid && u.UID == user.OtherUserUID
                             // Select the final projection of data to include in the results
                             select new
@@ -289,9 +289,11 @@ public partial class GagspeakHub
                                 OtherUserCreatedDate = u.CreatedDate,
                                 Synced = user.Synced,
                                 OwnGlobalPerms = userGlobalPerm,
+                                OwnHardcoreState = userHardcore,
                                 OwnPermissions = ownperm,
                                 OwnPermissionsAccess = ownaccess,
                                 OtherGlobalPerms = otherUserGlobalPerm,
+                                OtherHardcoreState = otherUserHcState,
                                 OtherPermissions = otherperm,
                                 OtherPermissionsAccess = otheraccess
                             };
@@ -309,9 +311,11 @@ public partial class GagspeakHub
             resultList[0].OtherUserCreatedDate,
             resultList.Max(p => p.Synced), // if they are synced.
             resultList[0].OwnGlobalPerms,
+            resultList[0].OwnHardcoreState,
             resultList[0].OwnPermissions,
             resultList[0].OwnPermissionsAccess,
             resultList[0].OtherGlobalPerms,
+            resultList[0].OtherHardcoreState,
             resultList[0].OtherPermissions,
             resultList[0].OtherPermissionsAccess
             );
@@ -322,26 +326,26 @@ public partial class GagspeakHub
     private async Task<Dictionary<string, UserInfo>> GetAllPairInfo(string uid)
     {
         // refer to GETPAIRINFO function above to see explanation of this function.
-        var clientPairs = from cp in DbContext.ClientPairs.AsNoTracking().Where(u => u.UserUID == uid)
-                          join cp2 in DbContext.ClientPairs.AsNoTracking().Where(u => u.OtherUserUID == uid)
-                          on new
-                          {
-                              UserUID = cp.UserUID,
-                              OtherUserUID = cp.OtherUserUID
-                          }
-                          equals new
-                          {
-                              UserUID = cp2.OtherUserUID,
-                              OtherUserUID = cp2.UserUID
-                          } into joined
-                          from c in joined.DefaultIfEmpty()
-                          where cp.UserUID == uid
-                          select new
-                          {
-                              UserUID = cp.UserUID,
-                              OtherUserUID = cp.OtherUserUID,
-                              Synced = c != null
-                          };
+        var clientPairs =   from cp in DbContext.ClientPairs.AsNoTracking().Where(u => u.UserUID == uid)
+                            join cp2 in DbContext.ClientPairs.AsNoTracking().Where(u => u.OtherUserUID == uid)
+                            on new
+                            {
+                                UserUID = cp.UserUID,
+                                OtherUserUID = cp.OtherUserUID
+                            }
+                            equals new
+                            {
+                                UserUID = cp2.OtherUserUID,
+                                OtherUserUID = cp2.UserUID
+                            } into joined
+                            from c in joined.DefaultIfEmpty()
+                            where cp.UserUID == uid
+                            select new
+                            {
+                                UserUID = cp.UserUID,
+                                OtherUserUID = cp.OtherUserUID,
+                                Synced = c != null
+                            };
 
 
         // Start by selecting from a previously defined collection 'clientPairs'
@@ -378,6 +382,12 @@ public partial class GagspeakHub
                                 // Join for GlobalPerms for the other user
                             join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
+                                // Join for HardcoreState for the main user.
+                            join uhs in DbContext.UserHardcoreState.AsNoTracking() on user.UserUID equals uhs.UserUID into userHardcoreState
+                            from userHcState in userHardcoreState.DefaultIfEmpty()
+                                // Join for HardcoreState for the other user.
+                            join ohs in DbContext.UserHardcoreState.AsNoTracking() on user.OtherUserUID equals ohs.UserUID into otherUserHardcoreState
+                            from otherUserHcState in otherUserHardcoreState.DefaultIfEmpty()
                                 // Filter to include only pairs where the main user is involved
                             where user.UserUID == uid
                                 && u.UID == user.OtherUserUID
@@ -395,32 +405,34 @@ public partial class GagspeakHub
                                 OtherUserCreatedDate = u.CreatedDate,
                                 Synced = user.Synced,
                                 OwnGlobalPerms = userGlobalPerm,
+                                OwnHardcoreState = userHcState,
                                 OwnPermissions = ownperm,
                                 OwnPermissionsAccess = ownaccess,
                                 OtherGlobalPerms = otherUserGlobalPerm,
+                                OtherHardcoreState = otherUserHcState,
                                 OtherPermissions = otherperm,
                                 OtherPermissionsAccess = otheraccess
                             };
 
-        // Aquire the query result and form it into an established list
+        // obtain the query result and form it into an established list
         var resultList = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
-        // Example of logging the first few items
-        //resultList.Take(15).ToList().ForEach(item => _logger.LogWarning($"Item: {JsonConvert.SerializeObject(item)}"));
 
 
         // Group results by OtherUserUID and convert to dictionary for return
         return resultList.GroupBy(g => g.OtherUserUID, StringComparer.Ordinal).ToDictionary(g => g.Key, g =>
         {
             // for some unexplainable reason, putting a return where the var is makes this no longer work. I dont fucking know why, it just doesnt.
-            var userInfo = new UserInfo(
+            UserInfo userInfo = new UserInfo(
                 g.First().OtherUserAlias, // the alias of the user.
                 g.First().OtherUserSupporterTier,
                 g.First().OtherUserCreatedDate,
                 g.Max(p => p.Synced), // if they are synced.
                 g.First().OwnGlobalPerms,
+                g.First().OwnHardcoreState,
                 g.First().OwnPermissions,
                 g.First().OwnPermissionsAccess,
                 g.First().OtherGlobalPerms,
+                g.First().OtherHardcoreState,
                 g.First().OtherPermissions,
                 g.First().OtherPermissionsAccess
             );
@@ -454,44 +466,29 @@ public partial class GagspeakHub
                           };
 
         // Start by selecting from a previously defined collection 'clientPairs'
-        var resultingInfo = from user in clientPairs
-                                // Join with the Users table to get details of the "other user" in each pair
-                            join u in DbContext.Users.AsNoTracking() on user.OtherUserUID equals u.UID
-                            // Attempt to join with the ClientPairPermissions table to find permissions the user set for the other user
-                            join o in DbContext.ClientPairPermissions.AsNoTracking().Where(u => u.UserUID == uid)
-                                on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
-                                equals new { UserUID = o.UserUID, OtherUserUID = o.OtherUserUID } into ownperms
-                            // find perms that uid has set for other user in the pair. Groups results into 'ownperms'
-                            from ownperm in ownperms.DefaultIfEmpty()
-                                // Similar to the previous join, but for a different table: ClientPairPermissionAccess
-                            join oa in DbContext.ClientPairPermissionAccess.AsNoTracking().Where(a => a.UserUID == uid)
-                                on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
-                                equals new { UserUID = oa.UserUID, OtherUserUID = oa.OtherUserUID } into ownaccesses
-                            // find perms that uid has set for other user in the pair. Groups results into 'ownaccesses'
-                            from ownaccess in ownaccesses.DefaultIfEmpty()
-                                // Now, attempt to find permissions set by the other user for the main user
-                            join p in DbContext.ClientPairPermissions.AsNoTracking().Where(u => u.OtherUserUID == uid)
-                                on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
-                                equals new { UserUID = p.UserUID, OtherUserUID = p.OtherUserUID } into otherperms
-                            // find perms that the other user has set for the main user. Groups results into 'otherperms'
-                            from otherperm in otherperms.DefaultIfEmpty()
-                                // Similar to previous joins, but for access permissions set by the other user for the main user
-                            join pa in DbContext.ClientPairPermissionAccess.AsNoTracking().Where(a => a.OtherUserUID == uid)
-                                on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
-                                equals new { UserUID = pa.UserUID, OtherUserUID = pa.OtherUserUID } into otheraccesses
-                            // find perms that the other user has set for the main user. Groups results into 'otheraccesses'
-                            from otheraccess in otheraccesses.DefaultIfEmpty()
-                                // Join for GlobalPerms for the main user
-                            join ug in DbContext.UserGlobalPermissions.AsNoTracking() on user.UserUID equals ug.UserUID into userGlobalPerms
-                            from userGlobalPerm in userGlobalPerms.DefaultIfEmpty()
-                                // Join for GlobalPerms for the other user
-                            join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
-                            from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
-                                // Filter to include only pairs where the main user is involved
-                            where user.UserUID == uid
-                                && u.UID == user.OtherUserUID
-                            // Select OtherUserUID for the final determining factor
-                            select user.OtherUserUID;
+        IQueryable<string> resultingInfo = 
+            from user in clientPairs
+                // Join with the Users table to get details of the "other user" in each pair
+            join u in DbContext.Users.AsNoTracking() on user.OtherUserUID equals u.UID
+            // Attempt to join with the ClientPairPermissions table to find permissions the user set for the other user
+            join o in DbContext.ClientPairPermissions.AsNoTracking().Where(u => u.UserUID == uid)
+                on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
+                equals new { UserUID = o.UserUID, OtherUserUID = o.OtherUserUID } into ownperms
+            // find perms that uid has set for other user in the pair. Groups results into 'ownperms'
+            from ownperm in ownperms.DefaultIfEmpty()
+                // Now, attempt to find permissions set by the other user for the main user
+            join p in DbContext.ClientPairPermissions.AsNoTracking().Where(u => u.OtherUserUID == uid)
+                on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
+                equals new { UserUID = p.UserUID, OtherUserUID = p.OtherUserUID } into otherperms
+            // find perms that the other user has set for the main user. Groups results into 'otherperms'
+            from otherperm in otherperms.DefaultIfEmpty()
+                // Filter to include only pairs where the main user is involved
+            where user.UserUID == uid
+                && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
+                && otherperm.OtherUserUID == user.UserUID && otherperm.UserUID == user.OtherUserUID
+                && !ownperm.IsPaused && (otherperm == null ? false : !otherperm.IsPaused)
+            // Select OtherUserUID for the final determining factor
+            select user.OtherUserUID;
 
         // return the distinct list OtherUserUID's that are unpaused and online for the client caller's list of client pairs.
         return await resultingInfo.Distinct().AsNoTracking().ToListAsync().ConfigureAwait(false);
@@ -504,9 +501,11 @@ public partial class GagspeakHub
         DateTime createdDate,
         bool IsSynced,
         UserGlobalPermissions ownGlobalPerms,
+        UserHardcoreState ownHardcoreState,
         ClientPairPermissions ownPairPermissions,
         ClientPairPermissionAccess ownPairPermissionAccess,
         UserGlobalPermissions otherGlobalPerms,
+        UserHardcoreState otherHardcoreState,
         ClientPairPermissions otherPairPermissions,
         ClientPairPermissionAccess otherPairPermissionAccess
         );

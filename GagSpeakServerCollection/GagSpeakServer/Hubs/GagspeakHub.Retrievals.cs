@@ -31,77 +31,85 @@ public partial class GagspeakHub
     public async Task<List<KinksterPair>> UserGetPairedClients()
     {
         //_logger.LogCallInfo();
+        // --- POTENTIALLY OVERHEAD --- --- ONLY UNCOMMENT IF NEEDED ---
+        //User ClientCallerUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        //// before we do anything, we need to validate the tables of our paired clients. So, lets first only grab our synced pairs.
+        //var PairedUsers = await GetSyncedPairs(UserUID).ConfigureAwait(false);
 
-        // fetch our user from the users table via our UserUID claim
-        User ClientCallerUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        //// now, let's check to see if each of these paired users have valid tables in the database. if they don't we should create them.
+        //foreach (User otherUser in PairedUsers)
+        //{
+        //    // fetch our own global permissions
+        //    UserGlobalPermissions? ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID).ConfigureAwait(false);
+        //    // check if null, if so, create new ClientCaller Global Permissions & add it to the database.
+        //    if (ownGlobalPerms is null)
+        //    {
+        //        _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {UserUID}, creating new one.");
+        //        ownGlobalPerms = new UserGlobalPermissions() { User = ClientCallerUser };
+        //        await DbContext.UserGlobalPermissions.AddAsync(ownGlobalPerms).ConfigureAwait(false);
+        //    }
 
-        // before we do anything, we need to validate the tables of our paired clients. So, lets first only grab our synced pairs.
-        List<User> PairedUsers = await GetSyncedPairs(UserUID).ConfigureAwait(false);
+        //    // fetch our own pair permissions for the other user
+        //    ClientPairPermissions? ownPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+        //    // check if null, if so, create new ClientCaller Pair Permissions & add it to the database.
+        //    if (ownPairPermissions is null)
+        //    {
+        //        _logger.LogMessage($"No PairPermissions TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
+        //        ownPairPermissions = new ClientPairPermissions() { User = ClientCallerUser, OtherUser = otherUser };
+        //        await DbContext.ClientPairPermissions.AddAsync(ownPairPermissions).ConfigureAwait(false);
+        //    }
 
-        // now, let's check to see if each of these paired users have valid tables in the database. if they don't we should create them.
-        foreach (User otherUser in PairedUsers)
-        {
-            // fetch our own global permissions
-            UserGlobalPermissions? ownGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID).ConfigureAwait(false);
-            // check if null, if so, create new ClientCaller Global Permissions & add it to the database.
-            if (ownGlobalPerms is null)
-            {
-                _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {UserUID}, creating new one.");
-                ownGlobalPerms = new UserGlobalPermissions() { User = ClientCallerUser };
-                await DbContext.UserGlobalPermissions.AddAsync(ownGlobalPerms).ConfigureAwait(false);
-            }
+        //    // fetch our own pair permissions access for the other user
+        //    ClientPairPermissionAccess? ownPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
+        //    // check if null, if so, create new ClientCaller Pair Permissions Access & add it to the database.
+        //    if (ownPairPermissionAccess is null)
+        //    {
+        //        _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
+        //        ownPairPermissionAccess = new ClientPairPermissionAccess() { User = ClientCallerUser, OtherUser = otherUser };
+        //        await DbContext.ClientPairPermissionAccess.AddAsync(ownPairPermissionAccess).ConfigureAwait(false);
+        //    }
 
-            // fetch our own pair permissions for the other user
-            ClientPairPermissions? ownPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
-            // check if null, if so, create new ClientCaller Pair Permissions & add it to the database.
-            if (ownPairPermissions is null)
-            {
-                _logger.LogMessage($"No PairPermissions TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
-                ownPairPermissions = new ClientPairPermissions() { User = ClientCallerUser, OtherUser = otherUser };
-                await DbContext.ClientPairPermissions.AddAsync(ownPairPermissions).ConfigureAwait(false);
-            }
+        //    // fetch the other users global permissions
+        //    UserGlobalPermissions? otherGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID).ConfigureAwait(false);
+        //    // check if null, if so, create new OtherUser Global Permissions & add it to the database.
+        //    if (otherGlobalPerms is null)
+        //    {
+        //        _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {otherUser.UID}, creating new one.");
+        //        otherGlobalPerms = new UserGlobalPermissions() { User = otherUser };
+        //        await DbContext.UserGlobalPermissions.AddAsync(otherGlobalPerms).ConfigureAwait(false);
+        //    }
 
-            // fetch our own pair permissions access for the other user
-            ClientPairPermissionAccess? ownPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == UserUID && p.OtherUserUID == otherUser.UID).ConfigureAwait(false);
-            // check if null, if so, create new ClientCaller Pair Permissions Access & add it to the database.
-            if (ownPairPermissionAccess is null)
-            {
-                _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {UserUID} in relation towards {otherUser.UID}, creating new one.");
-                ownPairPermissionAccess = new ClientPairPermissionAccess() { User = ClientCallerUser, OtherUser = otherUser };
-                await DbContext.ClientPairPermissionAccess.AddAsync(ownPairPermissionAccess).ConfigureAwait(false);
-            }
+        //    // fetch the other users hardcore state
+        //    UserHardcoreState? otherHardcoreState = await DbContext.UserHardcoreState.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID).ConfigureAwait(false);
+        //    // check if null, if so, create new OtherUser Hardcore State & add it to the database.
+        //    if (otherHardcoreState is null)
+        //    {
+        //        _logger.LogMessage($"No HardcoreState TableRow was found for User: {otherUser.UID}, creating new one.");
+        //        otherHardcoreState = new UserHardcoreState() { User = otherUser };
+        //        await DbContext.UserHardcoreState.AddAsync(otherHardcoreState).ConfigureAwait(false);
+        //    }
 
-            // fetch the other users global permissions
-            UserGlobalPermissions? otherGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID).ConfigureAwait(false);
-            // check if null, if so, create new OtherUser Global Permissions & add it to the database.
-            if (otherGlobalPerms is null)
-            {
-                _logger.LogMessage($"No GlobalPermissions TableRow was found for User: {otherUser.UID}, creating new one.");
-                otherGlobalPerms = new UserGlobalPermissions() { User = otherUser };
-                await DbContext.UserGlobalPermissions.AddAsync(otherGlobalPerms).ConfigureAwait(false);
-            }
+        //    // fetch the other users pair permissions
+        //    ClientPairPermissions? otherPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        //    // check if null, if so, create new OtherUser Pair Permissions & add it to the database.
+        //    if (otherPairPermissions is null)
+        //    {
+        //        _logger.LogMessage($"No PairPermissions TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
+        //        otherPairPermissions = new ClientPairPermissions() { User = otherUser, OtherUser = ClientCallerUser };
+        //        await DbContext.ClientPairPermissions.AddAsync(otherPairPermissions).ConfigureAwait(false);
+        //    }
 
-            // fetch the other users pair permissions
-            ClientPairPermissions? otherPairPermissions = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-            // check if null, if so, create new OtherUser Pair Permissions & add it to the database.
-            if (otherPairPermissions is null)
-            {
-                _logger.LogMessage($"No PairPermissions TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
-                otherPairPermissions = new ClientPairPermissions() { User = otherUser, OtherUser = ClientCallerUser };
-                await DbContext.ClientPairPermissions.AddAsync(otherPairPermissions).ConfigureAwait(false);
-            }
-
-            // fetch the other users pair permissions access
-            ClientPairPermissionAccess? otherPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
-            // check if null, if so, create new OtherUser Pair Permissions Access & add it to the database.
-            if (otherPairPermissionAccess is null)
-            {
-                _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
-                otherPairPermissionAccess = new ClientPairPermissionAccess() { User = otherUser, OtherUser = ClientCallerUser };
-                await DbContext.ClientPairPermissionAccess.AddAsync(otherPairPermissionAccess).ConfigureAwait(false);
-            }
-        }
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+        //    // fetch the other users pair permissions access
+        //    ClientPairPermissionAccess? otherPairPermissionAccess = await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(p => p.UserUID == otherUser.UID && p.OtherUserUID == UserUID).ConfigureAwait(false);
+        //    // check if null, if so, create new OtherUser Pair Permissions Access & add it to the database.
+        //    if (otherPairPermissionAccess is null)
+        //    {
+        //        _logger.LogMessage($"No PairPermissionsAccess TableRow was found for User: {otherUser.UID} in relation towards {UserUID}, creating new one.");
+        //        otherPairPermissionAccess = new ClientPairPermissionAccess() { User = otherUser, OtherUser = ClientCallerUser };
+        //        await DbContext.ClientPairPermissionAccess.AddAsync(otherPairPermissionAccess).ConfigureAwait(false);
+        //    }
+        //}
+        //await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // fetch all the pair information of the client caller
         Dictionary<string, UserInfo> pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
@@ -113,6 +121,7 @@ public partial class GagspeakHub
                 p.Value.ownPairPermissions.ToApiKinksterPerms(),
                 p.Value.ownPairPermissionAccess.ToApiKinksterEditAccess(),
                 p.Value.otherGlobalPerms.ToApiGlobalPerms(),
+                p.Value.otherHardcoreState.ToApiHardcoreState(),
                 p.Value.otherPairPermissions.ToApiKinksterPerms(),
                 p.Value.otherPairPermissionAccess.ToApiKinksterEditAccess());
             return pairList;
@@ -120,13 +129,13 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<List<KinksterRequestEntry>> UserGetPairRequests()
+    public async Task<ActiveRequests> UserGetActiveRequests()
     {
         // fetch all the pair requests with the UserUid in either the UserUID or OtherUserUID
-        List<KinksterRequest> requests = await DbContext.KinksterPairRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
-
-        // return the list of UserPairRequest DTO's containing the pair requests of the client caller
-        return requests.Select(r => new KinksterRequestEntry(new(r.UserUID), new(r.OtherUserUID), r.AttachedMessage, r.CreationTime)).ToList();
+        var pairRequests = await DbContext.KinksterPairRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
+        var collarRequests = await DbContext.CollarRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
+        // ret the requests in api format.
+        return new ActiveRequests(pairRequests.Select(r => r.ToApiPairRequest()).ToList(), collarRequests.Select(r => r.ToApiCollarRequest()).ToList());
     }
 
     [Authorize(Policy = "Identified")]

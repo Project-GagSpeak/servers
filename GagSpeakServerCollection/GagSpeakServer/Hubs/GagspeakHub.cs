@@ -81,7 +81,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     }
 
     /// <summary> 
-    /// Called by a connected client when they want to request a ConnectionDto object from the server.
+    /// Called by a connected client when they want to request a GetConnectionResponse object from the server.
     /// <para>
     /// This method required the requesting client to have the authorize policy "Identified" 
     /// (Meaning they have passed authorization) is bound to their request for the function to proceed. 
@@ -103,6 +103,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                     $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
                 return null!;
             }
+
+            _metrics.IncCounter(MetricsAPI.CounterInitializedConnections);
 
             // Send a client callback to the client caller with the systeminfo Dto.
             await Clients.Caller.Callback_ServerInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
@@ -210,7 +212,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// </summary>
     /// <returns> All the UserUID's published patterns, moodles and collective sharehub tags for searches. </returns>
     [Authorize(Policy = "Identified")]
-    public async Task<LobbyAndHubInfoResponce> GetShareHubAndLobbyInfo()
+    public async Task<LobbyAndHubInfoResponse> GetShareHubAndLobbyInfo()
     {
         // Request these in 
         List<PublishedPattern> patterns = (await DbContext.Patterns.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(p => p.ToPublishedPattern()).ToList();
@@ -220,7 +222,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         HashEntry[] entries = await _redis.Database.HashGetAllAsync(VibeRoomRedis.RoomInviteKey(UserUID)).ConfigureAwait(false);
         List<RoomInvite> invites = entries.Select(e => new RoomInvite(new(UserUID), e.Name.ToString(), e.Value.ToString())).ToList();
 
-        return new LobbyAndHubInfoResponce(tags)
+        return new LobbyAndHubInfoResponse(tags)
         {
             PublishedPatterns = patterns,
             PublishedMoodles = moodles,
@@ -330,6 +332,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         else
         {
             // next up, try and log the connection attempt with the user details
+            _metrics.IncGauge(MetricsAPI.GaugeConnections);
             try
             {
                 // display IP of client who just connected, and initialize player into the online synced pair cache service.
@@ -377,6 +380,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // Attempt to retrieve an existing connection ID for the user UID.
         if (_userConnections.TryGetValue(UserUID, out string cid) && string.Equals(cid, Context.ConnectionId, StringComparison.Ordinal))
         {
+            _metrics.DecGauge(MetricsAPI.GaugeConnections);
             try
             {
                 // try to leave the current room if the user is in one prior to removing them from redi's connection.

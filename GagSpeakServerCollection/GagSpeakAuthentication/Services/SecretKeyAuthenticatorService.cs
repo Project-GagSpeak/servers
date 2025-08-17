@@ -92,8 +92,7 @@ public class SecretKeyAuthenticatorService
         // if the reply was a success, then increase the success counter for the number of authentication successes and the number of cache entries.
         if (reply.Success)
         {
-            _metrics.IncCounter(MetricsAPI.CounterAuthenticationSuccesses);
-            _metrics.IncGauge(MetricsAPI.GaugeAuthenticationCacheEntries);
+            _metrics.IncCounter(MetricsAPI.CounterAuthenticationSuccess);
         }
         else
         {
@@ -110,7 +109,7 @@ public class SecretKeyAuthenticatorService
     private SecretKeyAuthReply AuthenticationFailure(string ip)
     {
         // increase the counter for the number of authentication failures.
-        _metrics.IncCounter(MetricsAPI.CounterAuthenticationFailures);
+        _metrics.IncCounter(MetricsAPI.CounterAuthenticationFailed);
 
         // log the failed authorization from the IP.
         _logger.LogWarning("Failed authorization from {ip}", ip);
