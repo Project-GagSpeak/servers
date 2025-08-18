@@ -1,0 +1,12 @@
+DISPLAY ROWCOUNT AND SIZE OF EACH TABLE:
+
+SELECT 
+    n.nspname || '.' || c.relname AS table_name,
+    pg_stat_get_live_tuples(c.oid) AS live_row_count,
+    pg_size_pretty(pg_total_relation_size(c.oid)) AS total_size
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind = 'r'
+  AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+ORDER BY pg_total_relation_size(c.oid) DESC;
+

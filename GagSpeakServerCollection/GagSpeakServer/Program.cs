@@ -90,24 +90,27 @@ public class Program
             builder.AddConsole();
         });
         // use the logger factory to create the logger for the startup class here
-        ILogger<Startup> logger = loggerFactory.CreateLogger<Startup>();
+        var logger = loggerFactory.CreateLogger<Startup>();
         // then create the default builder for the host
         return Host.CreateDefaultBuilder(args)
-            // be sure we have it use the systemd
             .UseSystemd()
-            // and have a console lifetime
             .UseConsoleLifetime()
-            // additionally, construct the webhost defaults
+            .ConfigureAppConfiguration((ctx, config) =>
+            {
+                var appSettingsPath = Environment.GetEnvironmentVariable("APPSETTINGS_PATH");
+                if (!string.IsNullOrEmpty(appSettingsPath))
+                    config.AddJsonFile(appSettingsPath, optional: true, reloadOnChange: true);
+                else
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                // add other environmental variables defined within the service.
+                config.AddEnvironmentVariables();
+            })
             .ConfigureWebHostDefaults(webBuilder =>
             {
-                // so it uses the content root of the app
                 webBuilder.UseContentRoot(AppContext.BaseDirectory);
-                // and its logging is configured by the configuration
                 webBuilder.ConfigureLogging((ctx, builder) =>
                 {
-                    // based on the section in our appsettings.json with "Logging"
                     builder.AddConfiguration(ctx.Configuration.GetSection("Logging"));
-                    // use .addFile to add a file logger to the builder with the root path of the app
                     builder.AddFile(o => o.RootPath = AppContext.BaseDirectory);
                 });
                 // finally, use the startup class we defined below, (head over to the startup.cs)

@@ -446,12 +446,8 @@ public class Startup
         app.UseHttpMetrics();
 
         // for the metrics server, initialize it with the metrics port from the configuration
-#pragma warning disable IDISP001 // Dispose created
-        KestrelMetricServer metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 4980));
-#pragma warning restore IDISP001 // Dispose created
-#pragma warning disable IDISP004 // Don't ignore created IDisposable
+        var metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 6150));
         metricServer.Start();
-#pragma warning restore IDISP004 // Don't ignore created IDisposable
 
         // have authentication and authorization for the server
         app.UseAuthentication();

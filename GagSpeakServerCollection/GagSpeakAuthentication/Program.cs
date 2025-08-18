@@ -36,16 +36,23 @@ public class Program
         var logger = loggerFactory.CreateLogger<Startup>();
         // return a new default builder with some arguements -->
         return Host.CreateDefaultBuilder(args)
-            // use the systemd for the host
             .UseSystemd()
-            // use the console lifetime for the host
             .UseConsoleLifetime()
+            .ConfigureAppConfiguration((ctx, config) =>
+            {
+                var appSettingsPath = Environment.GetEnvironmentVariable("APPSETTINGS_PATH");
+                if (!string.IsNullOrEmpty(appSettingsPath))
+                    config.AddJsonFile(appSettingsPath, optional: true, reloadOnChange: true);
+                else
+                    config.AddJsonFile("appsettings.json", optional: true, reloadOnChange: true);
+                // add other environmental variables defined within the service.
+                config.AddEnvironmentVariables();
+            })
             // configure the web host defaults to...
             .ConfigureWebHostDefaults(webBuilder =>
             {
                 // use the content root as the base directory
                 webBuilder.UseContentRoot(AppContext.BaseDirectory);
-                // configure logging for the auth service
                 webBuilder.ConfigureLogging((ctx, builder) =>
                 {
                     builder.AddConfiguration(ctx.Configuration.GetSection("Logging"));

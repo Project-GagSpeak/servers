@@ -47,10 +47,8 @@ public class Startup
         app.UseAuthentication();
         app.UseAuthorization();
 
-        // next, set up the metrics server at the port specified in the config from appsettings.json.
         // This should be different from the other components ports.
-        var metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 6152));
-        // start the metrics server
+        var metricServer = new KestrelMetricServer(6152);
         metricServer.Start();
 
         // set up the endpoints for the application. Because this is for authentications,
