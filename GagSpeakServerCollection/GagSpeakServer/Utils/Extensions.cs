@@ -7,8 +7,7 @@ namespace GagspeakServer;
 public static class Extensions
 {
     public static MoodlesStatusInfo ToStatusInfo(this MoodleStatus status)
-    {
-        return new MoodlesStatusInfo()
+        => new MoodlesStatusInfo()
         {
             GUID = status.Identifier,
             IconID = status.IconID,
@@ -30,16 +29,12 @@ public static class Extensions
             StackOnReapply = status.StackOnReapply,
             StacksIncOnReapply = status.StacksIncOnReapply
         };
-    }
 
     public static PublishedMoodle ToPublishedMoodle(this MoodleStatus status)
-    {
-        return new PublishedMoodle() { AuthorName = status.Author, MoodleStatus = status.ToStatusInfo() };
-    }
+        => new PublishedMoodle() { AuthorName = status.Author, MoodleStatus = status.ToStatusInfo() };
 
     public static PublishedPattern ToPublishedPattern(this PatternEntry pattern)
-    {
-        return new PublishedPattern()
+        => new PublishedPattern()
         {
             Version = pattern.Version,
             Identifier = pattern.Identifier,
@@ -53,7 +48,6 @@ public static class Extensions
             SecondaryDevice = pattern.SecondaryDeviceUsed,
             MotorsUsed = pattern.MotorsUsed
         };
-    }
 
     public static void UpdateInfoFromDto(this UserProfileData storedData, KinkPlateContent dtoContent)
     {
@@ -90,8 +84,7 @@ public static class Extensions
     }
 
     public static KinkPlateContent FromProfileData(this UserProfileData data)
-    {
-        return new KinkPlateContent()
+        => new KinkPlateContent()
         {
             PublicPlate = data.ProfileIsPublic,
             Flagged = data.FlaggedForReport,
@@ -125,20 +118,14 @@ public static class Extensions
             BlockedSlotBorder = data.BlockedSlotBorder,
             BlockedSlotOverlay = data.BlockedSlotOverlay
         };
-    }
 
-
-    // an extension method for the userData 
     public static UserData ToUserData(this User user)
-    {
-        return new UserData(user.UID, string.IsNullOrWhiteSpace(user.Alias) ? null : user.Alias, user.VanityTier, user.CreatedDate);
-    }
+        => new UserData(user.UID, user.Verified, user.Alias, user.VanityTier, user.CreatedDate);
 
-    public static UserData ToUserDataFromUID(this string UserUID)
-    {
-        return new UserData(UserUID, null, null);
-    }
-
+    /// <summary>
+    ///     Copies all properties over from two objects of the same <typeparamref name="T"/> type. <para />
+    ///     This honestly might be better an an API method lol.
+    /// </summary>
     public static void CopyPropertiesTo<T>(this T source, T target)
     {
         if (source is null)

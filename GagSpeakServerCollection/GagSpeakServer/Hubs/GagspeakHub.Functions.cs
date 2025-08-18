@@ -1,108 +1,21 @@
 ﻿using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
-using GagspeakAPI.Hub;
-using GagspeakAPI.Network;
-using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace GagspeakServer.Hubs;
-#pragma warning disable MA0016
+#pragma warning disable MA0016, CS8619
 #nullable enable
-
 public partial class GagspeakHub
 {
     public string UserCharaIdent => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, GagspeakClaimTypes.CharaIdent, StringComparison.Ordinal))?.Value ?? throw new Exception("No Chara Ident in Claims");
     public string UserUID => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))?.Value ?? throw new Exception("No UID in Claims");
     public string UserHasTempAccess => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, GagspeakClaimTypes.AccessType, StringComparison.Ordinal))?.Value ?? throw new Exception("No TempAccess in Claims");
 
-    /// <summary> 
-    /// Helper function to remove a assist with properly deleting a user from all locations in where it was stored.
+    /// <summary>
+    ///     Gets all unpaused pairs of <paramref name="uid"/>
     /// </summary>
-    private async Task DeleteUser(User user)
-    {
-        // Obtain all Auth-Related content.
-        Auth auth = await DbContext.Auth.SingleAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        AccountClaimAuth? accountClaimAuth = await DbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.User != null && u.User.UID == user.UID).ConfigureAwait(false);
-        // Obtain all Pair related content.
-        List<ClientPair> usersKinksterPairs = await DbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<ClientPairPermissions> pairPerms = await DbContext.ClientPairPermissions.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<ClientPairPermissionAccess> pairPermAccess = await DbContext.ClientPairPermissionAccess.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-
-        // Requests
-        List<KinksterRequest> kinksterRequests = await DbContext.KinksterPairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<CollarRequest> collarRequests = await DbContext.CollarRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-
-        // Obtain all personal data.
-        UserGlobalPermissions? globals = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserHardcoreState? hcState = await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        List<UserGagData> gags = await DbContext.UserGagData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<UserRestrictionData> restrictions = await DbContext.UserRestrictionData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        UserRestraintData? restraint = await DbContext.UserRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserCollarData? collar = await DbContext.UserCollarData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-
-        // ShareHub info (keep uploads)
-        List<LikesMoodles> likesMoodles = await DbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        List<LikesPatterns> likesPatterns = await DbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-
-        // Achievements & Profile.
-        UserAchievementData? achievements = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        UserProfileData? profile = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-
-        // ----------------------------------------- // 
-        // Remove AuthClaim is present.
-        if (accountClaimAuth is not null) DbContext.AccountClaimAuth.Remove(accountClaimAuth);
-        // Remove Achievements if present.
-        if (achievements is not null) DbContext.UserAchievementData.Remove(achievements);
-        // Remove Profile if present.
-        if (profile is not null) DbContext.UserProfileData.Remove(profile);
-
-        // Remove all requests.
-        DbContext.KinksterPairRequests.RemoveRange(kinksterRequests);
-        DbContext.CollarRequests.RemoveRange(collarRequests);
-
-        // Remove all the user's pairs, and send to those pairs to remove the users.
-        DbContext.ClientPairs.RemoveRange(usersKinksterPairs);
-        var otherPairs = await DbContext.ClientPairs.Include(u => u.User).Where(u => u.OtherUser.UID == user.UID).AsNoTracking().ToListAsync().ConfigureAwait(false);
-        foreach (var pair in otherPairs)
-            await Clients.User(pair.UserUID).UserRemoveKinkster(new(user.ToUserData())).ConfigureAwait(false);
-
-        // Remove Global-Related permissions if present.
-        if (globals is not null) DbContext.UserGlobalPermissions.Remove(globals);
-        // Remove Hardcore State if present.
-        if (hcState is not null) DbContext.UserHardcoreState.Remove(hcState);
-
-        // Remove stored active state data.
-        DbContext.UserGagData.RemoveRange(gags);
-        DbContext.UserRestrictionData.RemoveRange(restrictions);
-        if (restraint is not null) DbContext.UserRestraintData.Remove(restraint);
-        if (collar is not null) DbContext.UserCollarData.Remove(collar);
-
-        // Remove all related pattern and moodle likes.
-        DbContext.LikesMoodles.RemoveRange(likesMoodles);
-        DbContext.LikesPatterns.RemoveRange(likesPatterns);
-
-        // Remove the other ended client pairs
-        DbContext.ClientPairs.RemoveRange(otherPairs);
-        // Remove final user & auth.
-        DbContext.Users.Remove(user);
-        DbContext.Auth.Remove(auth);
-
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        _metrics.IncCounter(MetricsAPI.CounterUsersRegisteredDeleted);
-    }
-
-    /// <summary> 
-    /// 
-    /// Simpler helper function that gets all paired users that are present in the client callers pair list.
-    /// 
-    /// </summary>
-    /// <param name="uid"> The UID to search for paired users of. Can be null if none are provided.</param>
-    /// <returns>
-    /// A list of UID's of all users that are paired with the provided UID
-    /// </returns>
     private async Task<List<string>> GetAllPairedUnpausedUsers(string? uid = null)
     {
         // if no UID is provided, set it to the client caller context UserUID
@@ -114,19 +27,15 @@ public partial class GagspeakHub
     /// <summary> Helper to get the total number of users who are online currently from the list of passed in UID's.</summary>
     private async Task<Dictionary<string, string>> GetOnlineUsers(List<string> uids)
     {
-        IDictionary<string, string?> result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
-#pragma warning disable CS8619 // Nullability of reference types in value doesn't match target type.
-        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out string? ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["GagspeakHub:UID:" + u], StringComparer.Ordinal);
-#pragma warning restore CS8619 // Nullability of reference types in value doesn't match target type.
+        var result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
+        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["GagspeakHub:UID:" + u], StringComparer.Ordinal);
     }
 
     /// <summary> Helper function to get the user's identity from the redis by their UID </summary>
     private async Task<string?> GetUserIdent(string uid)
     {
         if (uid.NullOrEmpty()) return string.Empty;
-#pragma warning disable CS8603 // Possible null reference return.
         return await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
-#pragma warning restore CS8603 // Possible null reference return.
     }
 
     /// <summary> Helper function to remove a user from the redis by their UID</summary>
@@ -293,6 +202,7 @@ public partial class GagspeakHub
                             {
                                 UserUID = user.UserUID,
                                 OtherUserUID = user.OtherUserUID,
+                                OtherUserVerified = u.Verified,
                                 OtherUserAlias = u.Alias,
                                 OtherUserSupporterTier = u.VanityTier,
                                 OtherUserCreatedDate = u.CreatedDate,
@@ -315,6 +225,7 @@ public partial class GagspeakHub
 
         // return the proper object
         return new UserInfo(
+            resultList[0].OtherUserVerified,
             resultList[0].OtherUserAlias, // the alias of the user.
             resultList[0].OtherUserSupporterTier,
             resultList[0].OtherUserCreatedDate,
@@ -409,6 +320,7 @@ public partial class GagspeakHub
                             {
                                 UserUID = user.UserUID,
                                 OtherUserUID = user.OtherUserUID,
+                                OtherUserVerified = u.Verified,
                                 OtherUserAlias = u.Alias,
                                 OtherUserSupporterTier = u.VanityTier,
                                 OtherUserCreatedDate = u.CreatedDate,
@@ -432,6 +344,7 @@ public partial class GagspeakHub
         {
             // for some unexplainable reason, putting a return where the var is makes this no longer work. I dont fucking know why, it just doesnt.
             UserInfo userInfo = new UserInfo(
+                g.First().OtherUserVerified,
                 g.First().OtherUserAlias, // the alias of the user.
                 g.First().OtherUserSupporterTier,
                 g.First().OtherUserCreatedDate,
@@ -505,6 +418,7 @@ public partial class GagspeakHub
 
 
     public record UserInfo(
+        bool Verified,
         string Alias,
         CkSupporterTier SupporterTier,
         DateTime createdDate,

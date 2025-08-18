@@ -12,6 +12,10 @@ public class UserProfileData
     [ForeignKey(nameof(UserUID))]
     public virtual User User { get; set; }
 
+    // reference to the user's collar data so that we can obtain its writing and owner UID's.
+    [ForeignKey(nameof(UserUID))]
+    public virtual UserCollarData CollarData { get; set; }
+
     /// <summary>
     /// Defines if a profile is displayed to any user that is not a direct pair of them.
     /// Keeping this false will hide the profile picture and description from any unpaired users.

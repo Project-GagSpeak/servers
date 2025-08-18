@@ -49,38 +49,25 @@ public class DbNotificationListener : IHostedService
             _logger.LogInformation($"[[ Notification received]] : {e.Payload}");
             try
             {
-                AccountClaimAuth accountClaimAuth = ParsePayloadToAccountClaimAuth(e.Payload);
-                List<AccountClaimAuth> accountClaims = new List<AccountClaimAuth> { accountClaimAuth };
-                // dont allow any entries in with empty initial keys or if the size is 0
-                if (string.IsNullOrEmpty(accountClaimAuth.InitialGeneratedKey) || accountClaimAuth.InitialGeneratedKey.Length == 0)
+                AccountClaimAuth auth = ParsePayloadToAccountClaimAuth(e.Payload);
+
+                if (string.IsNullOrEmpty(auth.InitialGeneratedKey))
                 {
-                    _logger.LogError($"[[ Notification error]] : InitialGeneratedKey is empty or null");
+                    _logger.LogError("[[ Notification error]] : InitialGeneratedKey is empty or null");
                     return;
                 }
-                _logger.LogInformation($"[[ Notification parsed]] : {accountClaims.Count} account claims received");
 
                 // execute the logic
                 using GagspeakDbContext dbContext = _dbContextFactory.CreateDbContext();
 
-                // for each authentication that was newly added
-                foreach (AccountClaimAuth auth in accountClaims)
-                {
-                    // locate the auth in the database with the matching hashed key
-                    Auth matchingUserAuth = await dbContext.Auth.AsNoTracking().SingleOrDefaultAsync(u => u.HashedKey == auth.InitialGeneratedKey).ConfigureAwait(false);
-                    // if the auth object is null, then the auth object was not found in the database
-                    if (matchingUserAuth is null)
-                        continue;
+                var matchingUserAuth = await dbContext.Auth.AsNoTracking()
+                    .SingleOrDefaultAsync(u => u.HashedKey == auth.InitialGeneratedKey)
+                    .ConfigureAwait(false);
 
-                    // then locate the userUID of that auth object
-                    string userUID = matchingUserAuth.UserUID;
-
-                    // see if that user UID is in the list of user connections
-                    if (!string.IsNullOrEmpty(userUID))
-                    {
-                        // if it is, send the verification code to the user
-                        await _hubContext.Clients.User(userUID).Callback_ShowVerification(new() { Code = auth.VerificationCode ?? "" }).ConfigureAwait(false);
-                    }
-                }
+                if (matchingUserAuth is not null && !string.IsNullOrEmpty(matchingUserAuth.UserUID))
+                    await _hubContext.Clients.User(matchingUserAuth.UserUID)
+                        .Callback_ShowVerification(new() { Code = auth.VerificationCode ?? "" })
+                        .ConfigureAwait(false);
             }
             catch (Exception ex)
             {
@@ -94,6 +81,9 @@ public class DbNotificationListener : IHostedService
         }
     }
 
+    /// <summary>
+    ///     The AccountClaimAuth that was inserted into the database by intercepting the JSON payload and turning it into the model version.
+    /// </summary>
     public AccountClaimAuth ParsePayloadToAccountClaimAuth(string jsonPayload)
     {
         try

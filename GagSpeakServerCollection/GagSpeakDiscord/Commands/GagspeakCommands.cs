@@ -218,13 +218,11 @@ public class GagspeakCommands : InteractionModuleBase
         using IServiceScope scope = _services.CreateScope();
         GagspeakDbContext? db = scope.ServiceProvider.GetService<GagspeakDbContext>();
         // create a list of all users from the users table whose LastLoggedIn time was greater than time current time - timespan
-        List<User> users = await db.Users.Where(u => u.LastLoggedIn < DateTime.UtcNow - purgeTimeSpan).ToListAsync();
-
-        // purge the users from the database
-        foreach(User? user in users)
-        {
-            await SharedDbFunctions.PurgeUser(_logger, user, db);
-        }
+        var users = await db.Users.Where(u => u.LastLoggedIn < DateTime.UtcNow - purgeTimeSpan).ToListAsync();
+        // purge the user profiles from the database
+        foreach(var user in users)
+            await SharedDbFunctions.DeleteUserProfile(user, _logger, db).ConfigureAwait(false);
+        
         await FollowupAsync($"Purge completed for users inactive for {timeFrame}.");
     }
 
@@ -436,9 +434,7 @@ public class GagspeakCommands : InteractionModuleBase
             profile.UserDescription = string.Empty;
         }
 
-
-
-        // update the auth table to set isbanned to false.
+        // update the auth table to set is-banned to false.
         auth.IsBanned = false;
 
         // update all tables and save changes.
@@ -452,6 +448,7 @@ public class GagspeakCommands : InteractionModuleBase
         return embed.Build();
     }
 
+    // Reform this at some point, it can be heavily optimized now.
     private async Task<EmbedBuilder> HandleUserInfo(EmbedBuilder eb, ulong id, string? secondaryUserUid = null, ulong? optionalUser = null, string? uid = null)
     {
         // Check if a secondary user UID was provided
@@ -553,14 +550,9 @@ public class GagspeakCommands : InteractionModuleBase
         else
         {
             // Retrieve a list of secondary UIDs where the primary UID is the user's UID
-            List<string?> secondaryUIDs = await db.Auth.Where(p => p.PrimaryUserUID == dbUser.UID).Select(p => p.UserUID).ToListAsync();
-
-            // If there are any secondary UIDs
-            if (secondaryUIDs.Any())
-            {
-                // Add a field to the embed builder with the title "Secondary UIDs" and the value of the secondary UIDs separated by new lines
-                eb.AddField("Secondary UIDs", string.Join(Environment.NewLine, secondaryUIDs));
-            }
+            var altProfileUids = await db.Auth.AsNoTracking().Where(p => p.PrimaryUserUID == dbUser.UID).Select(p => p.UserUID).ToListAsync();
+            if (altProfileUids.Count > 0)
+                eb.AddField("Secondary UIDs", string.Join(Environment.NewLine, altProfileUids));
         }
 
         // Add a field to the embed builder with the title "Last Online (UTC)" and the value of the user's last login time in UTC
@@ -569,9 +561,9 @@ public class GagspeakCommands : InteractionModuleBase
         // Add a field to the embed builder with the title "Currently online" and the value of whether the user is currently online
         eb.AddField("Currently online ", !string.IsNullOrEmpty(identity));
 
+
         // Add a field to the embed builder with the title "Hashed Secret Key" and the value of the user's hashed secret key
         eb.AddField("Hashed Secret Key", auth.HashedKey);
-
         // Return the embed builder
         return eb;
     }

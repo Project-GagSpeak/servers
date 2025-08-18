@@ -51,56 +51,36 @@ public partial class GagspeakHub
 		return HubResponseBuilder.Yippee();
 	}
 
-	/// <summary>
-	/// Notifiy the recipient pair to apply the spesified Moodles to their status manager by their GUID.
-	/// </summary>
 	[Authorize(Policy = "Identified")]
 	public async Task<HubResponse> UserApplyMoodlesByGuid(MoodlesApplierById dto)
 	{
-		// simply validate that they are an existing pair.
-		ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-		if (pairPerms is null)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
+		// Must be paired.
+		if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-		}
 
-		// ensure that the client caller has permission to apply the pairs own moodles.
+		// Must have permission.
 		if ((pairPerms.MoodlePerms & MoodlePerms.PairCanApplyYourMoodlesToYou) == MoodlePerms.None)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
 
-		// construct a new dto with the client caller as the user.
-		MoodlesApplierById newDto = new(UserUID.ToUserDataFromUID(), dto.Ids, Type: dto.Type);
-
-		// notify the recipient pair to apply the moodles.
-		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByGuid(newDto).ConfigureAwait(false);
+		// Apply it to them.
+		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByGuid(new(new(UserUID), dto.Ids, dto.Type)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesAppliedId);
 		return HubResponseBuilder.Yippee();
 	}
 
-	/// <summary>
-	/// Notifiy the recipient pair to apply the spesified Moodles we provide from our own moodles list to their status manager.
-	/// </summary>
 	[Authorize(Policy = "Identified")]
 	public async Task<HubResponse> UserApplyMoodlesByStatus(MoodlesApplierByStatus dto)
 	{
-		// simply validate that they are an existing pair.
-		ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-		if (pairPerms is null)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-		}
-		if ((pairPerms.MoodlePerms & MoodlePerms.PairCanApplyTheirMoodlesToYou) == MoodlePerms.None)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "You do not have permission to apply moodles to this user!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
+        // Must be paired.
+        if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
-		IEnumerable<MoodlesStatusInfo> moodlesToApply = dto.Statuses;
+        // Must have permission.
+        if ((pairPerms.MoodlePerms & MoodlePerms.PairCanApplyTheirMoodlesToYou) == MoodlePerms.None)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+		// Validate permission to apply based on the moodlePerms.
+        var moodlesToApply = dto.Statuses;
 
 		if (moodlesToApply.Any(m => m.Type is StatusType.Positive && (pairPerms.MoodlePerms & MoodlePerms.PositiveStatusTypes) == MoodlePerms.None))
 		{
@@ -128,94 +108,73 @@ public partial class GagspeakHub
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 		}
 
-		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByStatus(new(UserUID.ToUserDataFromUID(), moodlesToApply, dto.Type)).ConfigureAwait(false);
+		// Apply them.
+		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByStatus(new(new(UserUID), moodlesToApply, dto.Type)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesAppliedStatus);
         return HubResponseBuilder.Yippee();
 	}
 
-	/// <summary>
-	/// Notifiy the recipient pair to remove the spesified Moodles from their status manager by their GUID.
-	/// </summary>
 	[Authorize(Policy = "Identified")]
 	public async Task<HubResponse> UserRemoveMoodles(MoodlesRemoval dto)
 	{
-		// simply validate that they are an existing pair.
-		ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-		if (pairPerms is null)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-		}
-		else if ((pairPerms.MoodlePerms & MoodlePerms.RemovingMoodles) == MoodlePerms.None)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Permission to remove Moodles from this pair was not given!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
+        // Must be paired.
+        if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
-		await Clients.User(dto.User.UID).Callback_RemoveMoodles(new(UserUID.ToUserDataFromUID(), dto.StatusIds)).ConfigureAwait(false);
+        // Must have permission.
+        if ((pairPerms.MoodlePerms & MoodlePerms.RemovingMoodles) == MoodlePerms.None)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+		// Remove the moodle.
+        await Clients.User(dto.User.UID).Callback_RemoveMoodles(new(new(UserUID), dto.StatusIds)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesRemoved);
         return HubResponseBuilder.Yippee();
 	}
 
-	/// <summary> Notifies the user to clear all active moodles from their status manager. </summary>
 	[Authorize(Policy = "Identified")]
 	public async Task<HubResponse> UserClearMoodles(KinksterBase dto)
 	{
-	// simply validate that they are an existing pair.
-	ClientPairPermissions pairPerms = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-		if (pairPerms is null)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Cannot apply moodles to a non-paired user!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-	}
+        // Must be paired.
+        if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
-		if ((pairPerms.MoodlePerms & MoodlePerms.RemovingMoodles) == MoodlePerms.None)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Permission to remove Moodles from this pair was not given!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-	}
+        // Must have permission.
+        if ((pairPerms.MoodlePerms & MoodlePerms.ClearingMoodles) == MoodlePerms.None)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-		// notify the recipient pair to apply the moodles.
-		await Clients.User(dto.User.UID).Callback_ClearMoodles(new(UserUID.ToUserDataFromUID())).ConfigureAwait(false);
+        // Clear them.
+        await Clients.User(dto.User.UID).Callback_ClearMoodles(new(new(UserUID))).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesCleared);
         return HubResponseBuilder.Yippee();
 	}
 
-	/// <summary>
-	/// Sends an action to a paired users Shock Collar.
-	/// Must verify they are in hardcore mode to proceed.
-	/// </summary>
-	[Authorize(Policy = "Identified")]
+    [Authorize(Policy = "Identified")]
 	public async Task<HubResponse> UserShockKinkster(ShockCollarAction dto)
 	{
 		_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
+		// Cannot shock self.
 		if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot send a shock request to yourself! (yet?)").ConfigureAwait(false);
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-		}
 
-		// make sure they are added as a pair of the client caller.
-		UserGlobalPermissions userPairGlobalPerms = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-		ClientPairPermissions userPairPermsForCaller = await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false);
-		if (userPairPermsForCaller is null || userPairGlobalPerms is null)
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "User is not paired with you").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-		}
-
-		// ensure that this user is in hardcore mode with you.
-		if (!userPairPermsForCaller.InHardcore ||
-		(string.IsNullOrEmpty(userPairGlobalPerms.GlobalShockShareCode) && string.IsNullOrEmpty(userPairPermsForCaller.PiShockShareCode)))
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "User is not in hardcore mode with you, or " +
-				"doesn't have any shock collars configured!").ConfigureAwait(false);
+		// Must have valid globals.
+		if (await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } globals)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-		}
 
-		// otherwise, it is valid, so attempt to send the shock instruction to the user.
-		await Clients.User(dto.User.UID).Callback_ShockInstruction(new(UserUID.ToUserDataFromUID(), dto.OpCode, dto.Intensity, dto.Duration)).ConfigureAwait(false);
+		// Must be paired.
+		if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
+			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
+
+		// Target must be in hardcore mode.
+		if (!perms.InHardcore)
+			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+
+		// ShareCode must exist.
+		if (string.IsNullOrEmpty(globals.GlobalShockShareCode) && string.IsNullOrEmpty(perms.PiShockShareCode))
+			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidPassword);
+
+		// Shock Target.
+		await Clients.User(dto.User.UID).Callback_ShockInstruction(new(new(UserUID), dto.OpCode, dto.Intensity, dto.Duration)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterKinkstersShocked);
         return HubResponseBuilder.Yippee();
 	}

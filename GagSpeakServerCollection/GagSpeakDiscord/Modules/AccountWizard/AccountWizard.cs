@@ -241,33 +241,28 @@ public partial class AccountWizard : InteractionModuleBase
     }
 
     /// <summary>
-    /// Helper function to generate a new AccountClaimAuth object for the user who wishes to claim their account.
+    ///     Creates an account auth claim entry for a user that wants to claim their account. <para />
+    ///     Once creates, the <c>StartedAt</c> time is set. When it expires past a time and the user 
+    ///     is not set, it is considered invalid and will be removed.
     /// </summary>
-    /// <param name="discordid"> The ID of the discord user wishing to create this object. </param>
-    /// <param name="initialGeneratedKey"> The initial generated key they can provide the bot with (because its generated in game) </param>
-    /// <param name="dbContext"> The context from the GagSpeak database. </param>
-    /// <returns></returns>
-    private async Task<string> GenerateAccountClaimAuth(ulong discordid, string initialGeneratedKey, GagspeakDbContext dbContext)
+    /// <returns> The verification code to match.
+    private async Task<string> GenerateAccountClaimAuth(ulong discordId, string initialGeneratedKey, GagspeakDbContext dbContext)
     {
-        // generate a verification code for this particular AccountClaimAuth object.
         string verificationCode = StringUtils.GenerateRandomString(32);
-
         // Create the AccountClaimAuth object
         AccountClaimAuth accountClaimAuthToAdd = new AccountClaimAuth()
         {
-            DiscordId = discordid,
+            DiscordId = discordId,
             InitialGeneratedKey = initialGeneratedKey,
             VerificationCode = verificationCode,
-            StartedAt = DateTime.UtcNow                 // we set this so that we know we are currently verifying this authentication.
+            StartedAt = DateTime.UtcNow
         };
 
         // Add the new accountclaimauth object to the database context and save the changes, then return the auth string as the secret key we have generated.
         await dbContext.AddAsync(accountClaimAuthToAdd).ConfigureAwait(false);
-
-        // Save the changes to the database context
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
-        _logger.LogInformation("Created a new account generation for the accountclaimauths");
-        // Return the verification code
-        return (verificationCode);
+
+        _logger.LogInformation("Created a new account generation for the AccountClaimAuth");
+        return verificationCode;
     }
 }

@@ -73,7 +73,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         _expectedClientVersion = config.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
     }
 
-    /// <summary> Disposes of the database context if created upon the GagSpeak hub's disposal.</summary>
     protected override void Dispose(bool disposing)
     {
         if (disposing && _dbContextLazy.IsValueCreated)
@@ -83,11 +82,10 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     }
 
     /// <summary> 
-    /// Called by a connected client when they want to request a GetConnectionResponse object from the server.
-    /// <para>
-    /// This method required the requesting client to have the authorize policy "Identified" 
-    /// (Meaning they have passed authorization) is bound to their request for the function to proceed. 
-    /// </para>
+    ///     Called by a connected client when they want to request a GetConnectionResponse object from the server. <para />
+    ///     
+    ///     Requires the requesting client to have authorization policy of "Identified" to proceed, meaning they used the
+    ///     one-time use account generation to create a new user and secret key.
     /// </summary>
     [Authorize(Policy = "Identified")]
     public async Task<ConnectionResponse> GetConnectionResponse()
@@ -95,115 +93,55 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // log the caller who requested this method
         _logger.LogCallInfo();
 
+        // Fail if Auth is not present.
+        if (await DbContext.Auth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(a => a.UserUID == UserUID).ConfigureAwait(false) is not { } auth)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, $"Secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
+            return null!;
+        }
+           
+        _metrics.IncCounter(MetricsAPI.CounterInitializedConnections);
+        await Clients.Caller.Callback_ServerInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
+        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Welcome to Gagspeak! " +
+            $"{_systemInfoService.SystemInfoDto.OnlineUsers} Kinksters are online.\nI hope you have fun and enjoy~").ConfigureAwait(false);
+
+        // Now that we have optimized our user creation and removal, as can use .AsNoTracking() to retrieve all relative data.
+        var isPrimary = string.IsNullOrEmpty(auth.PrimaryUserUID);
+        var primaryUid = isPrimary ? UserUID : auth.PrimaryUserUID;
+        var altProfileUids = await DbContext.Auth.AsNoTracking().Where(a => a.PrimaryUserUID == primaryUid).Select(a => a.UserUID).ToListAsync().ConfigureAwait(false);
+
+        // pull into a try-catch for debugging purposes, but if this ever throws an exception, something went wrong in the user creation/removal process.
         try
         {
-            // a failsafe to make sure that any logged in account that is no longer in the DB cannot reconnect.
-            bool userExists = DbContext.Users.Any(u => u.UID == UserUID || u.Alias == UserUID);
-            if (!userExists)
-            {
-                await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error,
-                    $"This secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
-                return null!;
-            }
+            var globals = await DbContext.UserGlobalPermissions.AsNoTracking().SingleAsync(g => g.UserUID == UserUID).ConfigureAwait(false);
+            var hcState = await DbContext.UserHardcoreState.AsNoTracking().SingleAsync(h => h.UserUID == UserUID).ConfigureAwait(false);
+            var gags = await DbContext.UserGagData.AsNoTracking().Where(g => g.UserUID == UserUID).OrderBy(g => g.Layer).ToListAsync().ConfigureAwait(false);
+            var restrictions = await DbContext.UserRestrictionData.AsNoTracking().Where(r => r.UserUID == UserUID).OrderBy(r => r.Layer).ToListAsync().ConfigureAwait(false);
+            var restraint = await DbContext.UserRestraintData.AsNoTracking().SingleAsync(r => r.UserUID == UserUID).ConfigureAwait(false);
+            var collar = await DbContext.UserCollarData.AsNoTracking().Include(c => c.Owners).SingleAsync(c => c.UserUID == UserUID).ConfigureAwait(false);
+            var achievements = await DbContext.UserAchievementData.AsNoTracking().SingleAsync(a => a.UserUID == UserUID).ConfigureAwait(false);
 
-            _metrics.IncCounter(MetricsAPI.CounterInitializedConnections);
-
-            // Send a client callback to the client caller with the systeminfo Dto.
-            await Clients.Caller.Callback_ServerInfo(_systemInfoService.SystemInfoDto).ConfigureAwait(false);
-
-            // Grab the user from the database whose UID reflects the UID of the client callers claims, and update last login time.
-            User dbUser = await DbContext.Users.SingleAsync(f => f.UID == UserUID).ConfigureAwait(false);
-            dbUser.LastLoggedIn = DateTime.UtcNow;
-
-            bool isVerified = await DbContext.AccountClaimAuth.AnyAsync(f => f.User.UID == UserUID).ConfigureAwait(false);
-
-            // collect the list of auths for this user.
-            List<string> accountProfileUids = await DbContext.Auth
-                .Include(u => u.User)
-                .Where(u => (u.UserUID != null && u.UserUID == UserUID) || (u.PrimaryUserUID != null && u.PrimaryUserUID == UserUID))
-                .Select(u => u.UserUID!)
-                .ToListAsync().ConfigureAwait(false);
-
-
-            // Send a callback to the client caller with a welcome message, letting them know connection was sucessful.
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information,
-                "Welcome to the CK Gagspeak Server! " + _systemInfoService.SystemInfoDto.OnlineUsers +
-                " Kinksters are online.\nWe hope you enjoy your fun~").ConfigureAwait(false);
-
-            // Ensure GlobalPerms.
-            UserGlobalPermissions globalPermsModel = await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-            if (globalPermsModel is null)
-            {
-                globalPermsModel = new UserGlobalPermissions() { UserUID = UserUID };
-                DbContext.UserGlobalPermissions.Add(globalPermsModel);
-            }
-
-            // Handle retrieving all GagData entries for the user, and correcting any invalid ones.
-            List<UserGagData> gagStateCache = await DbContext.UserGagData.AsNoTracking().Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
-            for (byte layer = 0; layer < gagStateCache.Count; layer++)
-            {
-                if (gagStateCache[layer] is null)
-                {
-                    gagStateCache[layer] = new UserGagData() { UserUID = UserUID, Layer = layer };
-                    DbContext.UserGagData.Add(gagStateCache[layer]);
-                }
-            }
-            // Compile the API output.
-            ActiveGagSlot[] gagDataApi = gagStateCache.Select(g => g.ToApiGagSlot()).ToArray();
-            CharaActiveGags clientGags = new CharaActiveGags(gagDataApi);
-
-            // Handle retrieving all RestrictionData entries for the user, and correcting any invalid ones.
-            List<UserRestrictionData> restrictionStateCache = await DbContext.UserRestrictionData.AsNoTracking().Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
-            for (byte layer = 0; layer < restrictionStateCache.Count; layer++)
-            {
-                if (restrictionStateCache[layer] is null)
-                {
-                    restrictionStateCache[layer] = new UserRestrictionData() { UserUID = UserUID, Layer = layer };
-                    DbContext.UserRestrictionData.Add(restrictionStateCache[layer]);
-                }
-            }
-            // Compile the API output.
-            ActiveRestriction[] restrictionDataApi = restrictionStateCache.Select(r => r.ToApiRestrictionSlot()).ToArray();
-            CharaActiveRestrictions clientRestrictions = new CharaActiveRestrictions(restrictionDataApi);
-
-            // Handle retrieving the RestraintSetData entry for the user, and correcting it if invalid.
-            UserRestraintData restraintSetData = await DbContext.UserRestraintData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-            if (restraintSetData is null)
-            {
-                restraintSetData = new UserRestraintData() { UserUID = UserUID };
-                DbContext.UserRestraintData.Add(restraintSetData);
-            }
-
-            // grab the achievement data.
-            UserAchievementData clientCallerAchievementData = await DbContext.UserAchievementData.SingleOrDefaultAsync(f => f.UserUID == UserUID).ConfigureAwait(false);
-            if (clientCallerAchievementData is null)
-            {
-                clientCallerAchievementData = new UserAchievementData() { UserUID = UserUID, Base64AchievementData = null };
-                DbContext.UserAchievementData.Add(clientCallerAchievementData);
-            }
-
-            // Save the DbContext (never know if it was added or not so always good to be safe.
-            await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-            // now we can create the connectionDto object and return it to the client caller.
-            return new ConnectionResponse(dbUser.ToUserData(), isVerified)
+            // Ret the connection response data.
+            return new ConnectionResponse(auth.User.ToUserData())
             {
                 CurrentClientVersion = _expectedClientVersion,
                 ServerVersion = IGagspeakHub.ApiVersion,
 
-                GlobalPerms = globalPermsModel.ToApiGlobalPerms(),
-                SyncedGagData = clientGags,
-                SyncedRestrictionsData = clientRestrictions,
-                SyncedRestraintSetData = restraintSetData.ToApiRestraintData(),
+                GlobalPerms = globals.ToApiGlobalPerms(),
+                HardcoreState = hcState.ToApiHardcoreState(),
+                SyncedGagData = new CharaActiveGags(gags.Select(g => g.ToApiGagSlot()).ToArray()),
+                SyncedRestrictionsData = new CharaActiveRestrictions(restrictions.Select(r => r.ToApiRestrictionSlot()).ToArray()),
+                SyncedRestraintSetData = restraint.ToApiRestraintData(),
+                SyncedCollarData = collar.ToApiCollarData(),
 
-                ActiveAccountUidList = accountProfileUids,
-                UserAchievements = clientCallerAchievementData.Base64AchievementData,
+                UserAchievements = achievements.Base64AchievementData,
+                ActiveAccountUidList = [.. altProfileUids, primaryUid],
             };
         }
         catch (Exception ex)
         {
             // if we catch an error, log it and return null.
-            _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "GetConnectionDto", ex.Message, ex.StackTrace ?? string.Empty));
+            _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "GetConnectionResponse", ex.Message, ex.StackTrace ?? string.Empty));
             return null!;
         }
     }
@@ -212,7 +150,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// <summary>
     ///     This only returns the data that is respective to the caller's UserUID
     /// </summary>
-    /// <returns> All the UserUID's published patterns, moodles and collective sharehub tags for searches. </returns>
+    /// <returns> All the UserUID's published patterns, moodles and collective ShareHub tags for searches. </returns>
     [Authorize(Policy = "Identified")]
     public async Task<LobbyAndHubInfoResponse> GetShareHubAndLobbyInfo()
     {
@@ -233,15 +171,17 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     }
 
     /// <summary> 
-    /// Creates a new secret key and user for a client, which is called upon by their one time use request. 
+    ///     Creates a new secret key and user for a client, which is called upon by their one time use request. 
     /// </summary>
     /// <returns> A tuple containing the UID and the hashed secret key for the one-time generation. </returns>
     [Authorize(Policy = "TemporaryAccess")]
     public async Task<(string, string)> OneTimeUseAccountGeneration()
     {
         // we will use this function to generate a new UID, and create an auth object for the user.
-        // create a new user
-        User user = new User() { CreatedDate = DateTime.UtcNow };
+        User user = new User()
+        {
+            CreatedDate = DateTime.UtcNow
+        };
 
         // set has valid UID to false, so we can generate a new UID
         bool hasValidUid = false;
@@ -257,10 +197,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         user.LastLoggedIn = DateTime.UtcNow;
 
         // generate a hashed secret key based on a randomly generated string + the current time to make sure it is always unique.
-#pragma warning disable MA0011 // IFormatProvider is missing
+#pragma warning disable MA0011
         string computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
-#pragma warning restore MA0011 // IFormatProvider is missing
-
+#pragma warning restore MA0011
         // now we create a new authentication object with that hashed secret key in it and the user object.
         Auth auth = new Auth()
         {
@@ -268,16 +207,9 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             User = user,
         };
 
-        // append them to the database
-        await DbContext.Users.AddAsync(user).ConfigureAwait(false);
-        await DbContext.Auth.AddAsync(auth).ConfigureAwait(false);
-
-        // log that we registered a new user
-        _logger.LogMessage($"User registered with UID: {user.UID}  || and secret key: {computedHash}");
-
-        // save the changes to the database
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
+        // run the shared database function to create the new profile data.
+        await SharedDbFunctions.CreateUser(user, auth, _logger.Logger, DbContext, _metrics).ConfigureAwait(false);
+        _logger.LogMessage($"Created User [{user.UID} (Alias: {user.Alias})] Key -> {computedHash}");
         // return the user UID and the hashed secret key to the client who requested it.
         return (user.UID, computedHash);
     }
@@ -294,18 +226,14 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     [Authorize(Policy = "Authenticated")]
     public async Task<bool> CheckMainClientHealth()
     {
-        // _logger.LogMessage("CheckingClientHealth -- Also Updating User on Redis"); <--- Terrible idea to log this because it will log once for every user online lol.
         await UpdateUserOnRedis().ConfigureAwait(false);
-
         return false;
     }
 
 
     /// <summary> 
-    /// Called by a client once they are fully connected to the server. Overrides original OnConnectedASync from base hub
-    /// <para>
-    /// The _userConnections is the concurrent dictionary of connected users to the server.
-    /// </para>
+    ///     Called after fully connecting to GagSpeak servers. <para />
+    ///     The _userConnections is the concurrent dictionary of connected users to the server.
     /// </summary>
     public override async Task OnConnectedAsync()
     {
@@ -352,7 +280,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 // if at any point we catch an error, then remove the user from the concurrent dictionary of user connections.
 
                 _userConnections.Remove(UserUID, out _);
-                // remove user from the global chat group
                 await Groups.RemoveFromGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
             }
         }
@@ -361,11 +288,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
     /// <summary> 
-    /// Called by a client when they disconnect from the server.
-    /// <para>
-    /// This method ensure everything is properly disconnected once the function is called upon.
-    /// Note that we dont require the authenticated policy for disconnect because the temp access could be using it as well.
-    /// </para>
+    ///     Ensures everything is properly disconnected once the function is called upon. <para />
+    ///     We dont require authenticated policy for disconnect as temp access uses it too.
     /// </summary>
     public override async Task OnDisconnectedAsync(Exception exception)
     {

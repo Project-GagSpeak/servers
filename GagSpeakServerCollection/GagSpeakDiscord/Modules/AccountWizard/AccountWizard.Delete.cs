@@ -86,7 +86,7 @@ public partial class AccountWizard
 
                 using var db = await GetDbContext().ConfigureAwait(false);
                 var user = db.Users.Single(u => u.UID == uid);
-                await SharedDbFunctions.PurgeUser(_logger, user, db).ConfigureAwait(false);
+                await SharedDbFunctions.DeleteUserProfile(user, _logger, db).ConfigureAwait(false);
 
                 EmbedBuilder eb = new();
                 eb.WithTitle($"Account {uid} successfully deleted");

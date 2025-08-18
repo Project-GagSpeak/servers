@@ -19,6 +19,8 @@ public class GagspeakHubLogger
         _logger = logger;
     }
 
+    public ILogger Logger => _logger;
+
     public static object[] Args(params object[] args)
     {
         return args;

@@ -23,7 +23,7 @@ public class JwtController : Controller
     private readonly ILogger<JwtController> _logger;
     private readonly IHttpContextAccessor _accessor;
     private readonly IConfigurationService<AuthServiceConfiguration> _configuration;
-    private readonly GagspeakDbContext _gagspeakDbContext;
+    private readonly GagspeakDbContext _dbContext;
     private readonly IRedisDatabase _redis;
     //private readonly GeoIPService _geoIPProvider; ((would really love to avoid tracking peoples location information if possible lol))
     private readonly SecretKeyAuthenticatorService _secretKeyAuthenticatorService;
@@ -38,7 +38,7 @@ public class JwtController : Controller
         _logger = logger;
         _accessor = accessor;
         _redis = redisDb;
-        _gagspeakDbContext = gagspeakDbContext;
+        _dbContext = gagspeakDbContext;
         _secretKeyAuthenticatorService = secretKeyAuthenticatorService;
         _configuration = configuration;
     }
@@ -100,7 +100,7 @@ public class JwtController : Controller
             string alias = HttpContext.User.Claims.SingleOrDefault(p => string.Equals(p.Type, GagspeakClaimTypes.Alias))?.Value ?? string.Empty;
 
             // Check if the user is banned from the gagspeak servers.
-            if (await _gagspeakDbContext.Auth.Where(u => u.UserUID == uid || u.PrimaryUserUID == uid).AnyAsync(a => a.IsBanned))
+            if (await _dbContext.Auth.Where(u => u.UserUID == uid || u.PrimaryUserUID == uid).AnyAsync(a => a.IsBanned))
             {
                 // Ensure the user is banned
                 await EnsureBan(uid, ident);
@@ -296,42 +296,32 @@ public class JwtController : Controller
     private async Task EnsureBan(string uid, string charaIdent)
     {
         // if the character identifier is not already banned,
-        if (!_gagspeakDbContext.BannedUsers.Any(c => c.CharacterIdentification == charaIdent))
+        if (!_dbContext.BannedUsers.AsNoTracking().Any(c => c.CharacterIdentification == charaIdent))
         {
             // add the banned user to the database by adding it to the bannedUsers table.
-            _gagspeakDbContext.BannedUsers.Add(new Banned()
+            _dbContext.BannedUsers.Add(new Banned()
             {
                 CharacterIdentification = charaIdent,
                 UserUID = uid,
-                Reason = "Autobanned CharacterIdent (" + uid + ")",
+                Reason = $"Auto-Banned CharacterIdent ({uid})",
             });
 
             // save the gagspeak database changes.
-            await _gagspeakDbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
         }
 
         // fetch the primary user from the auth table where the primary user UID is the same as the user UID.
-        Auth? primaryUser = await _gagspeakDbContext.Auth.Include(a => a.User).FirstOrDefaultAsync(f => f.PrimaryUserUID == uid);
+        Auth? primaryUser = await _dbContext.Auth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(f => f.PrimaryUserUID == uid);
         // set the toBanUID to the primary user UID if the primary user is not null, otherwise set it to the user UID.
         string? toBanUid = primaryUser is null ? uid : primaryUser.UserUID;
 
         // fetch the accountClaimAuth used to claim ownership over the account, if one exists.
-        AccountClaimAuth? accountClaimAuth = await _gagspeakDbContext.AccountClaimAuth.Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == toBanUid);
-
-        // if it does exist
-        if (accountClaimAuth != null)
+        if (await _dbContext.AccountClaimAuth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == toBanUid) is { } authClaim)
         {
-            if (!_gagspeakDbContext.BannedRegistrations.Any(c => c.DiscordId == accountClaimAuth.DiscordId.ToString()))
-            {
-                // if it exists, then add the banned registration to the database.
-                _gagspeakDbContext.BannedRegistrations.Add(new BannedRegistrations()
-                {
-                    // set the discord ID to the accountClaimAuth discord ID.
-                    DiscordId = accountClaimAuth.DiscordId.ToString(),
-                });
-            }
+            if (!_dbContext.BannedRegistrations.AsNoTracking().Any(c => c.DiscordId == authClaim.DiscordId.ToString()))
+                _dbContext.BannedRegistrations.Add(new BannedRegistrations() { DiscordId = authClaim.DiscordId.ToString() });
             // save the changes to the gagspeak database.
-            await _gagspeakDbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync();
         }
     }
 
@@ -342,20 +332,20 @@ public class JwtController : Controller
     private async Task<bool> IsIdentBanned(string uid, string charaIdent)
     {
         // see if user is in banned users table where the charaIdentis the same as the character identifier.
-        bool isBanned = await _gagspeakDbContext.BannedUsers.AsNoTracking().AnyAsync(u => u.CharacterIdentification == charaIdent).ConfigureAwait(false);
+        bool isBanned = await _dbContext.BannedUsers.AsNoTracking().AnyAsync(u => u.CharacterIdentification == charaIdent).ConfigureAwait(false);
 
         // if they are
         if (isBanned)
         {
             // fetch the authentication object as the row found in the database where the user UID matches.
-            Auth? authToBan = _gagspeakDbContext.Auth.SingleOrDefault(a => a.UserUID == uid);
+            Auth? authToBan = _dbContext.Auth.SingleOrDefault(a => a.UserUID == uid);
 
             // if it isnt null
             if (authToBan != null)
             {
                 // set IsBanned to true and save the changes to the database.
                 authToBan.IsBanned = true;
-                await _gagspeakDbContext.SaveChangesAsync().ConfigureAwait(false);
+                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
             }
         }
 

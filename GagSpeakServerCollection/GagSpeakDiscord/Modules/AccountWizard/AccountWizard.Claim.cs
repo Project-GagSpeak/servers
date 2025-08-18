@@ -1,10 +1,11 @@
-using Discord.Interactions;
 using Discord;
-using GagspeakShared.Data;
-using Microsoft.EntityFrameworkCore;
-using GagspeakShared.Utils;
-using GagspeakShared.Models;
+using Discord.Interactions;
 using GagSpeakDiscord.Modules.Popups;
+using GagspeakShared.Data;
+using GagspeakShared.Models;
+using GagspeakShared.Utils;
+using Microsoft.EntityFrameworkCore;
+using Prometheus;
 using System.Globalization;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
@@ -86,7 +87,7 @@ public partial class AccountWizard
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-claim", ButtonStyle.Secondary, emote: new Emoji("❌"));
 
-        // if the modal returned sucessful, allow them to verify (pass in item2, the verification)
+        // if the modal returned successful, allow them to verify (pass in item2, the verification)
         if (success) cb.WithButton("Send Verification Code to Client", "wizard-claim-verify-start:"+initialKeyModal.InitialKeyStr, ButtonStyle.Primary, emote: new Emoji("✅"));
         // otherwise, ask them to try again, stepping back to where we ask them for the initial key. Often we get here is the key is not correct.
         else cb.WithButton("Try again", "wizard-claim-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
@@ -205,57 +206,70 @@ public partial class AccountWizard
         return true;
     }
 
+    // Handles the result of account verification.
     private async Task<(bool, string, string)> HandleVerificationModalAsync(EmbedBuilder eb, VerificationModal verificationModal)
     {
         // fetch the verification code
         _botServices.DiscordInitialKeyMapping.TryGetValue(Context.User.Id, out var keyValue);
         var initialKey = keyValue.Item1;
-        _logger.LogInformation("Initial key {key} for {userid}", initialKey, Context.User.Id);
         var verificationCode = keyValue.Item2;
-        _logger.LogInformation("Verification code {code} for {userid}", verificationCode, Context.User.Id);
+
+        _logger.LogInformation($"Initial key [Initial Key -> ({initialKey}), Verification -> ({verificationCode}), User: {Context.User.Id}]");
 
         _botServices.DiscordVerifiedUsers.Remove(Context.User.Id, out _);
-        // first make sure the user is still valid in the context from the services
+        // Ensure still valid in mapping context.
         if(!_botServices.DiscordInitialKeyMapping.ContainsKey(Context.User.Id))
         {
-            _logger.LogInformation("User {userid} does not have an initial key mapping", Context.User.Id);
+            _logger.LogInformation($"User {Context.User.Id} does not have an initial key mapping");
             eb.WithTitle("You have not started the registration process, or you timed out. Please try again.");
             _botServices.DiscordVerifiedUsers[Context.User.Id] = false;
             return (false, string.Empty, string.Empty);
         }
 
-        // check to see if the answers match
+        // Answers must match.
         if (!string.Equals(verificationModal.VerificationCodeStr, verificationCode, StringComparison.Ordinal))
         {
-            _logger.LogInformation("Verification code {code} did not match the one generated for {userid}", verificationModal.VerificationCodeStr, Context.User.Id);
+            _logger.LogInformation($"Verification ({verificationModal.VerificationCodeStr}) failed to match generated code ({verificationCode}) for {Context.User.Id}");
             eb.WithTitle("The verification code you entered does not match the one generated for you, try registration again.");
             _botServices.DiscordVerifiedUsers[Context.User.Id] = false;
             return (false, string.Empty, string.Empty);
         }
-        
-        // otherwise the keys did match, so we should clear the claimauth started at, and set the user to an actual user, and the verification code to null.
-        _logger.LogInformation("Verification code {code} matched the one generated for {userid}", verificationModal.VerificationCodeStr, Context.User.Id);
+
+        using var dbContext = await GetDbContext().ConfigureAwait(false);
+        // grab tables to be modified.
+        var authClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false);
+        var auth = await dbContext.Auth.Include(a => a.User).SingleOrDefaultAsync(u => u.HashedKey == initialKey).ConfigureAwait(false);
+        var user = auth.User;
+
+        // If any of the fetched table entries are null, fail it.
+        if (authClaim is null || auth is null || user is null)
+        {
+            _logger.LogInformation($"Keys matched, but failed to fetch AccountClaimAuth, Auth, or User for {Context.User.Id} with initial key {initialKey}");
+            eb.WithTitle("Keys matched, but failed to fetch your account information. Please try again.");
+            _botServices.DiscordVerifiedUsers[Context.User.Id] = false;
+            return (false, string.Empty, string.Empty);
+        }
+
+        // Everything is valid, so change values in the table entries.
+        _logger.LogInformation($"Verification ({verificationModal.VerificationCodeStr}) matched generated code for: ({Context.User.Id})");
         _botServices.DiscordVerifiedUsers[Context.User.Id] = true;
-        // handle adding this user to the database
-        using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
-        var accountClaimAuth = gagspeakDb.AccountClaimAuth.SingleOrDefault(u => u.DiscordId == Context.User.Id);
 
-        _logger.LogInformation("User {userid} has key {key}", Context.User.Id, initialKey);
-        // to grab the user, fetch the associated auth object from the db
-        var auth = await gagspeakDb.Auth.SingleOrDefaultAsync(u => u.HashedKey == initialKey).ConfigureAwait(false);
-        User user = await gagspeakDb.Users.SingleOrDefaultAsync(u => u.UID == auth.UserUID).ConfigureAwait(false);
+        // Clear code, key, (and started at, as cleanup service removes all non-null startedAt items).
+        authClaim.InitialGeneratedKey = null;
+        authClaim.StartedAt = null;
+        authClaim.VerificationCode = null;
 
-        accountClaimAuth.InitialGeneratedKey = null; // for security reasons
-        accountClaimAuth.StartedAt = null; // clear time started, meaning verification worked.
-        accountClaimAuth.User = user; // set user to reflect appropriate user
-        accountClaimAuth.VerificationCode = null; // set verification code to null
+        // declare the user since it is now verified.
+        authClaim.User = user;
 
-        // set last logged in time for the user to right now
-        accountClaimAuth.User.LastLoggedIn = DateTime.UtcNow;
+        // mark the user as verified and set the last login time to now.
+        user.Verified = true;
+        user.LastLoggedIn = DateTime.UtcNow;
 
-        await gagspeakDb.SaveChangesAsync().ConfigureAwait(false);
-
-        // return sucess with the user's UID
+        dbContext.Update(authClaim);
+        dbContext.Update(user);
+        await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        // return success with the user's UID
         return (true, user.UID, initialKey);
     }
 
@@ -288,17 +302,13 @@ public partial class AccountWizard
             User = user,
         };
 
-        await db.Users.AddAsync(user).ConfigureAwait(false);
-        await db.Auth.AddAsync(auth).ConfigureAwait(false);
-
-        _botServices.Logger.LogInformation("User registered: {userUID}", user.UID);
+        // run the shared database function to create the new profile data.
+        await SharedDbFunctions.CreateUser(user, auth, _logger, db).ConfigureAwait(false);
+        _botServices.Logger.LogInformation($"Registered User [{user.UID} (Alias: {user.Alias})]");
 
         accountClaimAuth.StartedAt = null;
         accountClaimAuth.User = user;
         accountClaimAuth.VerificationCode = null;
-
-        await db.SaveChangesAsync().ConfigureAwait(false);
-
         _botServices.DiscordVerifiedUsers.Remove(Context.User.Id, out _);
 
         return (user.UID, computedHash);

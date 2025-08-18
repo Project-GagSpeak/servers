@@ -8,6 +8,7 @@ using GagspeakAPI.Util;
 using GagspeakServer.Utils;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
+using GagspeakShared.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -605,9 +606,9 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // grab the user pairs of the client caller
-        List<string> pairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        Dictionary<string, string> onlinePairs = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
-        IEnumerable<string> onlinePairUids = onlinePairs.Keys;
+        var pairsOfTarget = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
+        IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
         await Clients.Users([ ..onlinePairUids, UserUID]).Callback_BulkChangeGlobal(new(new(UserUID), dto.NewPerms, dto.NewState)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeGlobal);
@@ -667,9 +668,9 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // grab the user pairs of the client caller
-        List<string> pairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        Dictionary<string, string> onlinePairIdents = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
-        IEnumerable<string> onlinePairUids = onlinePairIdents.Keys;
+        var pairsOfTarget = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
+        IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
         await Clients.Users([ ..onlinePairUids, UserUID]).Callback_SingleChangeGlobal(new(dto.User, dto.NewPerm, dto.Enactor)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeGlobal);
@@ -748,29 +749,23 @@ public partial class GagspeakHub
     }
 
     /// <summary> 
-    ///     Method will remove all associated things with the user and delete their
-    ///     profile from the server, along with all other profiles under their account.
+    ///     Method will delete the caller user profile from the database, and all associated data with it. <para />
+    ///     If the caller's User entry is the primary account, then all secondary profiles are deleted with it.
     /// </summary>
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserDelete()
     {
-        _logger.LogCallInfo();
+        _logger.LogCallInfo(GagspeakHubLogger.Args());
 
-        // fetch the client callers user data from the database.
-        User userEntry = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        // for any other profiles registered under this account, fetch them from the database as well.
-        List<User?> secondaryUsers = await DbContext.Auth.Include(u => u.User)
-            .Where(u => u.PrimaryUserUID == UserUID)
-            .Select(c => c.User)
-            .ToListAsync().ConfigureAwait(false);
+        // Obtain the caller's Auth entry, which contains the User entry inside.
+        if (await DbContext.Users.AsNoTracking().SingleOrDefaultAsync(a => a.UID == UserUID).ConfigureAwait(false) is not { } caller)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
-        // remove all the client callers secondary profiles, then finally, remove their primary profile. (dont through helper functions)
-        foreach (User? user in secondaryUsers)
-        {
-            if (user is not null) 
-                await DeleteUser(user).ConfigureAwait(false);
-        }
-        await DeleteUser(userEntry).ConfigureAwait(false);
+        var pairRemovals = await SharedDbFunctions.DeleteUserProfile(caller, _logger.Logger, DbContext, _metrics).ConfigureAwait(false);
+        // send out to all the pairs to remove the deleted profile(s) from their lists.
+        foreach (var (deletedProfile, profilePairUids) in pairRemovals)
+            await Clients.Users(profilePairUids).Callback_RemoveClientPair(new(new(deletedProfile))).ConfigureAwait(false);
+
         return HubResponseBuilder.Yippee();
     }
 }

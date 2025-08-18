@@ -159,7 +159,7 @@ public class GagspeakDbContext : DbContext
 
         // Collars can have one or more owners, that link back to the collar's UserUID, via the foreign key CollaredUserUID.
         modelBuilder.Entity<UserCollarData>().ToTable("user_collar_data");
-        modelBuilder.Entity<UserCollarData>().HasMany(c => c.Owners).WithOne(o => o.CollaredUserData).HasForeignKey(o => o.CollaredUserUID).OnDelete(DeleteBehavior.Cascade); 
+        modelBuilder.Entity<UserCollarData>().HasMany(c => c.Owners).WithOne(o => o.CollaredUserData).HasForeignKey(o => o.CollaredUserUID);
         modelBuilder.Entity<UserCollarData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserCollarData>().HasIndex(c => c.UserUID);
 
@@ -167,7 +167,10 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");
         modelBuilder.Entity<UserAchievementData>().HasIndex(c => c.UserUID);
         modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
+        modelBuilder.Entity<UserProfileData>().HasOne(c => c.CollarData).WithOne().HasForeignKey<UserProfileData>(c => c.UserUID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserProfileData>().HasIndex(c => c.UserUID);
+
         modelBuilder.Entity<UserProfileDataReport>().ToTable("user_profile_data_reports");
     }
 }

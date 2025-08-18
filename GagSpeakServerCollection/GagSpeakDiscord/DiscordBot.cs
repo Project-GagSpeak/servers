@@ -331,9 +331,11 @@ internal partial class DiscordBot : IHostedService
                     };
 
                     // narrow the list down to only the users with valid accounts with no active role.
-                    List<AccountClaimAuth> validClaimedAccounts = await db.AccountClaimAuth.Include("User")
-                        .Where(c => c.StartedAt != DateTime.MinValue && c.User != null && c.User.VanityTier == CkSupporterTier.NoRole)
-                        .ToListAsync().ConfigureAwait(false);
+                    var validClaimedAccounts = await db.AccountClaimAuth.AsNoTracking()
+                        .Include(a => a.User)
+                        .Where(a => a.User != null && a.User.Verified && a.User.VanityTier == CkSupporterTier.NoRole)
+                        .ToListAsync()
+                        .ConfigureAwait(false);
 
                     // Check to see if any valid accounts currently have any discord roles.
                     foreach (AccountClaimAuth validAccount in validClaimedAccounts)

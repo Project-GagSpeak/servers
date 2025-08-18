@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    [Migration("20250817205411_2025-08-17PermissionOverhaul")]
-    partial class _20250817PermissionOverhaul
+    [Migration("20250818025510_2025-08-17restrictOverCascade")]
+    partial class _20250817restrictOverCascade
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1932,16 +1932,16 @@ namespace GagSpeakShared.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_user_profile_data_users_user_uid");
 
-                    b.HasOne("GagspeakShared.Models.UserCollarData", "UserCollar")
-                        .WithMany()
-                        .HasForeignKey("UserUID")
-                        .OnDelete(DeleteBehavior.Cascade)
+                    b.HasOne("GagspeakShared.Models.UserCollarData", "CollarData")
+                        .WithOne()
+                        .HasForeignKey("GagspeakShared.Models.UserProfileData", "UserUID")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_user_profile_data_user_collar_data_user_uid");
 
-                    b.Navigation("User");
+                    b.Navigation("CollarData");
 
-                    b.Navigation("UserCollar");
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.UserProfileDataReport", b =>

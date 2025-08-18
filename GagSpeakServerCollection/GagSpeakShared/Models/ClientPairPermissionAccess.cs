@@ -22,7 +22,7 @@ public class ClientPairPermissionAccess
     public bool ChatGarblerActiveAllowed            { get; set; } = false; // Global
     public bool ChatGarblerLockedAllowed            { get; set; } = false; // Global
     public bool GaggedNameplateAllowed              { get; set; } = false; // Global
-
+    public bool SpatialAudioAllowed                 { get; set; } = false; // Global
 
     public bool WardrobeEnabledAllowed              { get; set; } = false; // Global
     public bool GagVisualsAllowed                   { get; set; } = false; // Global
@@ -69,7 +69,6 @@ public class ClientPairPermissionAccess
     public bool HypnosisSendingAllowed              { get; set; } = false;
 
     // unique permissions for the toybox
-    public bool SpatialAudioAllowed                 { get; set; } = false; // Global
     public bool ExecutePatternsAllowed              { get; set; } = false;
     public bool StopPatternsAllowed                 { get; set; } = false;
     public bool ToggleAlarmsAllowed                 { get; set; } = false;

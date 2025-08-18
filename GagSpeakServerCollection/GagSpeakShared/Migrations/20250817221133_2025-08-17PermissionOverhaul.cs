@@ -214,23 +214,11 @@ namespace GagSpeakShared.Migrations
                 name: "ix_user_hardcore_state_user_uid",
                 table: "user_hardcore_state",
                 column: "user_uid");
-
-            migrationBuilder.AddForeignKey(
-                name: "fk_user_profile_data_user_collar_data_user_uid",
-                table: "user_profile_data",
-                column: "user_uid",
-                principalTable: "user_collar_data",
-                principalColumn: "user_uid",
-                onDelete: ReferentialAction.Cascade);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropForeignKey(
-                name: "fk_user_profile_data_user_collar_data_user_uid",
-                table: "user_profile_data");
-
             migrationBuilder.DropTable(
                 name: "collar_owner");
 

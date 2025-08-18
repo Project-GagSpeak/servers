@@ -15,16 +15,12 @@ public partial class GagspeakHub
     {
         _logger.LogCallInfo();
 
-        // fetch all users who are paired with the requesting client caller and do not have them paused
-        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        // obtain a list of all the paired users who are currently online.
-        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
-
+        var allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
         // send that you are online to all connected online pairs of the client caller.
         await SendOnlineToAllPairedUsers().ConfigureAwait(false);
-
         // then, return back to the client caller the list of all users that are online in their client pairs.
-        return pairs.Select(p => new OnlineKinkster(new UserData(p.Key), p.Value)).ToList();
+        return pairs.Select(p => new OnlineKinkster(new(p.Key), p.Value)).ToList();
     }
 
     [Authorize(Policy = "Identified")]
@@ -117,7 +113,7 @@ public partial class GagspeakHub
         // return the list of UserPair DTO's containing the paired clients of the client caller
         return pairs.Select(p =>
         {
-            KinksterPair pairList = new(new UserData(p.Key, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
+            KinksterPair pairList = new(new UserData(p.Key, p.Value.Verified, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
                 p.Value.ownPairPermissions.ToApiKinksterPerms(),
                 p.Value.ownPairPermissionAccess.ToApiKinksterEditAccess(),
                 p.Value.otherGlobalPerms.ToApiGlobalPerms(),
@@ -132,20 +128,32 @@ public partial class GagspeakHub
     public async Task<ActiveRequests> UserGetActiveRequests()
     {
         // fetch all the pair requests with the UserUid in either the UserUID or OtherUserUID
-        var pairRequests = await DbContext.KinksterPairRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
-        var collarRequests = await DbContext.CollarRequests.Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID).ToListAsync().ConfigureAwait(false);
-        // ret the requests in api format.
-        return new ActiveRequests(pairRequests.Select(r => r.ToApiPairRequest()).ToList(), collarRequests.Select(r => r.ToApiCollarRequest()).ToList());
+        var pairRequests = await DbContext.KinksterPairRequests.AsNoTracking()
+            .Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID)
+            .Select(r => r.ToApiPairRequest())
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var collarRequests = await DbContext.CollarRequests.AsNoTracking()
+            .Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID)
+            .Select(r => r.ToApiCollarRequest())
+            .ToListAsync()
+            .ConfigureAwait(false);
+        return new ActiveRequests(pairRequests, collarRequests);
     }
 
     [Authorize(Policy = "Identified")]
     public async Task<KinkPlateFull> UserGetKinkPlate(KinksterBase user)
     {
-        // Get list of caller's pairs.
-        List<string> callerPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var callerPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+
+        var data = await DbContext.UserProfileData.AsNoTracking()
+            .Include(p => p.CollarData).ThenInclude(c => c.Owners)
+            .SingleOrDefaultAsync(u => u.UserUID == user.User.UID)
+            .ConfigureAwait(false);
 
         // Return blank profile if it does not exist.
-        if (await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.User.UID).ConfigureAwait(false) is not { } data)
+        if (data is null)
             return new KinkPlateFull(user.User, new KinkPlateContent(), string.Empty);
 
         // If not in the callers KinksterPair list and not set to public, return nonPublic profile.
@@ -158,9 +166,10 @@ public partial class GagspeakHub
             return new KinkPlateFull(user.User, new KinkPlateContent() { Disabled = true, Description = "This profile is currently disabled" }, string.Empty);
 
         // It is valid, so we should grab the collar related data.
-
-        // Return the valid profile.
-        return new KinkPlateFull(user.User, data.FromProfileData(), data.Base64ProfilePic);
+        var content = data.FromProfileData();
+        content.CollarWriting = data.CollarData.Writing;
+        content.CollarOwners = data.CollarData.Owners.Select(o => o.OwnerUID).ToList();
+        return new KinkPlateFull(user.User, content, data.Base64ProfilePic);
     }
 }
 

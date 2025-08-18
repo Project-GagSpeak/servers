@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250817221133_2025-08-17PermissionOverhaul")]
+    partial class _20250817PermissionOverhaul
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -981,6 +984,10 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_logged_in");
 
+                    b.Property<bool>("ProfileReportingTimedOut")
+                        .HasColumnType("boolean")
+                        .HasColumnName("profile_reporting_timed_out");
+
                     b.Property<int>("UploadLimitCounter")
                         .HasColumnType("integer")
                         .HasColumnName("upload_limit_counter");
@@ -988,10 +995,6 @@ namespace GagSpeakShared.Migrations
                     b.Property<int>("VanityTier")
                         .HasColumnType("integer")
                         .HasColumnName("vanity_tier");
-
-                    b.Property<bool>("Verified")
-                        .HasColumnType("boolean")
-                        .HasColumnName("verified");
 
                     b.HasKey("UID")
                         .HasName("pk_users");
@@ -1928,15 +1931,6 @@ namespace GagSpeakShared.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_profile_data_users_user_uid");
-
-                    b.HasOne("GagspeakShared.Models.UserCollarData", "CollarData")
-                        .WithOne()
-                        .HasForeignKey("GagspeakShared.Models.UserProfileData", "UserUID")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
-                        .HasConstraintName("fk_user_profile_data_user_collar_data_user_uid");
-
-                    b.Navigation("CollarData");
 
                     b.Navigation("User");
                 });

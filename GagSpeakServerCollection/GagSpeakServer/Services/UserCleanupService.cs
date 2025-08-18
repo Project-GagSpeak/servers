@@ -1,10 +1,12 @@
-﻿using GagspeakServer.Hubs;
+﻿using GagspeakAPI.Hub;
+using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
 using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Abstractions;
@@ -13,52 +15,52 @@ using System.Text.Json;
 
 namespace GagspeakServer.Services;
 /// <summary> Service for cleaning up users and groups that are no longer active </summary>
-public class UserCleanupService : IHostedService
+public class UserCleanupService : BackgroundService
 {
     private readonly GagspeakMetrics _metrics;
-    private readonly ILogger<UserCleanupService> _logger;
-    private readonly IServiceProvider _services;
-    private readonly IRedisDatabase _redis;
     private readonly IConfigurationService<ServerConfiguration> _config;
-    private CancellationTokenSource _cleanupCts = new();
+    private readonly IDbContextFactory<GagspeakDbContext> _dbContextFactory;
+    private readonly ILogger<UserCleanupService> _logger;
+    private readonly IHubContext<GagspeakHub, IGagspeakHub> _hubContext;
+    private readonly IRedisDatabase _redis;
 
-    public UserCleanupService(GagspeakMetrics metrics, ILogger<UserCleanupService> logger,
-        IServiceProvider services, IRedisDatabase redis, IConfigurationService<ServerConfiguration> config)
+    public UserCleanupService(GagspeakMetrics metrics, IConfigurationService<ServerConfiguration> config,
+        IDbContextFactory<GagspeakDbContext> dbContextFactory, ILogger<UserCleanupService> logger, 
+        IHubContext<GagspeakHub, IGagspeakHub> hubContext, IRedisDatabase redis)
     {
         _metrics = metrics;
-        _logger = logger;
-        _services = services;
-        _redis = redis;
         _config = config;
+        _dbContextFactory = dbContextFactory;
+        _logger = logger;
+        _hubContext = hubContext;
+        _redis = redis;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public override async Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Cleanup Service started");
-        _cleanupCts = new();
-
-        _ = CleanUp(_cleanupCts.Token);
-        return Task.CompletedTask;
+        await base.StartAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task CleanUp(CancellationToken ct)
+    protected override async Task ExecuteAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
-            using IServiceScope scope = _services.CreateScope();
-            using GagspeakDbContext dbContext = scope.ServiceProvider.GetService<GagspeakDbContext>()!;
-            
-            await PurgeUnusedAccounts(dbContext).ConfigureAwait(false);
+            using (GagspeakDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
+            {
+                // Remove accounts that have been inactive longer than the configured day count.
+                await PurgeUnusedAccounts(dbContext).ConfigureAwait(false);
+                // Remove any VibeRooms created longer than 8 hours.
+                await CleanUpOldRooms(dbContext).ConfigureAwait(false);
+                // Reset the upload counters on user's for Share Hubs every week.
+                await ResetUploadCounters(dbContext).ConfigureAwait(false);
+                // Remove AccountAuthClaims that have been inactive longer than they should be.
+                CleanUpTimedOutAccountAuthClaims(dbContext);
+                
+                CleanupOutdatedPairRequests(dbContext);
 
-            await CleanUpOldRooms(dbContext).ConfigureAwait(false);
-
-            await ResetUploadCounters(dbContext).ConfigureAwait(false);
-
-            CleanUpOutdatedAccountAuths(dbContext);
-            CleanupOutdatedPairRequests(dbContext);
-
-            dbContext.SaveChanges();
-
+                dbContext.SaveChanges();
+            }
             DateTime now = DateTime.Now;
             TimeOnly currentTime = new(now.Hour, now.Minute, now.Second);
             TimeOnly futureTime = new(now.Hour, now.Minute - now.Minute % 10, 0);
@@ -97,24 +99,24 @@ public class UserCleanupService : IHostedService
 
     private async Task CleanUpOldRooms(GagspeakDbContext dbContext)
     {
-        var nowUtc = DateTime.UtcNow;
+        DateTime nowUtc = DateTime.UtcNow;
         _logger.LogInformation("Cleaning up Redis rooms older than 8 hours");
 
         try
         {
-            var roomKeys = await _redis.SearchKeysAsync("VibeRoom:Room:*").ConfigureAwait(false);
-            foreach (var roomHashKey in roomKeys)
+            IEnumerable<string> roomKeys = await _redis.SearchKeysAsync("VibeRoom:Room:*").ConfigureAwait(false);
+            foreach (string roomHashKey in roomKeys)
             {
-                var roomKeyStr = roomHashKey.ToString();
-                var roomName = roomKeyStr.Substring("VibeRoom:Room:".Length);
+                string roomKeyStr = roomHashKey.ToString();
+                string roomName = roomKeyStr.Substring("VibeRoom:Room:".Length);
 
                 // get the creation time of the room.
-                var createdTimeValue = await _redis.Database.HashGetAsync(roomHashKey, "CreatedTimeUTC").ConfigureAwait(false);
+                RedisValue createdTimeValue = await _redis.Database.HashGetAsync(roomHashKey, "CreatedTimeUTC").ConfigureAwait(false);
                 if (createdTimeValue.IsNullOrEmpty)
                     continue;
 
                 // Parse and check the age
-                if (!DateTime.TryParse(createdTimeValue.ToString(), null, DateTimeStyles.AdjustToUniversal, out var createdAt))
+                if (!DateTime.TryParse(createdTimeValue.ToString(), null, DateTimeStyles.AdjustToUniversal, out DateTime createdAt))
                     continue;
 
                 if ((nowUtc - createdAt).TotalHours < 8)
@@ -122,14 +124,14 @@ public class UserCleanupService : IHostedService
 
                 // --- Cleanup logic ---
                 // Begin by removing all participants from the room.
-                var participantsKey = VibeRoomRedis.ParticipantsKey(roomName);
-                var participantUids = await _redis.Database.SetMembersAsync(participantsKey).ConfigureAwait(false);
+                string participantsKey = VibeRoomRedis.ParticipantsKey(roomName);
+                RedisValue[] participantUids = await _redis.Database.SetMembersAsync(participantsKey).ConfigureAwait(false);
                 await _redis.Database.KeyDeleteAsync(participantsKey).ConfigureAwait(false);
 
                 // Remove each participant’s data
-                foreach (var uid in participantUids)
+                foreach (RedisValue uid in participantUids)
                 {
-                    var participantDataKey = VibeRoomRedis.ParticipantDataKey(roomName, uid!);
+                    string participantDataKey = VibeRoomRedis.ParticipantDataKey(roomName, uid!);
                     await _redis.Database.KeyDeleteAsync(participantDataKey).ConfigureAwait(false);
                     await _redis.Database.KeyDeleteAsync(VibeRoomRedis.KinksterRoomKey(uid.ToString())).ConfigureAwait(false);
                 }
@@ -147,13 +149,13 @@ public class UserCleanupService : IHostedService
                 await _redis.Database.SetRemoveAsync(VibeRoomRedis.PublicRoomsKey, roomHashKey).ConfigureAwait(false);
 
                 // remove the tag indexes.
-                var tagJson = await _redis.Database.HashGetAsync(roomHashKey, "Tags").ConfigureAwait(false);
+                RedisValue tagJson = await _redis.Database.HashGetAsync(roomHashKey, "Tags").ConfigureAwait(false);
                 if (!tagJson.IsNullOrEmpty && JsonSerializer.Deserialize<List<string>>(tagJson) is { } roomTags)
                 {
                     // Remove the room from the tag indexes.
-                    foreach (var tag in roomTags)
+                    foreach (string tag in roomTags)
                     {
-                        var tagKey = VibeRoomRedis.TagIndexKey(tag);
+                        string tagKey = VibeRoomRedis.TagIndexKey(tag);
                         await _redis.Database.SetRemoveAsync(tagKey, roomHashKey).ConfigureAwait(false);
                     }
                 }
@@ -177,8 +179,8 @@ public class UserCleanupService : IHostedService
 
                 _logger.LogInformation("Cleaning up users older than {usersOlderThanDays} days", usersOlderThanDays);
 
-                List<User> allUsers = dbContext.Users.Where(u => string.IsNullOrEmpty(u.Alias)).ToList();
-                List<User> usersToRemove = new();
+                IQueryable<User> allUsers = dbContext.Users.AsNoTracking().Where(u => string.IsNullOrEmpty(u.Alias));
+                List<User> usersToRemove = new List<User>();
                 foreach (User user in allUsers)
                 {
                     if (user.LastLoggedIn < DateTime.UtcNow - TimeSpan.FromDays(usersOlderThanDays))
@@ -190,7 +192,10 @@ public class UserCleanupService : IHostedService
 
                 foreach (User user in usersToRemove)
                 {
-                    await SharedDbFunctions.PurgeUser(_logger, user, dbContext).ConfigureAwait(false);
+                    Dictionary<string, List<string>> remUserPairUidDict = await SharedDbFunctions.DeleteUserProfile(user, _logger, dbContext, _metrics).ConfigureAwait(false);
+                    // inform all related pairs to remove the user.
+                    foreach ((string removedUser, List<string> removedPairUids) in remUserPairUidDict)
+                        await _hubContext.Clients.Users(removedPairUids).Callback_RemoveClientPair(new(new(removedUser))).ConfigureAwait(false);
                 }
             }
 
@@ -218,61 +223,25 @@ public class UserCleanupService : IHostedService
         }
     }
 
-    private void CleanUpOutdatedAccountAuths(GagspeakDbContext dbContext)
+    private void CleanUpTimedOutAccountAuthClaims(GagspeakDbContext dbContext)
     {
         try
         {
             _logger.LogInformation($"Cleaning up expired account claim authentications");
-            List<AccountClaimAuth> accountClaimAuths = dbContext.AccountClaimAuth.Include(u => u.User).Where(a => a.StartedAt != null).ToList();
-            List<AccountClaimAuth> expiredAuths = new List<AccountClaimAuth>();
-            foreach (AccountClaimAuth auth in accountClaimAuths)
-            {
-                if (auth.StartedAt < DateTime.UtcNow - TimeSpan.FromMinutes(15))
-                {
-                    expiredAuths.Add(auth);
-                }
-            }
+            List<AccountClaimAuth> activeClaimEntries = dbContext.AccountClaimAuth.Include(u => u.User).Where(a => a.StartedAt != null).ToList();
 
-            // collect the list of users that have expired authentications that are not null.
-            dbContext.Users.RemoveRange(expiredAuths.Where(u => u.User != null).Select(a => a.User!));
-            dbContext.RemoveRange(expiredAuths);
+            IEnumerable<AccountClaimAuth> entriesToRemove = activeClaimEntries.Where(a => a.StartedAt != null && a.StartedAt < DateTime.UtcNow - TimeSpan.FromMinutes(15));
+
+            // We dont want to remove the users themselves, because it would be unfair if someone spent 2 months unverified, tried to
+            // verify, it failed, timed out, then they got their profile deleted.
+
+            // Instead, just remove the unclaimed auth entries with expired times.
+            // These users should be removed as their authentications have expired.
+            dbContext.RemoveRange(entriesToRemove);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Error during expired auths cleanup");
         }
-    }
-
-    public async Task PurgeUser(User user, GagspeakDbContext dbContext)
-    {
-        _logger.LogInformation("Purging user: {uid}", user.UID);
-
-        AccountClaimAuth claimAuth = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User != null && a.User.UID == user.UID);
-
-        if (claimAuth != null)
-        {
-            dbContext.Remove(claimAuth);
-        }
-
-        Auth auth = dbContext.Auth.Single(a => a.UserUID == user.UID);
-
-        List<ClientPair> ownPairData = dbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToList();
-        dbContext.ClientPairs.RemoveRange(ownPairData);
-        List<ClientPair> otherPairData = dbContext.ClientPairs.Include(u => u.User)
-            .Where(u => u.OtherUser.UID == user.UID).ToList();
-        dbContext.ClientPairs.RemoveRange(otherPairData);
-
-        _logger.LogInformation("User purged: {uid}", user.UID);
-
-        dbContext.Auth.Remove(auth);
-        dbContext.Users.Remove(user);
-
-        await dbContext.SaveChangesAsync().ConfigureAwait(false);
-    }
-
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _cleanupCts.Cancel();
-        return Task.CompletedTask;
     }
 }
