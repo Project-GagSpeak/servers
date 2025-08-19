@@ -1,5 +1,6 @@
 ﻿using GagspeakAPI.Attributes;
 using GagspeakAPI.Data;
+using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
 using GagspeakAPI.Hub;
@@ -37,16 +38,16 @@ public partial class GagspeakHub
             }
 
             // Grab the restriction data ordered by layer.
-            List<UserRestrictionData> curRestrictionData = await DbContext.UserRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
-            if (curRestrictionData.Any(r => r is null))
+            List<UserRestrictionData> curRestrictions = await DbContext.UserRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            if (curRestrictions.Any(r => r is null))
             {
                 await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot clear Active Restriction Data, it does not exist!").ConfigureAwait(false);
                 return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
             }
 
             // Grab the restraint set data.
-            UserRestraintData? curRestraintData = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-            if (curRestraintData is null)
+            UserRestraintData? curRestraint = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            if (curRestraint is null)
             {
                 await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot clear Restraint Data, it does not exist!").ConfigureAwait(false);
                 return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
@@ -64,7 +65,7 @@ public partial class GagspeakHub
             }
 
             // Clear restrictionData for all layers.
-            foreach (UserRestrictionData activeSetData in curRestrictionData)
+            foreach (UserRestrictionData activeSetData in curRestrictions)
             {
                 activeSetData.Identifier = Guid.Empty;
                 activeSetData.Enabler = string.Empty;
@@ -75,12 +76,12 @@ public partial class GagspeakHub
             }
 
             // Clear the restraintData.
-            curRestraintData.Identifier = Guid.Empty;
-            curRestraintData.Enabler = string.Empty;
-            curRestraintData.Padlock = Padlocks.None;
-            curRestraintData.Password = string.Empty;
-            curRestraintData.Timer = DateTimeOffset.MinValue;
-            curRestraintData.PadlockAssigner = string.Empty;
+            curRestraint.Identifier = Guid.Empty;
+            curRestraint.Enabler = string.Empty;
+            curRestraint.Padlock = Padlocks.None;
+            curRestraint.Password = string.Empty;
+            curRestraint.Timer = DateTimeOffset.MinValue;
+            curRestraint.PadlockAssigner = string.Empty;
 
             // Dont need to update tables since they are using tracking. Just save changes.
             await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -101,7 +102,7 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveGags(PushClientActiveGagSlot dto)
+    public async Task<HubResponse<ActiveGagSlot>> UserPushActiveGags(PushClientActiveGagSlot dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
@@ -109,7 +110,7 @@ public partial class GagspeakHub
         // Grab the appearance data from the database at the layer we want to interact with.
         UserGagData? curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false);
         if (curGagData is null)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ActiveGagSlot());
 
         // get the previous gag type and padlock from the current data.
         GagType previousGag = curGagData.Gag;
@@ -144,7 +145,7 @@ public partial class GagspeakHub
                 break;
 
             default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new ActiveGagSlot());
         }
 
         // save changes to our tracked item.
@@ -160,63 +161,61 @@ public partial class GagspeakHub
         };
 
         await Clients.Users(recipientUids).Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
-        await Clients.Caller.Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferGags);
-        return HubResponseBuilder.Yippee();
+        return HubResponseBuilder.Yippee(newAppearance);
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveRestrictions(PushClientActiveRestriction dto)
+    public async Task<HubResponse<ActiveRestriction>> UserPushActiveRestrictions(PushClientActiveRestriction dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
 
-        UserRestrictionData? curRestrictionData = await DbContext.UserRestrictionData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false);
-        if (curRestrictionData is null)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        if (await DbContext.UserRestrictionData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false) is not { } curData)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ActiveRestriction());
 
         // get the previous gag type and padlock from the current data.
-        Guid prevId = curRestrictionData.Identifier;
-        Padlocks prevPadlock = curRestrictionData.Padlock;
+        Guid prevId = curData.Identifier;
+        Padlocks prevPadlock = curData.Padlock;
 
         // we can always assume that this is correct when applied by self.
         switch (dto.Type)
         {
             case DataUpdateType.Swapped:
             case DataUpdateType.Applied:
-                curRestrictionData.Identifier = dto.Identifier;
-                curRestrictionData.Enabler = dto.Enabler;
+                curData.Identifier = dto.Identifier;
+                curData.Enabler = dto.Enabler;
                 break;
 
             case DataUpdateType.Locked:
-                curRestrictionData.Padlock = dto.Padlock;
-                curRestrictionData.Password = dto.Password;
-                curRestrictionData.Timer = dto.Timer;
-                curRestrictionData.PadlockAssigner = dto.Assigner;
+                curData.Padlock = dto.Padlock;
+                curData.Password = dto.Password;
+                curData.Timer = dto.Timer;
+                curData.PadlockAssigner = dto.Assigner;
                 break;
 
             case DataUpdateType.Unlocked:
-                curRestrictionData.Padlock = Padlocks.None;
-                curRestrictionData.Password = string.Empty;
-                curRestrictionData.Timer = DateTimeOffset.UtcNow;
-                curRestrictionData.PadlockAssigner = string.Empty;
+                curData.Padlock = Padlocks.None;
+                curData.Password = string.Empty;
+                curData.Timer = DateTimeOffset.UtcNow;
+                curData.PadlockAssigner = string.Empty;
                 break;
 
             case DataUpdateType.Removed:
-                curRestrictionData.Identifier = Guid.Empty;
-                curRestrictionData.Enabler = string.Empty;
+                curData.Identifier = Guid.Empty;
+                curData.Enabler = string.Empty;
                 break;
 
 
             default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new ActiveRestriction());
         }
 
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // get the updated restrictionData.
-        ActiveRestriction newRestrictionData = curRestrictionData.ToApiRestrictionSlot();
+        ActiveRestriction newRestrictionData = curData.ToApiRestrictionSlot();
         KinksterUpdateActiveRestriction recipientDto = new(new(UserUID), new(UserUID), newRestrictionData, dto.Type)
         {
             AffectedLayer = dto.Layer,
@@ -225,70 +224,68 @@ public partial class GagspeakHub
         };
 
         await Clients.Users(recipientUids).Callback_KinksterUpdateActiveRestriction(recipientDto).ConfigureAwait(false);
-        await Clients.Caller.Callback_KinksterUpdateActiveRestriction(recipientDto).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferRestrictions);
-        return HubResponseBuilder.Yippee();
+        return HubResponseBuilder.Yippee(newRestrictionData);
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveRestraint(PushClientActiveRestraint dto)
+    public async Task<HubResponse<CharaActiveRestraint>> UserPushActiveRestraint(PushClientActiveRestraint dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
 
         // grab the restraintSetData from the database.
-        UserRestraintData? curRestraintData = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
-        if (curRestraintData is null)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        if (await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } curData)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new CharaActiveRestraint());
 
-        Guid prevSetId = curRestraintData.Identifier;
-        RestraintLayer prevLayers = curRestraintData.ActiveLayers;
-        Padlocks prevPadlock = curRestraintData.Padlock;
+        Guid prevSetId = curData.Identifier;
+        RestraintLayer prevLayers = curData.ActiveLayers;
+        Padlocks prevPadlock = curData.Padlock;
 
         switch (dto.Type)
         {
             case DataUpdateType.Swapped:
             case DataUpdateType.Applied:
-                curRestraintData.Identifier = dto.ActiveSetId;
-                curRestraintData.Enabler = dto.Enabler;
+                curData.Identifier = dto.ActiveSetId;
+                curData.Enabler = dto.Enabler;
                 break;
 
             // No bitwise operations for right now, just raw updates.
             case DataUpdateType.LayersChanged:
             case DataUpdateType.LayersApplied:
             case DataUpdateType.LayersRemoved:
-                curRestraintData.ActiveLayers = dto.ActiveLayers;
+                curData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             case DataUpdateType.Locked:
-                curRestraintData.Padlock = dto.Padlock;
-                curRestraintData.Password = dto.Password;
-                curRestraintData.Timer = dto.Timer;
-                curRestraintData.PadlockAssigner = dto.Assigner;
+                curData.Padlock = dto.Padlock;
+                curData.Password = dto.Password;
+                curData.Timer = dto.Timer;
+                curData.PadlockAssigner = dto.Assigner;
                 break;
 
             case DataUpdateType.Unlocked:
-                curRestraintData.Padlock = Padlocks.None;
-                curRestraintData.Password = string.Empty;
-                curRestraintData.Timer = DateTimeOffset.UtcNow;
-                curRestraintData.PadlockAssigner = string.Empty;
+                curData.Padlock = Padlocks.None;
+                curData.Password = string.Empty;
+                curData.Timer = DateTimeOffset.UtcNow;
+                curData.PadlockAssigner = string.Empty;
                 break;
 
             case DataUpdateType.Removed:
-                curRestraintData.Identifier = Guid.Empty;
-                curRestraintData.Enabler = string.Empty;
-                curRestraintData.ActiveLayers = RestraintLayer.None;
+                curData.Identifier = Guid.Empty;
+                curData.Enabler = string.Empty;
+                curData.ActiveLayers = RestraintLayer.None;
                 break;
 
             default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new CharaActiveRestraint());
         }
 
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // get the updated restraintData.
-        CharaActiveRestraint newRestraintData = curRestraintData.ToApiRestraintData();
+        CharaActiveRestraint newRestraintData = curData.ToApiRestraintData();
         KinksterUpdateActiveRestraint recipientDto = new(new(UserUID), new(UserUID), newRestraintData, dto.Type)
         {
             PreviousRestraint = prevSetId,
@@ -297,9 +294,8 @@ public partial class GagspeakHub
         };
 
         await Clients.Users(recipientUids).Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
-        await Clients.Caller.Callback_KinksterUpdateActiveRestraint(recipientDto).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferRestraint);
-        return HubResponseBuilder.Yippee();
+        return HubResponseBuilder.Yippee(newRestraintData);
     }
 
     [Authorize(Policy = "Identified")]
@@ -391,16 +387,15 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveLoot(PushClientActiveLoot dto)
+    public async Task<HubResponse<Guid>> UserPushActiveLoot(PushClientActiveLoot dto)
     {
         var recipientUids = dto.Recipients.Select(r => r.UID);
         // if the loot is not null, we assume application, so try and apply it if a gag item.
         if (dto.LootItem is { } item && item.Type is CursedLootType.Gag && item.Gag.HasValue)
         {
-            // grab the usergagdata for the first open slot with no gag item applied, if no layers are available, return invalid layer.
-            UserGagData? curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Gag == GagType.None).ConfigureAwait(false);
-            if (curGagData is null)
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer);
+            // grab the UserGagData for the first open slot with no gag item applied, if no layers are available, return invalid layer.
+            if (await DbContext.UserGagData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Gag == GagType.None).ConfigureAwait(false) is not { } curGagData)
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer, Guid.Empty);
 
             // update the data.
             curGagData.Gag = item.Gag.Value;
@@ -428,7 +423,7 @@ public partial class GagspeakHub
         // Push CursedLoot update to all recipients.
         await Clients.Users(recipientUids).Callback_KinksterUpdateActiveCursedLoot(new(new(UserUID), dto.ActiveItems, dto.ChangeItem)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferLoot);
-        return HubResponseBuilder.Yippee();
+        return HubResponseBuilder.Yippee(dto.ChangeItem);
     }
 
     [Authorize(Policy = "Identified")]
@@ -668,9 +663,9 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // grab the user pairs of the client caller
-        var pairsOfTarget = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
-        IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
+        var pairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var onlinePairsOfCaller = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
+        IEnumerable<string> onlinePairUids = onlinePairsOfCaller.Keys;
 
         await Clients.Users([ ..onlinePairUids, UserUID]).Callback_SingleChangeGlobal(new(dto.User, dto.NewPerm, dto.Enactor)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeGlobal);
@@ -747,6 +742,99 @@ public partial class GagspeakHub
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeAccess);
         return HubResponseBuilder.Yippee();
     }
+
+    // should only ever be done by automatic timer expiration. If people get really
+    // hacky with it and break things client side, this can easily be embedded into
+    // a cleanup task server-side, (but also, it is necessary for safeword maybe?)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse<HardcoreState>> UserChangeOwnHardcoreState(HardcoreStateChange dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        // Cannot update anyone else.
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new HardcoreState());
+
+        // Hardcore State must exist.
+        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } hcState)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new HardcoreState());
+
+        // Attribute MUST be enabled, because we should only disable.
+        if (!hcState.IsEnabled(dto.Changed))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState, new HardcoreState());
+
+        // Must be able to change (we can fake this with auto-unlock-service so dont worry)
+        if (!hcState.CanChange(dto.Changed, dto.Enactor.UID))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new HardcoreState());
+
+        switch (dto.Changed)
+        {
+            case HcAttribute.Follow:
+                hcState.LockedFollowing = string.Empty;
+                break;
+
+            case HcAttribute.EmoteState:
+                hcState.LockedEmoteState = string.Empty;
+                hcState.EmoteExpireTime = DateTimeOffset.MinValue;
+                hcState.EmoteId = 0;
+                hcState.EmoteCyclePose = 0;
+                break;
+
+            case HcAttribute.Confinement:
+                hcState.IndoorConfinement = string.Empty;
+                hcState.ConfinementTimer = DateTimeOffset.MinValue;
+                hcState.ConfinedWorld = 0;
+                hcState.ConfinedCity = 0;
+                hcState.ConfinedWard = 0;
+                hcState.ConfinedPlaceId = 0;
+                hcState.ConfinedInApartment = false;
+                hcState.ConfinedInSubdivision = false;
+                break;
+
+            case HcAttribute.Imprisonment:
+                hcState.Imprisonment = string.Empty;
+                hcState.ImprisonmentTimer = DateTimeOffset.MinValue;
+                hcState.ImprisonedTerritory = 0;
+                hcState.ImprisonedPosX = 0;
+                hcState.ImprisonedPosY = 0;
+                hcState.ImprisonedPosZ = 0;
+                hcState.ImprisonedRadius = 0;
+                break;
+
+            case HcAttribute.HiddenChatBox:
+                hcState.ChatBoxesHidden = string.Empty;
+                hcState.ChatBoxesHiddenTimer = DateTimeOffset.MinValue;
+                break;
+
+            case HcAttribute.HiddenChatInput:
+                hcState.ChatInputHidden = string.Empty;
+                hcState.ChatInputHiddenTimer = DateTimeOffset.MinValue;
+                break;
+
+            case HcAttribute.BlockedChatInput:
+                hcState.ChatInputBlocked = string.Empty;
+                hcState.ChatInputBlockedTimer = DateTimeOffset.MinValue;
+                break;
+
+            default:
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new HardcoreState());
+
+        }
+
+        DbContext.Update(hcState);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        var newData = hcState.ToApiHardcoreState();
+
+        var pairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var onlinePairsOfCaller = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
+        IEnumerable<string> onlinePairUids = onlinePairsOfCaller.Keys;
+
+        await Clients.Users(onlinePairUids).Callback_StateChangeHardcore(new(dto.User, newData, dto.Changed, dto.Enactor)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterPermissionChangeHardcore);
+        return HubResponseBuilder.Yippee(newData);
+    }
+
+
 
     /// <summary> 
     ///     Method will delete the caller user profile from the database, and all associated data with it. <para />

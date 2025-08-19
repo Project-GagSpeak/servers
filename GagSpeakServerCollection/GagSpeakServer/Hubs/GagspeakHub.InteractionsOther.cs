@@ -714,7 +714,7 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserChangeHardcoreState(HardcoreStateChange dto)
+    public async Task<HubResponse> UserChangeOtherHardcoreState(HardcoreStateChange dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Reject hypnosis.
