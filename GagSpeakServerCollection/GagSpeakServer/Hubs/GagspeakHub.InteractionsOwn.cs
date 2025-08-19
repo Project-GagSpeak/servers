@@ -747,26 +747,22 @@ public partial class GagspeakHub
     // hacky with it and break things client side, this can easily be embedded into
     // a cleanup task server-side, (but also, it is necessary for safeword maybe?)
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse<HardcoreState>> UserChangeOwnHardcoreState(HardcoreStateChange dto)
+    public async Task<HubResponse<HardcoreState>> UserHardcoreAttributeExpired(HardcoreAttributeExpired dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        // Cannot update anyone else.
-        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new HardcoreState());
-
         // Hardcore State must exist.
-        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } hcState)
+        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hcState)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new HardcoreState());
 
         // Attribute MUST be enabled, because we should only disable.
-        if (!hcState.IsEnabled(dto.Changed))
+        if (!hcState.IsEnabled(dto.Attribute))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState, new HardcoreState());
 
         // Must be able to change (we can fake this with auto-unlock-service so dont worry)
-        if (!hcState.CanChange(dto.Changed, dto.Enactor.UID))
+        if (!hcState.CanChange(dto.Attribute, dto.Enactor.UID))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new HardcoreState());
 
-        switch (dto.Changed)
+        switch (dto.Attribute)
         {
             case HcAttribute.Follow:
                 hcState.LockedFollowing = string.Empty;
@@ -829,7 +825,7 @@ public partial class GagspeakHub
         var onlinePairsOfCaller = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfCaller.Keys;
 
-        await Clients.Users(onlinePairUids).Callback_StateChangeHardcore(new(dto.User, newData, dto.Changed, dto.Enactor)).ConfigureAwait(false);
+        await Clients.Users(onlinePairUids).Callback_StateChangeHardcore(new(new(UserUID), newData, dto.Attribute, dto.Enactor)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeHardcore);
         return HubResponseBuilder.Yippee(newData);
     }
