@@ -577,21 +577,21 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserBulkChangeGlobal(BulkChangeGlobal dto)
+    public async Task<HubResponse<ClientGlobals>> UserBulkChangeGlobal(BulkChangeGlobal dto)
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Cannot update anyone but self.
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new ClientGlobals(new GlobalPerms(), new HardcoreState()));
 
         // Globals must exist
         if (await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } globals)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new HardcoreState()));
 
         // HardcoreState must exist.
         if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hardcoreState)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData); 
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new HardcoreState()));
 
         // Update the permissions to the new values.
         UserGlobalPermissions newGlobals = dto.NewPerms.ToModelGlobalPerms(globals);
@@ -607,7 +607,7 @@ public partial class GagspeakHub
 
         await Clients.Users([ ..onlinePairUids, UserUID]).Callback_BulkChangeGlobal(new(new(UserUID), dto.NewPerms, dto.NewState)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeGlobal);
-        return HubResponseBuilder.Yippee();
+        return HubResponseBuilder.Yippee(new ClientGlobals(dto.NewPerms, dto.NewState));
     }
 
     [Authorize(Policy = "Identified")]

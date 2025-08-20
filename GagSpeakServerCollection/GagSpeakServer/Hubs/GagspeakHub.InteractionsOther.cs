@@ -13,6 +13,7 @@ using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using System.Numerics;
 
 namespace GagspeakServer.Hubs;
 #nullable enable
@@ -800,12 +801,20 @@ public partial class GagspeakHub
                 if (!hcState.CanChange(HcAttribute.Imprisonment, UserUID))
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
-                // States must be toggled between on and off, not swapped. (they technically dont,
-                // but if we made it possible we would need to run checks for matching territory ID's
-                // and account for things being in the way ext.)
-                var isImprisoned = !string.IsNullOrEmpty(hcState.Imprisonment);
-                if (isImprisoned && dto.NewData.Imprisonment.Length > 0 || !isImprisoned && dto.NewData.Imprisonment == string.Empty)
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+                var currentlyImprisoned = hcState.Imprisonment.Length > 0;
+                var willBeImprisoned = dto.NewData.Imprisonment.Length > 0;
+                // if both of the above are true, then the territories must match, and cannot be > 30y apart.
+                if (currentlyImprisoned && willBeImprisoned)
+                {
+                    // Must be in the same territory.
+                    if (hcState.ImprisonedTerritory != dto.NewData.ImprisonedTerritory)
+                        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+                    // Must not be over 30y apart.
+                    var prevPos = new Vector3(hcState.ImprisonedPosX, hcState.ImprisonedPosY, hcState.ImprisonedPosZ);
+                    var newPos = new Vector3(dto.NewData.ImprisonedPos.X, dto.NewData.ImprisonedPos.Y, dto.NewData.ImprisonedPos.Z);
+                    if (Vector3.Distance(prevPos, newPos) > 30f)
+                        return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
+                }
 
                 // perform the updates on the values.
                 hcState.Imprisonment = dto.NewData.Imprisonment;
