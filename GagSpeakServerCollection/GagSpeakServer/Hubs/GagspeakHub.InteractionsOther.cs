@@ -735,6 +735,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Make changes based on the attribute type, if allowed.
+        var newState = dto.NewData;
         switch (dto.Changed)
         {
             case HcAttribute.Follow:
@@ -745,12 +746,13 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
                 // State changes must be toggled
-                var followActive = !string.IsNullOrEmpty(hcState.LockedFollowing);
-                if (followActive && dto.NewData.LockedFollowing.Length > 0 || !followActive && dto.NewData.LockedFollowing == string.Empty)
+                bool serverFollow = hcState.LockedFollowing.Length > 0;
+                bool dtoFollow = newState.LockedFollowing.Length > 0;
+                if (serverFollow == dtoFollow)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
 
                 // perform the updates on the values.
-                hcState.LockedFollowing = dto.NewData.LockedFollowing;
+                hcState.LockedFollowing = newState.LockedFollowing;
                 break;
 
             case HcAttribute.EmoteState:
@@ -764,11 +766,12 @@ public partial class GagspeakHub
                 // we are able to swap between emotes if allowed, but validate with devotional lock first.
                 if (!hcState.CanChange(HcAttribute.EmoteState, UserUID))
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
+
                 // Update the state.
-                hcState.LockedEmoteState = dto.NewData.LockedEmoteState;
-                hcState.EmoteExpireTime = dto.NewData.EmoteExpireTime;
-                hcState.EmoteId = dto.NewData.EmoteId;
-                hcState.EmoteCyclePose = dto.NewData.EmoteCyclePose;
+                hcState.LockedEmoteState = newState.LockedEmoteState;
+                hcState.EmoteExpireTime = newState.EmoteExpireTime;
+                hcState.EmoteId = newState.EmoteId;
+                hcState.EmoteCyclePose = newState.EmoteCyclePose;
                 break;
 
             case HcAttribute.Confinement:
@@ -779,19 +782,20 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
                 // State changes must be toggled between on and off, not swapped.
-                var isActive = !string.IsNullOrEmpty(hcState.IndoorConfinement);
-                if (isActive && dto.NewData.LockedFollowing.Length > 0 || !isActive && dto.NewData.LockedFollowing == string.Empty)
+                bool serverConfine = hcState.IndoorConfinement.Length > 0;
+                bool dtoConfine = newState.IndoorConfinement.Length > 0;
+                if (serverConfine == dtoConfine)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
 
                 // perform the updates on the values.
-                hcState.IndoorConfinement = dto.NewData.IndoorConfinement;
-                hcState.ConfinementTimer = dto.NewData.ConfinementTimer;
-                hcState.ConfinedWorld = dto.NewData.ConfinedWorld;
-                hcState.ConfinedCity = dto.NewData.ConfinedCity;
-                hcState.ConfinedWard = dto.NewData.ConfinedWard;
-                hcState.ConfinedPlaceId = dto.NewData.ConfinedPlaceId;
-                hcState.ConfinedInApartment = dto.NewData.ConfinedInApartment;
-                hcState.ConfinedInSubdivision = dto.NewData.ConfinedInSubdivision;
+                hcState.IndoorConfinement = newState.IndoorConfinement;
+                hcState.ConfinementTimer = newState.ConfinementTimer;
+                hcState.ConfinedWorld = newState.ConfinedWorld;
+                hcState.ConfinedCity = newState.ConfinedCity;
+                hcState.ConfinedWard = newState.ConfinedWard;
+                hcState.ConfinedPlaceId = newState.ConfinedPlaceId;
+                hcState.ConfinedInApartment = newState.ConfinedInApartment;
+                hcState.ConfinedInSubdivision = newState.ConfinedInSubdivision;
                 break;
 
             case HcAttribute.Imprisonment:
@@ -801,29 +805,29 @@ public partial class GagspeakHub
                 if (!hcState.CanChange(HcAttribute.Imprisonment, UserUID))
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
-                var currentlyImprisoned = hcState.Imprisonment.Length > 0;
-                var willBeImprisoned = dto.NewData.Imprisonment.Length > 0;
+                bool serverImprison = hcState.Imprisonment.Length > 0;
+                bool dtoImprison = newState.Imprisonment.Length > 0;
                 // if both of the above are true, then the territories must match, and cannot be > 30y apart.
-                if (currentlyImprisoned && willBeImprisoned)
+                if (serverImprison && dtoImprison)
                 {
                     // Must be in the same territory.
-                    if (hcState.ImprisonedTerritory != dto.NewData.ImprisonedTerritory)
+                    if (hcState.ImprisonedTerritory != newState.ImprisonedTerritory)
                         return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
                     // Must not be over 30y apart.
                     var prevPos = new Vector3(hcState.ImprisonedPosX, hcState.ImprisonedPosY, hcState.ImprisonedPosZ);
-                    var newPos = new Vector3(dto.NewData.ImprisonedPos.X, dto.NewData.ImprisonedPos.Y, dto.NewData.ImprisonedPos.Z);
+                    var newPos = new Vector3(newState.ImprisonedPos.X, newState.ImprisonedPos.Y, newState.ImprisonedPos.Z);
                     if (Vector3.Distance(prevPos, newPos) > 30f)
                         return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
                 }
 
                 // perform the updates on the values.
-                hcState.Imprisonment = dto.NewData.Imprisonment;
-                hcState.ImprisonmentTimer = dto.NewData.ImprisonmentTimer;
-                hcState.ImprisonedTerritory = dto.NewData.ImprisonedTerritory;
-                hcState.ImprisonedPosX = dto.NewData.ImprisonedPos.X;
-                hcState.ImprisonedPosY = dto.NewData.ImprisonedPos.Y;
-                hcState.ImprisonedPosZ = dto.NewData.ImprisonedPos.Z;
-                hcState.ImprisonedRadius = dto.NewData.ImprisonedRadius;
+                hcState.Imprisonment = newState.Imprisonment;
+                hcState.ImprisonmentTimer = newState.ImprisonmentTimer;
+                hcState.ImprisonedTerritory = newState.ImprisonedTerritory;
+                hcState.ImprisonedPosX = newState.ImprisonedPos.X;
+                hcState.ImprisonedPosY = newState.ImprisonedPos.Y;
+                hcState.ImprisonedPosZ = newState.ImprisonedPos.Z;
+                hcState.ImprisonedRadius = newState.ImprisonedRadius;
                 break;
 
             case HcAttribute.HiddenChatBox:
@@ -834,12 +838,13 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
                 // State changes must be toggled
-                var isChatHidden = !string.IsNullOrEmpty(hcState.ChatBoxesHidden);
-                if (isChatHidden && dto.NewData.ChatBoxesHidden.Length > 0 || !isChatHidden && dto.NewData.LockedFollowing == string.Empty)
+                bool serverChatHide = hcState.ChatBoxesHidden.Length > 0;
+                bool dtoChatHide = newState.ChatBoxesHidden.Length > 0;
+                if (serverChatHide == dtoChatHide)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
                 // perform the updates on the values.
-                hcState.ChatBoxesHidden = dto.NewData.ChatBoxesHidden;
-                hcState.ChatBoxesHiddenTimer = dto.NewData.ChatBoxesHiddenTimer;
+                hcState.ChatBoxesHidden = newState.ChatBoxesHidden;
+                hcState.ChatBoxesHiddenTimer = newState.ChatBoxesHiddenTimer;
                 break;
 
             case HcAttribute.HiddenChatInput:
@@ -850,13 +855,14 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
 
                 // State changes must be toggled
-                var isInputHidden = !string.IsNullOrEmpty(hcState.ChatInputHidden);
-                if (isInputHidden && dto.NewData.ChatInputHidden.Length > 0 || !isInputHidden && dto.NewData.ChatInputHidden == string.Empty)
+                bool serverChatInpHide = hcState.ChatInputHidden.Length > 0;
+                bool dtoChatInpHide = newState.ChatInputHidden.Length > 0;
+                if (serverChatInpHide == dtoChatInpHide)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
 
                 // perform the updates on the values.
-                hcState.ChatInputHidden = dto.NewData.ChatInputHidden;
-                hcState.ChatInputHiddenTimer = dto.NewData.ChatInputHiddenTimer;
+                hcState.ChatInputHidden = newState.ChatInputHidden;
+                hcState.ChatInputHiddenTimer = newState.ChatInputHiddenTimer;
                 break;
 
             case HcAttribute.BlockedChatInput:
@@ -866,12 +872,13 @@ public partial class GagspeakHub
 
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotItemAssigner);
                 // State changes must be toggled
-                var isInputBlocked = !string.IsNullOrEmpty(hcState.ChatInputBlocked);
-                if (isInputBlocked && dto.NewData.ChatInputBlocked.Length > 0 || !isInputBlocked && dto.NewData.ChatInputBlocked == string.Empty)
+                bool serverChatBlocked = hcState.ChatInputBlocked.Length > 0;
+                bool dtoChatBlocked = newState.ChatInputBlocked.Length > 0;
+                if (serverChatBlocked == dtoChatBlocked)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
                 // perform the updates on the values.
-                hcState.ChatInputBlocked = dto.NewData.ChatInputBlocked;
-                hcState.ChatInputBlockedTimer = dto.NewData.ChatInputBlockedTimer;
+                hcState.ChatInputBlocked = newState.ChatInputBlocked;
+                hcState.ChatInputBlockedTimer = newState.ChatInputBlockedTimer;
                 break;
 
             default:
