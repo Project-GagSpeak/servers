@@ -15,39 +15,74 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class GagspeakHub
 {
-	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushIpcFull(PushIpcDataFull dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcData(PushIpcFull dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_SetKinksterIpcData(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterSentAppearanceFull);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcDataLight(PushIpcLight dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_SetKinksterIpcLight(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterSentAppearanceLight);
+        return HubResponseBuilder.Yippee();
+    }
+
+#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcModManips(PushIpcModManips dto)
+    {
+		return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotYetImplemented);
+    }
+#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushIpcGlamourer(PushIpcGlamourer dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_SetKinksterIpcGlamourer(new(new(UserUID), dto.GlamourerBase64)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterSentAppearanceGlamour);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+	public async Task<HubResponse> UserPushMoodlesFull(PushMoodlesFull dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterIpcFull(new(new(UserUID), new(UserUID), dto.NewData)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterStateTransfersIpcFull);
+		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesFull(new(new(UserUID), new(UserUID), dto.NewData)).ConfigureAwait(false);
+		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferFull);
 		return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushIpcStatusManager(PushIpcStatusManager dto)
+	public async Task<HubResponse> UserPushMoodlesSM(PushMoodlesSM dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterIpcStatusManager(new(new(UserUID), new(UserUID), dto.DataString, dto.DataInfo)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterStateTransfersIpcSM);
+		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesSM(new(new(UserUID), new(UserUID), dto.DataString, dto.DataInfo)).ConfigureAwait(false);
+		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferSM);
 		return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushIpcStatuses(PushIpcStatuses dto)
+	public async Task<HubResponse> UserPushMoodlesStatuses(PushMoodlesStatuses dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterIpcStatuses(new(new(UserUID), new(UserUID), dto.Statuses)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterStateTransfersIpcStatus);
+		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesStatuses(new(new(UserUID), new(UserUID), dto.Statuses)).ConfigureAwait(false);
+		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferStatus);
 		return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushIpcPresets(PushIpcPresets dto)
+	public async Task<HubResponse> UserPushMoodlesPresets(PushMoodlesPresets dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterIpcPresets(new(new(UserUID), new(UserUID), dto.Presets)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterStateTransfersIpcPreset);
+		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesPresets(new(new(UserUID), new(UserUID), dto.Presets)).ConfigureAwait(false);
+		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferPreset);
 		return HubResponseBuilder.Yippee();
 	}
 

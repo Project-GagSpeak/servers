@@ -36,10 +36,14 @@ public class MetricsAPI
     public const string CounterKinkPlateReportsCreated = "gagspeak_kinkplate_reports_created";
 
     // IPC
-    public const string CounterStateTransfersIpcFull = "gagspeak_statetransfers_ipc_full";
-    public const string CounterStateTransfersIpcSM = "gagspeak_statetransfers_ipc_sm";
-    public const string CounterStateTransfersIpcStatus = "gagspeak_statetransfers_ipc_status";
-    public const string CounterStateTransfersIpcPreset = "gagspeak_statetransfers_ipc_preset";
+    public const string CounterSentAppearanceFull = "gagspeak_sent_appearance_full";
+    public const string CounterSentAppearanceLight = "gagspeak_sent_appearance_light";
+    public const string CounterSentAppearanceGlamour = "gagspeak_sent_appearance_glamour";
+    public const string CounterSentAppearanceManips = "gagspeak_sent_appearance_manips";
+    public const string CounterMoodleTransferFull = "gagspeak_moodle_transfer_full";
+    public const string CounterMoodleTransferSM = "gagspeak_moodle_transfer_sm";
+    public const string CounterMoodleTransferStatus = "gagspeak_moodle_transfer_status";
+    public const string CounterMoodleTransferPreset = "gagspeak_moodle_transfer_preset";
     public const string CounterMoodlesAppliedId = "gagspeak_moodles_applied_id";
     public const string CounterMoodlesAppliedStatus = "gagspeak_moodles_applied_status";
     public const string CounterMoodlesRemoved = "gagspeak_moodles_removed";

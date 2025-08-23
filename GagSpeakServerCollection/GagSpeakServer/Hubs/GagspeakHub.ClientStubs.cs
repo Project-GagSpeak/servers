@@ -23,10 +23,14 @@ public partial class GagspeakHub
 	public Task Callback_AddCollarRequest(CollarOwnershipRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveCollarRequest(CollarOwnershipRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 
-    public Task Callback_SetKinksterIpcFull(KinksterIpcDataFull dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_SetKinksterIpcStatusManager(KinksterIpcStatusManager dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_SetKinksterIpcStatuses(KinksterIpcStatuses dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_SetKinksterIpcPresets(KinksterIpcPresets dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterIpcData(KinksterIpcData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterIpcLight(KinksterIpcDataLight dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_SetKinksterIpcManipulations(KinksterIpcManipulations dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_SetKinksterIpcGlamourer(KinksterIpcGlamourer dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_SetKinksterMoodlesFull(KinksterMoodlesDataFull dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterMoodlesSM(KinksterMoodlesSM dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterMoodlesStatuses(KinksterMoodlesStatuses dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_SetKinksterMoodlesPresets(KinksterMoodlesPresets dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
     public Task Callback_ApplyMoodlesByGuid(MoodlesApplierById dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ApplyMoodlesByStatus(MoodlesApplierByStatus dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveMoodles(MoodlesRemoval dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

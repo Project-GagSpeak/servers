@@ -181,7 +181,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateType.Locked:
-                if (curRestrictionData.Identifier.IsEmptyGuid())
+                if (curRestrictionData.Identifier == Guid.Empty)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
 
                 if (curRestrictionData.IsLocked())
@@ -212,7 +212,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateType.Unlocked:
-                if (curRestrictionData.Identifier.IsEmptyGuid())
+                if (curRestrictionData.Identifier == Guid.Empty)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
 
                 else if (!curRestrictionData.IsLocked())
@@ -232,7 +232,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateType.Removed:
-                if (curRestrictionData.Identifier.IsEmptyGuid())
+                if (curRestrictionData.Identifier == Guid.Empty)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
 
                 if (curRestrictionData.IsLocked())
@@ -341,7 +341,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateType.Locked:
-                if (curRestraintSetData.Identifier.IsEmptyGuid())
+                if (curRestraintSetData.Identifier == Guid.Empty)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
 
                 if (curRestraintSetData.IsLocked())
@@ -371,7 +371,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateType.Unlocked:
-                if (curRestraintSetData.Identifier.IsEmptyGuid())
+                if (curRestraintSetData.Identifier == Guid.Empty)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
 
                 else if (!curRestraintSetData.IsLocked())
@@ -409,7 +409,7 @@ public partial class GagspeakHub
                 break;
 
             case DataUpdateType.Removed:
-                if (curRestraintSetData.Identifier.IsEmptyGuid())
+                if (curRestraintSetData.Identifier == Guid.Empty)
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NoActiveItem);
 
                 if (curRestraintSetData.IsLocked())

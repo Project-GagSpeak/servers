@@ -93,7 +93,4 @@ public class ClientPairPermissions
     public int         MaxIntensity              { get; set; } = -1; // the max intensity of the shock, vibration, or beep.
     public int         MaxDuration               { get; set; } = -1; // the max duration of the shock, vibration, or beep.
     public TimeSpan    MaxVibrateDuration        { get; set; } = TimeSpan.Zero; // separate value since vibrations have diff limits.
-
-    // member helper for PiShock functions.
-    public bool HasValidShareCode() => !PiShockShareCode.NullOrEmpty() && MaxDuration > 0;
 }

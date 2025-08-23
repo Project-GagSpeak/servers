@@ -34,7 +34,7 @@ public partial class GagspeakHub
     /// <summary> Helper function to get the user's identity from the redis by their UID </summary>
     private async Task<string?> GetUserIdent(string uid)
     {
-        if (uid.NullOrEmpty()) return string.Empty;
+        if (string.IsNullOrEmpty(uid)) return string.Empty;
         return await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
     }
 
@@ -269,46 +269,61 @@ public partial class GagspeakHub
 
 
         // Start by selecting from a previously defined collection 'clientPairs'
-        var resultingInfo = from user in clientPairs
-                                // Join with the Users table to get details of the "other user" in each pair
-                            join u in DbContext.Users.AsNoTracking() on user.OtherUserUID equals u.UID
-                            // Attempt to join with the ClientPairPermissions table to find permissions the user set for the other user
+        // each 'clientPairs' item is the final resulting query of { UserUID, OtherUserUID, Synced }
+        var resultingInfo = from user in clientPairs // <-- Define the above query as 'user'
+                            // Join with Users table for the 'other user'
+                            join u in DbContext.Users.AsNoTracking() 
+                                on user.OtherUserUID equals u.UID
+
+                            // Perform a Group join: this collects all ClientPairPermissions that UserUID set for OtherUserUID
                             join o in DbContext.ClientPairPermissions.AsNoTracking().Where(u => u.UserUID == uid)
                                 on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
-                                equals new { UserUID = o.UserUID, OtherUserUID = o.OtherUserUID } into ownperms
-                            // find perms that uid has set for other user in the pair. Groups results into 'ownperms'
+                                equals new { UserUID = o.UserUID, OtherUserUID = o.OtherUserUID }
+                                into ownperms
                             from ownperm in ownperms.DefaultIfEmpty()
-                                // Similar to the previous join, but for a different table: ClientPairPermissionAccess
+
+                            // Perform a Group join: this collects all ClientPairPermissionAccess that UserUID set for OtherUserUID
                             join oa in DbContext.ClientPairPermissionAccess.AsNoTracking().Where(a => a.UserUID == uid)
                                 on new { UserUID = user.UserUID, OtherUserUID = user.OtherUserUID }
-                                equals new { UserUID = oa.UserUID, OtherUserUID = oa.OtherUserUID } into ownaccesses
-                            // find perms that uid has set for other user in the pair. Groups results into 'ownaccesses'
+                                equals new { UserUID = oa.UserUID, OtherUserUID = oa.OtherUserUID } 
+                                into ownaccesses
                             from ownaccess in ownaccesses.DefaultIfEmpty()
-                                // Now, attempt to find permissions set by the other user for the main user
+
+                            // Perform a Group join: this collects all ClientPairPermissions that OtherUserUID set for UserUID
                             join p in DbContext.ClientPairPermissions.AsNoTracking().Where(u => u.OtherUserUID == uid)
                                 on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
-                                equals new { UserUID = p.UserUID, OtherUserUID = p.OtherUserUID } into otherperms
-                            // find perms that the other user has set for the main user. Groups results into 'otherperms'
+                                equals new { UserUID = p.UserUID, OtherUserUID = p.OtherUserUID } 
+                                into otherperms
                             from otherperm in otherperms.DefaultIfEmpty()
-                                // Similar to previous joins, but for access permissions set by the other user for the main user
+
+                            // Perform a Group join: this collects all ClientPairPermissionAccess that OtherUserUID set for UserUID
                             join pa in DbContext.ClientPairPermissionAccess.AsNoTracking().Where(a => a.OtherUserUID == uid)
                                 on new { UserUID = user.OtherUserUID, OtherUserUID = user.UserUID }
-                                equals new { UserUID = pa.UserUID, OtherUserUID = pa.OtherUserUID } into otheraccesses
-                            // find perms that the other user has set for the main user. Groups results into 'otheraccesses'
+                                equals new { UserUID = pa.UserUID, OtherUserUID = pa.OtherUserUID }
+                                into otheraccesses
                             from otheraccess in otheraccesses.DefaultIfEmpty()
-                                // Join for GlobalPerms for the main user
-                            join ug in DbContext.UserGlobalPermissions.AsNoTracking() on user.UserUID equals ug.UserUID into userGlobalPerms
+
+                            // Join for GlobalPerms for the main user
+                            join ug in DbContext.UserGlobalPermissions.AsNoTracking() 
+                                on user.UserUID equals ug.UserUID into userGlobalPerms
                             from userGlobalPerm in userGlobalPerms.DefaultIfEmpty()
-                                // Join for GlobalPerms for the other user
-                            join oug in DbContext.UserGlobalPermissions.AsNoTracking() on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
+                            
+                            // Join for GlobalPerms for the other user
+                            join oug in DbContext.UserGlobalPermissions.AsNoTracking()
+                                on user.OtherUserUID equals oug.UserUID into otherUserGlobalPerms
                             from otherUserGlobalPerm in otherUserGlobalPerms.DefaultIfEmpty()
-                                // Join for HardcoreState for the main user.
-                            join uhs in DbContext.UserHardcoreState.AsNoTracking() on user.UserUID equals uhs.UserUID into userHardcoreState
-                            from userHcState in userHardcoreState.DefaultIfEmpty()
-                                // Join for HardcoreState for the other user.
-                            join ohs in DbContext.UserHardcoreState.AsNoTracking() on user.OtherUserUID equals ohs.UserUID into otherUserHardcoreState
-                            from otherUserHcState in otherUserHardcoreState.DefaultIfEmpty()
-                                // Filter to include only pairs where the main user is involved
+                            
+                            // Join for HardcoreState for the main user
+                            join uhs in DbContext.UserHardcoreState.AsNoTracking()
+                                on user.UserUID equals uhs.UserUID into userHardcoreStates
+                            from userHcState in userHardcoreStates.DefaultIfEmpty()
+
+                            // Join for HardcoreState for the other user
+                            join ohs in DbContext.UserHardcoreState.AsNoTracking()
+                                on user.OtherUserUID equals ohs.UserUID into otherUserHardcoreStates
+                            from otherUserHcState in otherUserHardcoreStates.DefaultIfEmpty()
+
+                            // Filter to include only pairs where the main user is involved
                             where user.UserUID == uid
                                 && u.UID == user.OtherUserUID
                                 && ownperm.UserUID == user.UserUID && ownperm.OtherUserUID == user.OtherUserUID
@@ -358,8 +373,6 @@ public partial class GagspeakHub
                 g.First().OtherPermissions,
                 g.First().OtherPermissionsAccess
             );
-
-            //_logger.LogWarning($"UserInfo for {g.Key}: {JsonConvert.SerializeObject(userInfo)}");
             return userInfo;
         }, StringComparer.Ordinal);
     }
