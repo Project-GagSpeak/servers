@@ -37,7 +37,6 @@ public class MetricsAPI
 
     // IPC
     public const string CounterSentAppearanceFull = "gagspeak_sent_appearance_full";
-    public const string CounterSentAppearanceLight = "gagspeak_sent_appearance_light";
     public const string CounterSentAppearanceSingle = "gagspeak_sent_appearance_glamour";
     public const string CounterMoodleTransferFull = "gagspeak_moodle_transfer_full";
     public const string CounterMoodleTransferSM = "gagspeak_moodle_transfer_sm";

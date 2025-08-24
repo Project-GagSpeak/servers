@@ -25,17 +25,9 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushIpcDataLight(PushIpcLight dto)
-    {
-        var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_SetKinksterIpcLight(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterSentAppearanceLight);
-        return HubResponseBuilder.Yippee();
-    }
-
-    [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushIpcDataSingle(PushIpcSingle dto)
     {
+		_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_SetKinksterIpcSingle(new(new(UserUID), dto.Type, dto.Data)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterSentAppearanceSingle);

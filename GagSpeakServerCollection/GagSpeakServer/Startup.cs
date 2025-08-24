@@ -326,7 +326,6 @@ public class Startup
             MetricsAPI.CounterKinkPlateReportsCreated,
 
             MetricsAPI.CounterSentAppearanceFull,
-            MetricsAPI.CounterSentAppearanceLight,
             MetricsAPI.CounterSentAppearanceSingle,
             MetricsAPI.CounterMoodleTransferFull,
             MetricsAPI.CounterMoodleTransferSM,
