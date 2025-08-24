@@ -68,10 +68,10 @@ public static class PermissionsEx
     }
 
     public static KinksterPairRequest ToApiPairRequest(this KinksterRequest request)
-        => new KinksterPairRequest(request.User.ToUserData(), request.OtherUser.ToUserData(), request.AttachedMessage, request.CreationTime);
+        => new KinksterPairRequest(new(request.UserUID), new(request.OtherUserUID), request.AttachedMessage, request.CreationTime);
 
     public static CollarOwnershipRequest ToApiCollarRequest(this CollarRequest request)
-        => new CollarOwnershipRequest(request.User.ToUserData(), request.OtherUser.ToUserData(), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
+        => new CollarOwnershipRequest(new(request.UserUID), new(request.OtherUserUID), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
     
     public static KinksterPairRequest PairRequestRemoval(UserData user, UserData target) =>
         new(user, target, string.Empty, DateTime.MinValue);

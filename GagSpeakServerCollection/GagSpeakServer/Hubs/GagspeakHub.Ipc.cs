@@ -18,6 +18,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushIpcData(PushIpcFull dto)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_SetKinksterIpcData(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterSentAppearanceFull);
@@ -27,6 +28,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushIpcDataLight(PushIpcLight dto)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_SetKinksterIpcLight(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterSentAppearanceLight);
@@ -44,6 +46,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushIpcGlamourer(PushIpcGlamourer dto)
     {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_SetKinksterIpcGlamourer(new(new(UserUID), dto.GlamourerBase64)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterSentAppearanceGlamour);
