@@ -327,8 +327,7 @@ public class Startup
 
             MetricsAPI.CounterSentAppearanceFull,
             MetricsAPI.CounterSentAppearanceLight,
-            MetricsAPI.CounterSentAppearanceGlamour,
-            MetricsAPI.CounterSentAppearanceManips,
+            MetricsAPI.CounterSentAppearanceSingle,
             MetricsAPI.CounterMoodleTransferFull,
             MetricsAPI.CounterMoodleTransferSM,
             MetricsAPI.CounterMoodleTransferStatus,
