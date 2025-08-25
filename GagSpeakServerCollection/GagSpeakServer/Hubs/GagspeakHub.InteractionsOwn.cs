@@ -22,9 +22,7 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserPushActiveData(PushClientCompositeUpdate dto)
     {
-        _logger.LogCallInfo();
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        
         // if a safeword, we need to clear all the data for the appearance and activeSetData.
         if (dto.WasSafeword)
         {
@@ -635,8 +633,8 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // Callback to caller and pair of success. (In Future note that since we now do callback messages we can do this locally with no callback needed for instant change).
-        await Clients.Caller.Callback_BulkChangeUnique(new(dto.User, dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
-        await Clients.User(dto.User.UID).Callback_BulkChangeUnique(new(new(UserUID), dto.NewPerms, dto.NewAccess, dto.Direction, dto.Enactor)).ConfigureAwait(false);
+        await Clients.Caller.Callback_BulkChangeUnique(new(dto.User, dto.NewPerms, dto.NewAccess, UpdateDir.Own, dto.Enactor)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_BulkChangeUnique(new(new(UserUID), dto.NewPerms, dto.NewAccess, UpdateDir.Other, dto.Enactor)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeUnique);
         return HubResponseBuilder.Yippee();
     }

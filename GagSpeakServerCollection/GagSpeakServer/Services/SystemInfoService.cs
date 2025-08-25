@@ -55,7 +55,7 @@ public sealed class SystemInfoService : BackgroundService
                 SystemInfoDto = new ServerInfoResponse(onlineUsers);
                 if (_config.IsMain)
                 {
-                    _logger.LogInformation($"Pushing system info: [{onlineUsers} users online]");
+                    // _logger.LogInformation($"Pushing system info: [{onlineUsers} users online]");
                     await _hubContext.Clients.All.Callback_ServerInfo(SystemInfoDto).ConfigureAwait(false);
                     using var db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false);
 
