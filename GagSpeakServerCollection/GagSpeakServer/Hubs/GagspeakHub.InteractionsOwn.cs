@@ -645,7 +645,7 @@ public partial class GagspeakHub
         // _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Caller must be the same as the target.
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Perms must exist.
