@@ -385,15 +385,16 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse<Guid>> UserPushActiveLoot(PushClientActiveLoot dto)
+    public async Task<HubResponse<AppliedCursedItem>> UserPushActiveLoot(PushClientActiveLoot dto)
     {
         var recipientUids = dto.Recipients.Select(r => r.UID);
+        var returnItem = new AppliedCursedItem(dto.ChangeItem);
         // if the loot is not null, we assume application, so try and apply it if a gag item.
         if (dto.LootItem is { } item && item.Type is CursedLootType.Gag && item.Gag.HasValue)
         {
             // grab the UserGagData for the first open slot with no gag item applied, if no layers are available, return invalid layer.
             if (await DbContext.UserGagData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Gag == GagType.None).ConfigureAwait(false) is not { } curGagData)
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer, Guid.Empty);
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer, new AppliedCursedItem(Guid.Empty));
 
             // update the data.
             curGagData.Gag = item.Gag.Value;
@@ -413,15 +414,15 @@ public partial class GagspeakHub
                 PreviousGag = GagType.None,
                 PreviousPadlock = Padlocks.None
             };
+            returnItem = returnItem with { GagLayer = curGagData.Layer };
             // Return Gag Update.
             await Clients.Users(recipientUids).Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
-            await Clients.Caller.Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
         }
 
         // Push CursedLoot update to all recipients.
         await Clients.Users(recipientUids).Callback_KinksterUpdateActiveCursedLoot(new(new(UserUID), dto.ActiveItems, dto.ChangeItem)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferLoot);
-        return HubResponseBuilder.Yippee(dto.ChangeItem);
+        return HubResponseBuilder.Yippee(returnItem);
     }
 
     [Authorize(Policy = "Identified")]
@@ -645,7 +646,7 @@ public partial class GagspeakHub
         // _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Caller must be the same as the target.
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+        if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Perms must exist.
