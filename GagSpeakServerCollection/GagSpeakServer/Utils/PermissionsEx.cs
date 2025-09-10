@@ -56,7 +56,6 @@ public static class PermissionsEx
     {
         return new CharaActiveCollar
         {
-            Identifier = data.Identifier,
             OwnerUIDs = data.Owners.Select(o => o.OwnerUID).ToList(),
             Visuals = data.Visuals,
             Dye1 = data.Dye1,

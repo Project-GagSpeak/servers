@@ -345,7 +345,6 @@ public partial class GagspeakHub
             case DataUpdateType.CollarRemoved:
                 // maybe add some safeguard down the line here, but
                 // this should be easily triggerable with a safeword for obvious reasons.
-                collar.Identifier = Guid.Empty;
                 collar.Visuals = true; // reset visuals to true.
                 collar.Dye1 = 0; // reset dye1 to default.
                 collar.Dye2 = 0; // reset dye2 to default.

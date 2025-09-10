@@ -13,8 +13,6 @@ public class UserCollarData
     [ForeignKey(nameof(UserUID))]
     public virtual User User { get; set; }
 
-    public Guid Identifier { get; set; } = Guid.Empty;
-
     public bool Visuals { get; set; } = true;
 
     public byte Dye1 { get; set; } = 0;

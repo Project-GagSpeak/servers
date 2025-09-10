@@ -449,43 +449,22 @@ public partial class GagspeakHub
 
         // Get User of person requesting change.
         User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        var existingCollar = await DbContext.UserCollarData.SingleOrDefaultAsync(c => c.UserUID == UserUID).ConfigureAwait(false);
-        // Case where the Kinkster accepting the request has no active collar. (One must be made)
-        if (existingCollar is null)
-        {
-            // No active collar is present, if our dto contains null collar data, fail.
-            if (dto.ChosenCollar is null)
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        var recipientCollar = await DbContext.UserCollarData.SingleOrDefaultAsync(c => c.UserUID == UserUID).ConfigureAwait(false);
+        if (recipientCollar is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
-            var newCollar = new UserCollarData()
-            {
-                User = user,
-                Identifier = dto.ChosenCollar.Id,
-                Visuals = true,
-                Dye1 = dto.ChosenCollar.Glamour.Dye1,
-                Dye2 = dto.ChosenCollar.Glamour.Dye2,
-
-                Writing = request.InitialWriting,
-            };
-            await DbContext.UserCollarData.AddAsync(newCollar).ConfigureAwait(false);
-            existingCollar = newCollar; // Update the existing collar to the new collar we just created.
-        }
-        else if (existingCollar.Identifier == Guid.Empty)
-        {
-            // No active collar is present, if our dto contains null collar data, fail.
-            if (dto.ChosenCollar is null)
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-            // no collar is actively present, so apply the preset data.
-            existingCollar.Identifier = dto.ChosenCollar.Id;
-            existingCollar.Visuals = true;
-            existingCollar.Dye1 = dto.ChosenCollar.Glamour.Dye1;
-            existingCollar.Dye2 = dto.ChosenCollar.Glamour.Dye2;
-            existingCollar.Writing = request.InitialWriting;
-            DbContext.UserCollarData.Update(existingCollar);
-        }
+        // No active collar is present, if our dto contains null collar data, fail.
+        if (dto.ChosenCollar is null)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        // no collar is actively present, so apply the preset data.
+        recipientCollar.Visuals = true;
+        recipientCollar.Dye1 = dto.ChosenCollar.Glamour.Dye1;
+        recipientCollar.Dye2 = dto.ChosenCollar.Glamour.Dye2;
+        recipientCollar.Writing = request.InitialWriting;
+        DbContext.UserCollarData.Update(recipientCollar);
         
         // Regardless of the case, we should add the owner to it and update and save.
-        var newOwner = new CollarOwner() { Owner = newOwnerUser, CollaredUserData = existingCollar };
+        var newOwner = new CollarOwner() { Owner = newOwnerUser, CollaredUserData = recipientCollar };
         await DbContext.CollarOwners.AddAsync(newOwner).ConfigureAwait(false);
 
         var toRemove = PermissionsEx.CollarRequestRemoval(user.ToUserData(), newOwnerUser.ToUserData());
@@ -494,7 +473,7 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // obtain the latest CollarData API
-        var collarApi = existingCollar.ToApiCollarData();
+        var collarApi = recipientCollar.ToApiCollarData();
         var newActive = new KinksterUpdateActiveCollar(user.ToUserData(), user.ToUserData(), collarApi, DataUpdateType.RequestAccepted);
         await Clients.Users([UserUID, newOwnerUser.UID]).Callback_RemoveCollarRequest(toRemove).ConfigureAwait(false);
         await Clients.Users([UserUID, newOwnerUser.UID]).Callback_KinksterUpdateActiveCollar(newActive).ConfigureAwait(false);

@@ -467,9 +467,6 @@ public partial class GagspeakHub
         if (!collar.Owners.Any(o => o.OwnerUID.Equals(UserUID, StringComparison.Ordinal)))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotCollarOwner);
 
-        // Mark prev collar and perform changes.
-        var prevCollar = collar.Identifier;
-
         // Must reject if a change is attempted that Collared Kinkster does not have access to.
         switch (dto.Type)
         {
@@ -506,7 +503,6 @@ public partial class GagspeakHub
             case DataUpdateType.CollarRemoved:
                 // maybe add some safeguard down the line here, but
                 // this should be easily triggerable with a safeword for obvious reasons.
-                collar.Identifier = Guid.Empty;
                 collar.Visuals = true; // reset visuals to true.
                 collar.Dye1 = 0; // reset dye1 to default.
                 collar.Dye2 = 0; // reset dye2 to default.
@@ -533,11 +529,7 @@ public partial class GagspeakHub
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
         var newData = collar.ToApiCollarData();
-        var callbackDto = new KinksterUpdateActiveCollar(dto.User, new(UserUID), newData, dto.Type)
-        {
-            PreviousCollar = prevCollar
-        };
-
+        var callbackDto = new KinksterUpdateActiveCollar(dto.User, new(UserUID), newData, dto.Type);
         await Clients.Users([..onlinePairUids, dto.Target.UID]).Callback_KinksterUpdateActiveCollar(callbackDto).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferCollar);
         return HubResponseBuilder.Yippee();
