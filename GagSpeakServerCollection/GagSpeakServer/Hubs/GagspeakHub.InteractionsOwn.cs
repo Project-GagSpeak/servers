@@ -297,7 +297,7 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveCollar(PushClientActiveCollar dto)
+    public async Task<HubResponse<CharaActiveCollar>> UserPushActiveCollar(PushClientActiveCollar dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
@@ -307,29 +307,27 @@ public partial class GagspeakHub
             ? await DbContext.UserCollarData.Include(c => c.Owners).FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false)
             : await DbContext.UserCollarData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
         if (collar is null)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotCollared);
-
-        var prevCollar = collar.Identifier;
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotCollared, new CharaActiveCollar());
 
         // Must reject if a change is attempted that Collared Kinkster does not have access to.
         switch (dto.Type)
         {
             case DataUpdateType.VisibilityChange:
                 if (!collar.EditAccess.HasAny(CollarAccess.Visuals))
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new CharaActiveCollar());
                 collar.Visuals = !collar.Visuals;
                 break;
 
             case DataUpdateType.DyesChange:
                 if (!collar.EditAccess.HasAny(CollarAccess.Dyes))
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new CharaActiveCollar());
                 collar.Dye1 = dto.Dye1;
                 collar.Dye2 = dto.Dye2;
                 break;
 
             case DataUpdateType.CollarMoodleChange:
                 if (!collar.EditAccess.HasAny(CollarAccess.Moodle))
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new CharaActiveCollar());
                 collar.MoodleId = dto.Moodle.GUID;
                 collar.MoodleIconId = dto.Moodle.IconID;
                 collar.MoodleTitle = dto.Moodle.Title;
@@ -340,7 +338,7 @@ public partial class GagspeakHub
 
             case DataUpdateType.CollarWritingChange:
                 if (!collar.EditAccess.HasAny(CollarAccess.Writing))
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
+                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new CharaActiveCollar());
                 collar.Writing = dto.Writing;
                 break;
 
@@ -365,7 +363,7 @@ public partial class GagspeakHub
                 break;
 
             default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new CharaActiveCollar());
         }
 
         // update and save collar data.
@@ -374,14 +372,10 @@ public partial class GagspeakHub
 
         // Package to API and run callback.
         var newCollarData = collar.ToApiCollarData();
-        var callbackDto = new KinksterUpdateActiveCollar(new(UserUID), new(UserUID), newCollarData, dto.Type)
-        {
-            PreviousCollar = dto.Type is DataUpdateType.CollarRemoved ? prevCollar : Guid.Empty
-        };
+        var callbackDto = new KinksterUpdateActiveCollar(new(UserUID), new(UserUID), newCollarData, dto.Type);
         await Clients.Users(recipientUids).Callback_KinksterUpdateActiveCollar(callbackDto).ConfigureAwait(false);
-        await Clients.Caller.Callback_KinksterUpdateActiveCollar(callbackDto).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferCollar);
-        return HubResponseBuilder.Yippee();
+        return HubResponseBuilder.Yippee(newCollarData);
     }
 
     [Authorize(Policy = "Identified")]
@@ -520,7 +514,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewCollarData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewCollarData(new(new(UserUID), dto.LightItem)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateCollar);
         return HubResponseBuilder.Yippee();
     }
