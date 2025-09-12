@@ -69,13 +69,13 @@ public static class PermissionsEx
     public static KinksterPairRequest ToApiPairRequest(this KinksterRequest request)
         => new KinksterPairRequest(new(request.UserUID), new(request.OtherUserUID), request.AttachedMessage, request.CreationTime);
 
-    public static CollarOwnershipRequest ToApiCollarRequest(this CollarRequest request)
-        => new CollarOwnershipRequest(new(request.UserUID), new(request.OtherUserUID), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
+    public static GagspeakAPI.Network.CollarRequest ToApiCollarRequest(this GagspeakShared.Models.CollarRequest request)
+        => new GagspeakAPI.Network.CollarRequest(new(request.UserUID), new(request.OtherUserUID), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
     
     public static KinksterPairRequest PairRequestRemoval(UserData user, UserData target) =>
         new(user, target, string.Empty, DateTime.MinValue);
 
-    public static CollarOwnershipRequest CollarRequestRemoval(UserData user, UserData target) =>
+    public static GagspeakAPI.Network.CollarRequest CollarRequestRemoval(UserData user, UserData target) =>
         new(user, target, string.Empty, DateTime.MinValue, CollarAccess.None, CollarAccess.None);
 
     #endregion CacheDataMigrations

@@ -20,8 +20,8 @@ public partial class GagspeakHub
 	public Task Callback_RemoveClientPair(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_AddPairRequest(KinksterPairRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemovePairRequest(KinksterPairRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_AddCollarRequest(CollarOwnershipRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_RemoveCollarRequest(CollarOwnershipRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_AddCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RemoveCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 
 	public Task Callback_SetKinksterIpcData(KinksterIpcData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
     public Task Callback_SetKinksterIpcSingle(KinksterIpcSingle dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

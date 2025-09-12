@@ -365,7 +365,7 @@ public partial class GagspeakHub
         User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // create new Collar Request, add to DB, then sync.
-        CollarRequest request = new CollarRequest()
+        GagspeakShared.Models.CollarRequest request = new GagspeakShared.Models.CollarRequest()
         {
             User = user,
             OtherUser = otherUser,
@@ -378,7 +378,7 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // send back to both pairs that they have a new kinkster request.
-        var callback = new CollarOwnershipRequest(user.ToUserData(), otherUser.ToUserData(), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
+        var callback = new GagspeakAPI.Network.CollarRequest(user.ToUserData(), otherUser.ToUserData(), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
         await Clients.User(UserUID).Callback_AddCollarRequest(callback).ConfigureAwait(false);
 
         if (await GetUserIdent(otherUser.UID).ConfigureAwait(false) is { } otherIdent)

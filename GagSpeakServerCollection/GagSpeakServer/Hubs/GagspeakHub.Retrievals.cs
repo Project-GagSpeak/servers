@@ -53,7 +53,7 @@ public partial class GagspeakHub
             .ToListAsync()
             .ConfigureAwait(false);
 
-        List<CollarOwnershipRequest> collarRequests = await DbContext.CollarRequests.AsNoTracking()
+        List<GagspeakAPI.Network.CollarRequest> collarRequests = await DbContext.CollarRequests.AsNoTracking()
             .Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID)
             .Select(r => r.ToApiCollarRequest())
             .ToListAsync()
