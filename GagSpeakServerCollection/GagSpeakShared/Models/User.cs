@@ -15,7 +15,7 @@ public class User
     public DateTime CreatedDate             { get; set; } // the timestamp of the user's creation in UTC format.
     public DateTime LastLoggedIn            { get; set; } // Last time the user logged in.
     public CkSupporterTier VanityTier       { get; set; } = CkSupporterTier.NoRole; // The vanity tier of the user
-    public bool Verified                  { get; set; } = false; // Accounts are verified after registering with the discord bot.
+    public bool Verified                    { get; set; } = false; // Accounts are verified after registering with the discord bot.
     public int UploadLimitCounter           { get; set; } = 0; // Tracks how many uploads have been made.
     public DateTime FirstUploadTimestamp    { get; set; } = DateTime.MinValue; // Timestamp of the first upload in the current week (might be able to remove later idk)
 

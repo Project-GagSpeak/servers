@@ -3,7 +3,7 @@
 namespace GagspeakShared.Models;
 
 /// <summary> I really didnt want to add this class, but i guess there are going to 
-/// be some bad apples that will try to ruin this expreience for everyone, wont there  </summary>
+/// be some bad apples that will try to ruin this experience for everyone, wont there  </summary>
 public class Banned
 {
     [Key]
