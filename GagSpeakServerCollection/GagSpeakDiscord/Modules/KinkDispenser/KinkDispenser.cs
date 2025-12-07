@@ -5,11 +5,6 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using GagspeakDiscord.Services;
-using GagspeakShared.Services;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System;
 using HtmlAgilityPack;
 using GagspeakDiscord.Services.HelperServices;
 

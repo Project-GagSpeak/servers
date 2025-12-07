@@ -1,5 +1,4 @@
 ﻿using GagspeakAPI.Enums;
-using GagspeakAPI.Extensions;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;

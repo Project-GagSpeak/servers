@@ -169,7 +169,7 @@ public partial class AccountWizard
         var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
         var auth = new Auth()
         {
-            HashedKey = StringUtils.Sha256String(computedHash),
+            HashedKey = computedHash,
             User = user,
         };
 

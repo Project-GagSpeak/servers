@@ -2,11 +2,7 @@ using Discord;
 using Discord.Interactions;
 using GagSpeakDiscord.Modules.Popups;
 using GagspeakShared.Data;
-using GagspeakShared.Models;
-using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
-using Prometheus;
-using System.Globalization;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -273,44 +269,39 @@ public partial class AccountWizard
         return (true, user.UID, initialKey);
     }
 
-    /// <summary>
-    /// Called upon whenever we want to add a new secondary profile to the database. (potentially make another function for verifying the primary claim)
-    /// </summary>
-    /// <param name="db"> the database context </param>
-    /// <returns> the new userUID, and the secretKey associated with it. </returns>
-    private async Task<(string, string)> HandleAddUser(GagspeakDbContext db)
-    {
-        var accountClaimAuth = db.AccountClaimAuth.SingleOrDefault(u => u.DiscordId == Context.User.Id);
+    //private async Task<(string, string)> HandleAddUser(GagspeakDbContext db)
+    //{
+    //    var accountClaimAuth = db.AccountClaimAuth.SingleOrDefault(u => u.DiscordId == Context.User.Id);
 
-        var user = new User();
+    //    var user = new User();
 
-        var hasValidUid = false;
-        while (!hasValidUid)
-        {
-            var uid = StringUtils.GenerateRandomString(10);
-            if (db.Users.Any(u => u.UID == uid || u.Alias == uid)) continue;
-            user.UID = uid;
-            hasValidUid = true;
-        }
+    //    var hasValidUid = false;
+    //    while (!hasValidUid)
+    //    {
+    //        var uid = StringUtils.GenerateRandomString(10);
+    //        if (db.Users.Any(u => u.UID == uid || u.Alias == uid)) continue;
+    //        user.UID = uid;
+    //        hasValidUid = true;
+    //    }
 
-        user.LastLoggedIn = DateTime.UtcNow;
+    //    user.LastLoggedIn = DateTime.UtcNow;
 
-        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
-        var auth = new Auth()
-        {
-            HashedKey = StringUtils.Sha256String(computedHash),
-            User = user,
-        };
+    //    var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
+    //    var auth = new Auth()
+    //    {
+    //        HashedKey = StringUtils.Sha256String(computedHash),
+    //        User = user,
+    //    };
 
-        // run the shared database function to create the new profile data.
-        await SharedDbFunctions.CreateUser(user, auth, _logger, db).ConfigureAwait(false);
-        _botServices.Logger.LogInformation($"Registered User [{user.UID} (Alias: {user.Alias})]");
+    //    // run the shared database function to create the new profile data.
+    //    await SharedDbFunctions.CreateUser(user, auth, _logger, db).ConfigureAwait(false);
+    //    _botServices.Logger.LogInformation($"Registered User [{user.UID} (Alias: {user.Alias})]");
 
-        accountClaimAuth.StartedAt = null;
-        accountClaimAuth.User = user;
-        accountClaimAuth.VerificationCode = null;
-        _botServices.DiscordVerifiedUsers.Remove(Context.User.Id, out _);
+    //    accountClaimAuth.StartedAt = null;
+    //    accountClaimAuth.User = user;
+    //    accountClaimAuth.VerificationCode = null;
+    //    _botServices.DiscordVerifiedUsers.Remove(Context.User.Id, out _);
 
-        return (user.UID, computedHash);
-    }
+    //    return (user.UID, computedHash);
+    //}
 }

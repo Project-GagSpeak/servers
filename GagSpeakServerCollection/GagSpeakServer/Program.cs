@@ -4,7 +4,6 @@ using GagspeakShared.Metrics;
 using GagspeakShared.Services;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
-using Prometheus;
 
 namespace GagspeakServer;
 

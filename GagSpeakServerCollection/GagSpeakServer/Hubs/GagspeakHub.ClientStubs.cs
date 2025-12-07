@@ -6,7 +6,7 @@ using GagspeakAPI.Network;
 namespace GagspeakServer.Hubs;
 
 /// <summary>
-///	The parts of the IGagspeakHub intended for the client-side, not the serverside.
+///	The parts of the IGagspeakHub intended for the client-side, not the server side.
 ///	If any of these are called on the server-side, they will throw a PlatformNotSupportedException.
 /// </summary>
 public partial class GagspeakHub
@@ -14,8 +14,7 @@ public partial class GagspeakHub
 	private const string UnsupportedMessage = "Calling Client-Side method on server not supported";
 	public Task Callback_ServerMessage(MessageSeverity messageSeverity, string message) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_HardReconnectMessage(MessageSeverity messageSeverity, string message, ServerState state) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_ServerInfo(ServerInfoResponse info) => throw new PlatformNotSupportedException(UnsupportedMessage)
-		;
+	public Task Callback_ServerInfo(ServerInfoResponse info) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_AddClientPair(KinksterPair dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveClientPair(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_AddPairRequest(KinksterPairRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
@@ -23,8 +22,6 @@ public partial class GagspeakHub
 	public Task Callback_AddCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 
-	public Task Callback_SetKinksterIpcData(KinksterIpcData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_SetKinksterIpcSingle(KinksterIpcSingle dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
     public Task Callback_SetKinksterMoodlesFull(KinksterMoodlesDataFull dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_SetKinksterMoodlesSM(KinksterMoodlesSM dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_SetKinksterMoodlesStatuses(KinksterMoodlesStatuses dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

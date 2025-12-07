@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc.Controllers;
 using System.Reflection;
-using Microsoft.Extensions.Logging;
 
 namespace GagspeakShared.Utils;
 

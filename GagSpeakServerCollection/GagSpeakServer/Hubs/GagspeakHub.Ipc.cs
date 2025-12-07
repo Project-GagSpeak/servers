@@ -3,7 +3,6 @@ using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakServer.Utils;
 using GagspeakShared.Metrics;
-using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
@@ -15,25 +14,6 @@ namespace GagspeakServer.Hubs;
 /// </summary>
 public partial class GagspeakHub
 {
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushIpcData(PushIpcFull dto)
-    {
-        var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_SetKinksterIpcData(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterSentAppearanceFull);
-        return HubResponseBuilder.Yippee();
-    }
-
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushIpcDataSingle(PushIpcSingle dto)
-    {
-		_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_SetKinksterIpcSingle(new(new(UserUID), dto.Type, dto.Data)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterSentAppearanceSingle);
-        return HubResponseBuilder.Yippee();
-    }
-
     [Authorize(Policy = "Identified")]
 	public async Task<HubResponse> UserPushMoodlesFull(PushMoodlesFull dto)
 	{

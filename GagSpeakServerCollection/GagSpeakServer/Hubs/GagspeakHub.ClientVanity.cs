@@ -10,7 +10,6 @@ using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using StackExchange.Redis;
-using System.Xml.Linq;
 
 namespace GagspeakServer.Hubs;
 

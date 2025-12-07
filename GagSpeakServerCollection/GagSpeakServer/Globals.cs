@@ -20,10 +20,3 @@ global using MoodlesStatusInfo = (
     bool StackOnReapply,
     int StacksIncOnReapply
 );
-
-global using MoodlePresetInfo = (
-    System.Guid GUID,
-    System.Collections.Generic.List<System.Guid> Statuses,
-    GagspeakAPI.Enums.PresetApplicationType ApplicationType,
-    string Title
-);

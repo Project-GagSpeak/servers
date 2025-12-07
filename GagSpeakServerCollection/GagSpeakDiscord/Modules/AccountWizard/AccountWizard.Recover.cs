@@ -65,7 +65,7 @@ public partial class AccountWizard
         computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
         auth = new Auth()
         {
-            HashedKey = StringUtils.Sha256String(computedHash),
+            HashedKey = computedHash,
             User = previousAuth.User,
             PrimaryUserUID = previousAuth.PrimaryUserUID
         };

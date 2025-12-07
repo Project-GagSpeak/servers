@@ -1,6 +1,4 @@
-﻿using GagspeakAPI.Data;
-using GagspeakAPI.Data.Permissions;
-using GagspeakAPI.Enums;
+﻿using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakServer.Utils;

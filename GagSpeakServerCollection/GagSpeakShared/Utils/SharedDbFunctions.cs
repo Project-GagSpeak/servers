@@ -1,10 +1,8 @@
-﻿using GagspeakAPI.Hub;
-using GagspeakShared.Data;
+﻿using GagspeakShared.Data;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Prometheus;
 
 namespace GagspeakShared.Utils;
 #nullable enable

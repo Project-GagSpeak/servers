@@ -6,8 +6,6 @@ using GagspeakShared.Utils.Configuration;
 using MessagePack;
 using MessagePack.Resolvers;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Prometheus;
 using StackExchange.Redis;
 
 namespace GagspeakDiscord;

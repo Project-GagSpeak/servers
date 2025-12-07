@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using GagspeakShared.Data;
-using Microsoft.EntityFrameworkCore;
 using GagspeakShared.Utils;
 using StackExchange.Redis;
 using StackExchange.Redis.Extensions.Core.Abstractions;
