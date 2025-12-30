@@ -1,10 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Web">
 
 	<PropertyGroup>
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Deterministic>true</Deterministic>
 		<CopyLocalLockfileAssemblies>true</CopyLocalLockfileAssemblies>
+		<EnableWindowsTargeting>true</EnableWindowsTargeting>
 		<NoWarn>MA0051</NoWarn>
 	</PropertyGroup>
 	

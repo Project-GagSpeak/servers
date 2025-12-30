@@ -58,11 +58,11 @@ public partial class GagspeakHub
             // Get the current participant count
             int participantCount = (int)await _redis.Database.SetLengthAsync(VibeRoomRedis.ParticipantsKey(roomName)).ConfigureAwait(false);
 
-            listings.Add(new RoomListing(dict["Name"], int.Parse(dict["MaxParticipants"], CultureInfo.InvariantCulture))
+            listings.Add(new RoomListing(dict["Name"], int.Parse(dict["MaxParticipants"].ToString(), CultureInfo.InvariantCulture))
             {
                 CurrentParticipants = participantCount,
                 Description = dict["Description"],
-                Tags = JsonSerializer.Deserialize<string[]>(dict["Tags"])
+                Tags = JsonSerializer.Deserialize<string[]>(dict["Tags"].ToString())
             });
         }
 
@@ -231,7 +231,7 @@ public partial class GagspeakHub
         // the hashed values.
         bool isPublic = fields[0] == "1";
         string roomPassword = fields[1].ToString() ?? string.Empty;
-        int maxParticipants = int.TryParse(fields[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out int mp) ? mp : 10;
+        int maxParticipants = int.TryParse(fields[2].ToString(), CultureInfo.InvariantCulture, out int mp) ? mp : 10;
 
         // If not public, check the password
         if (!isPublic && !roomPassword.Equals(pass))
@@ -252,7 +252,7 @@ public partial class GagspeakHub
             RedisValue json = await _redis.Database.StringGetAsync(partKey).ConfigureAwait(false);
             if (json.IsNullOrEmpty) continue;
 
-            VibeRoomParticipantInfo participantInfo = JsonSerializer.Deserialize<VibeRoomParticipantInfo>(json);
+            VibeRoomParticipantInfo participantInfo = JsonSerializer.Deserialize<VibeRoomParticipantInfo>(json.ToString());
             if (participantInfo is null)
                 continue;
 
@@ -310,7 +310,7 @@ public partial class GagspeakHub
             await _redis.Database.KeyDeleteAsync($"{VibeRoomRedis.PublicRoomsKey}:{roomName}").ConfigureAwait(false);
             // remove the room's keys where they exist.
             RedisValue tagsValue = await _redis.Database.HashGetAsync(VibeRoomRedis.RoomHashKey(roomName), "Tags").ConfigureAwait(false);
-            if (!tagsValue.IsNullOrEmpty && JsonSerializer.Deserialize<string[]>(tagsValue) is { } tags)
+            if (!tagsValue.IsNullOrEmpty && JsonSerializer.Deserialize<string[]>(tagsValue.ToString()) is { } tags)
                 foreach (string tag in tags)
                     await _redis.Database.SetRemoveAsync(VibeRoomRedis.TagIndexKey(tag), roomName).ConfigureAwait(false);
         }
@@ -341,7 +341,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.RoomParticipantNotFound);
 
         // deserialize the participant data.
-        RoomParticipant participant = JsonSerializer.Deserialize<RoomParticipant>(participantJson);
+        RoomParticipant participant = JsonSerializer.Deserialize<RoomParticipant>(participantJson.ToString());
         if (participant == null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
@@ -377,7 +377,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.RoomParticipantNotFound);
 
         // deserialize the participant data.
-        RoomParticipant participant = JsonSerializer.Deserialize<RoomParticipant>(participantJson);
+        RoomParticipant participant = JsonSerializer.Deserialize<RoomParticipant>(participantJson.ToString());
         if (participant == null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
@@ -412,7 +412,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.RoomParticipantNotFound);
 
         // deserialize the participant data.
-        RoomParticipant participant = JsonSerializer.Deserialize<RoomParticipant>(participantJson);
+        RoomParticipant participant = JsonSerializer.Deserialize<RoomParticipant>(participantJson.ToString());
         if (participant == null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 

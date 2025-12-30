@@ -150,7 +150,7 @@ public class UserCleanupService : BackgroundService
 
                 // remove the tag indexes.
                 RedisValue tagJson = await _redis.Database.HashGetAsync(roomHashKey, "Tags").ConfigureAwait(false);
-                if (!tagJson.IsNullOrEmpty && JsonSerializer.Deserialize<List<string>>(tagJson) is { } roomTags)
+                if (!tagJson.IsNullOrEmpty && JsonSerializer.Deserialize<List<string>>(tagJson.ToString()) is { } roomTags)
                 {
                     // Remove the room from the tag indexes.
                     foreach (string tag in roomTags)
