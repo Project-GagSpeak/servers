@@ -15,11 +15,11 @@ public partial class KinkDispenser : InteractionModuleBase
     private readonly ILogger<KinkDispenser> _logger;                               // the logger for the GagspeakCommands
     private readonly IServiceProvider _services;                                    // our service provider
     public DiscordBotServices _botServices;
-    private readonly IConfigurationService<DiscordConfiguration> _discordConfigService;    // the discord configuration service
+    private readonly IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> _discordConfigService;    // the discord configuration service
     private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
 
     public KinkDispenser(ILogger<KinkDispenser> logger, IServiceProvider services,
-        IConfigurationService<DiscordConfiguration> gagspeakDiscordConfiguration, DiscordBotServices botServices,
+        IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> gagspeakDiscordConfiguration, DiscordBotServices botServices,
         IConnectionMultiplexer connectionMultiplexer)
     {
         _logger = logger;

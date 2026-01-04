@@ -22,213 +22,163 @@ public class JwtController : Controller
 {
     private readonly ILogger<JwtController> _logger;
     private readonly IHttpContextAccessor _accessor;
-    private readonly IConfigurationService<AuthServiceConfiguration> _configuration;
+    private readonly IConfigurationService<AuthServiceConfig> _configuration;
     private readonly GagspeakDbContext _dbContext;
     private readonly IRedisDatabase _redis;
-    //private readonly GeoIPService _geoIPProvider; ((would really love to avoid tracking peoples location information if possible lol))
-    private readonly SecretKeyAuthenticatorService _secretKeyAuthenticatorService;
+    private readonly SecretKeyAuthService _keyAuthService;
 
-    public JwtController(ILogger<JwtController> logger,
-        IHttpContextAccessor accessor, GagspeakDbContext gagspeakDbContext,
-        SecretKeyAuthenticatorService secretKeyAuthenticatorService,
-        IConfigurationService<AuthServiceConfiguration> configuration,
-        IRedisDatabase redisDb)
+    public JwtController(
+        ILogger<JwtController> logger,
+        IHttpContextAccessor accessor,
+        IConfigurationService<AuthServiceConfig> configuration,
+        GagspeakDbContext dbContext,
+        IRedisDatabase redisDb,
+        SecretKeyAuthService keyAuthService)
     {
-        // Initialize private fields with the provided services
         _logger = logger;
         _accessor = accessor;
-        _redis = redisDb;
-        _dbContext = gagspeakDbContext;
-        _secretKeyAuthenticatorService = secretKeyAuthenticatorService;
         _configuration = configuration;
+        _dbContext = dbContext;
+        _redis = redisDb;
+        _keyAuthService = keyAuthService;
     }
 
     /// <summary>
-    /// Allows us to make use of the localcontentID over the auth hashed key requirement to create a temporary access.
+    ///     Create a temporary access token via the callers hashed name and contentId.
     /// </summary>
-    /// <param name="localContentID"> PlayerCharactrer's localContentID </param>
-    /// <param name="charaIdent"> PlayerCharacter's identifier </param>
-    /// <returns></returns>
     [AllowAnonymous]
     [HttpPost(GagspeakAuth.Auth_TempToken)]
-    public async Task<IActionResult> CreateTemporaryToken(string charaIdent, string localContentID)
+    public async Task<IActionResult> CreateTemporaryToken(string charaIdent, string contentId)
     {
         _logger.LogInformation("CreateTemporaryToken:SUCCESS:{ident}", charaIdent);
-        // Call internal authentication method
-        return await AuthenticateInternal(charaIdent, contentID: localContentID).ConfigureAwait(false);
+        return await AuthenticateInternal(charaIdent, contentId: contentId).ConfigureAwait(false);
     }
 
-
-
-    /// <summary> The method to create a new token for a user. (Allows Anonymous access)
-    /// <para>
-    /// Method is not called upon directly from the code, 
-    /// but rather from a HTTPpost under the [StringSyntax("Route")] 
-    /// path defined in GagspeakAuth from the API
-    /// </para>
+    /// <summary> 
+    ///     Create a new token for a User. <b>(Allows Anonymous Access)</b> <para />
     /// </summary>
-    /// <param name="charaIdent">the indentity of the character to make a token for</param>
-    /// <param name="authKey">the authentication string</param>
-    /// <param name="ensurePrimary">if we expect the connection to be the primary account.</param>
-    /// <returns> A task that represents the asynchronous operation. The task result contains an IActionResult. </returns>
     [AllowAnonymous]
     [HttpPost(GagspeakAuth.Auth_CreateIdent)]
     public async Task<IActionResult> CreateToken(string charaIdent, string authKey, string ensurePrimary)
     {
         bool forceMain = string.Equals(ensurePrimary, "True", StringComparison.OrdinalIgnoreCase);
-        // Call internal authentication method
         return await AuthenticateInternal(charaIdent, forceMain, authKey).ConfigureAwait(false);
     }
 
-    /// <summary> The method to renew a token for a user. (Requires Authenticated access)
-    /// <para>
-    /// Method is not called upon directly from the code,
-    /// but rather from a HTTPget under the [StringSyntax("Route")]
-    /// path defined in GagspeakAuth from the API
-    /// </para>
+    /// <summary>
+    ///     Renews a token for a User. <b>(Requires Authenticated Access)</b> <para />
     /// </summary>
-    /// <returns> A task that represents the asynchronous operation. The task result contains an IActionResult. </returns>
     [Authorize(Policy = "Authenticated")]
     [HttpGet(GagspeakAuth.Auth_RenewToken)]
     public async Task<IActionResult> RenewToken()
     {
         try
         {
-            // Extract user claims for UID, CharaIdentity, and Alias from the HTTPContext claims.
+            // Extract info from content claims.
             string uid = HttpContext.User.Claims.Single(p => string.Equals(p.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))!.Value;
             string ident = HttpContext.User.Claims.Single(p => string.Equals(p.Type, GagspeakClaimTypes.CharaIdent, StringComparison.Ordinal))!.Value;
             string alias = HttpContext.User.Claims.SingleOrDefault(p => string.Equals(p.Type, GagspeakClaimTypes.Alias))?.Value ?? string.Empty;
 
-            // Check if the user is banned from the gagspeak servers.
-            if (await _dbContext.Auth.Where(u => u.UserUID == uid || u.PrimaryUserUID == uid).AnyAsync(a => a.IsBanned))
+            // Need to determine if this connection is banned from using the service. If the UID is valid, we can also assume there is a valid auth and reputation.
+
+            // First, check if the user Identity is banned. If this is true, it means that the character they are connecting with has been banned.
+            // It will detect this even if they have removed their primary account and are creating a new one. This will be bound to the ID of the character.
+            if (await _dbContext.BannedUsers.AsNoTracking().AnyAsync(u => u.CharacterIdentification == ident).ConfigureAwait(false))
             {
-                // Ensure the user is banned
-                await EnsureBan(uid, ident);
-                // return that they are unauthorized
-                return Unauthorized("You are permanently banned.");
+                // If the identity is banned, we need to ensure that the accountRep is also banned.
+                await EnsureBanFromDetectedIdentBan(uid, ident);
+                return Unauthorized("This Character is banned from Sundouleia.");
             }
 
-            // check if the user's identity is banned from using the service.
-            if (await IsIdentBanned(uid, ident))
+            // If the Identity is not banned, see if they are banned via their reputation.
+            if (_dbContext.Auth.Include(a => a.AccountRep).AsNoTracking().SingleOrDefault(a => a.UserUID == uid) is { } auth && auth.AccountRep.IsBanned)
             {
-                // Log the ban and return an unauthorized result
-                return Unauthorized("Your character is banned from using the service.");
+                await EnsureBanFromDetectedRepBan(uid, ident, auth.PrimaryUserUID);
+                return Unauthorized("Your account is banned from using the service.");
             }
 
-            // they are not banned, so log the sucess and await the creation of a jwt from an ID.
-            _logger.LogInformation("RenewToken:SUCCESS:{id}:{ident}", uid, ident);
+            // Otherwise not banned, so log the success and create a new JWT from the ID.
+            _logger.LogInformation($"RenewToken:SUCCESS:{uid}:{ident}");
             return CreateJwtFromId(uid, ident, alias);
         }
         catch (Exception ex)
         {
-            // Log the error and return an Unauthorized result if we catch an exception.
             _logger.LogError(ex, "RenewToken:FAILURE");
             return Unauthorized("Unknown error while renewing authentication token");
         }
     }
 
-    /// <summary> Method to internally authenticate a user.
-    /// <para> Must known the authentication string and the user's identity</para>
-    /// </summary>
-    /// <param name="charaIdent"> character identifier </param>
-    /// <param name="forceMain"> if we expect the connection to be the primary account.</param>"
-    /// <param name="auth"> secret key authentication </param>
-    /// <param name="contentID"> the local content id. </param>
-    /// <returns> A task that represents the asynchronous operation. The task result contains an IActionResult. </returns>
-    private async Task<IActionResult> AuthenticateInternal(string charaIdent, bool forceMain = false, string? auth = null, string? contentID = null)
+    private async Task<IActionResult> AuthenticateInternal(string charaIdent, bool forceMain = false, string? auth = null, string? contentId = null)
     {
         try
         {
-            _logger.LogInformation("Authenticating {ident}", charaIdent);
-            // required for both token types, so check if the authentication string or character identity is empty or null.
-            if (string.IsNullOrEmpty(charaIdent)) return BadRequest("No CharaIdent");
+            // If this is empty, fail regardless of type, as we require a ident.
+            if (string.IsNullOrEmpty(charaIdent))
+                return BadRequest("No CharaIdent");
 
-            // handle localcontentID based authentication
-            if (!string.IsNullOrEmpty(contentID))
-            {
-                // validate the localcontentID here (e.g., check if it exists in your database)
-                // if validation fails, return appropriate responce
-                if (contentID is null) // replace with better security
-                {
-                    _logger.LogInformation("Authenticate:LOCALCONTENTID:{id}:{ident}", contentID, charaIdent);
-                    return BadRequest("Invalid LocalContentID");
-                }
+            _logger.LogDebug($"Authenticating {charaIdent}");
 
-                // assuming the local coneent ID is valid, create a token with the TemporaryAccess claim
-                return CreateTempAccessJwtFromId(contentID, charaIdent);                                       // WE CREATE THE JWT HERE
-            }
-            else
+            // Try the contentId (Temp Access for One-Time Generation) first.
+            if (!string.IsNullOrEmpty(contentId))
+                return CreateTempAccessJwtFromId(contentId, charaIdent);
+
+            // Otherwise, validate a legitimate authentication (We must know the secret key)
+            if (string.IsNullOrEmpty(auth))
             {
-                // assuming that the contentID is empty or null, we know it MUST be a secret key authentication.
-                if (string.IsNullOrEmpty(auth))
-                {
-                    // This means if the auth key is null or empty at this point, we should return unauthorized instead of simply bad request.
-                    _logger.LogWarning("Authenticate:NO AUTHKEY PROVIDED:{ident}", charaIdent);
-                    return Unauthorized("No Secret Key provided. If you are not on V1.1.1.0 or above, you need to update!");
-                }
+                _logger.LogWarning($"Authenticate:NO AUTHKEY PROVIDED:{charaIdent}");
+                return Unauthorized("No Secret Key provided.");
             }
 
-            // the passed in variables had content, so fetch the IPGetIpAddress
-            string ip = _accessor.GetIpAddress();
+            // Obtain IP only to authorize authentication attempts. Do not store it anywhere.
+            // I hate storing data like this at all.
+            _logger.LogDebug($"Attempting to authenticate secret key {auth}");
+            SecretKeyAuthReply authResult = await _keyAuthService.AuthorizeAsync(_accessor.GetIpAddress(), auth).ConfigureAwait(false);
 
-            _logger.LogInformation("Attempting to authenticate secret key {auth}", auth);
-            SecretKeyAuthReply authResult = await _secretKeyAuthenticatorService.AuthorizeAsync(ip, auth);
-            // see if the authorize was valid
-            _logger.LogDebug("AuthResult: {authResult}", authResult);
+            // EDGE CASE CONDITIONS::
+            _logger.LogDebug($"AuthResult: {authResult}");
 
-            // if the ident (identifier) is banned, return an unauthorized result.
-            if (await IsIdentBanned(authResult.Uid, charaIdent))
+            // If the ident is banned, return an unauthorized result.
+            if (await _dbContext.BannedUsers.AsNoTracking().AnyAsync(u => u.CharacterIdentification == charaIdent).ConfigureAwait(false))
             {
-                _logger.LogWarning("Authenticate:IDENTBAN:{id}:{ident}", authResult.Uid, charaIdent);
+                // If the identity is banned, we must also ensure the account rep is marked as banned.
+                await EnsureBanFromDetectedIdentBan(authResult.Uid, charaIdent);
+                _logger.LogWarning($"Authenticate:IDENTBAN:{authResult.Uid}:{charaIdent}");
                 return Unauthorized("Your character is banned from using the service.");
             }
 
-            // if the result was not successful and the user is not temporarily banned,
+            // If unsuccessful but not TempBanned, then UID was invalid.
             if (!authResult.Success && !authResult.TempBan)
             {
-                _logger.LogWarning("Authenticate:INVALID:{id}:{ident}", authResult?.Uid ?? "NOUID", charaIdent);
+                _logger.LogWarning($"Authenticate:INVALID:{(authResult?.Uid ?? "NOUID")}:{charaIdent}");
                 return Unauthorized("The provided secret key is invalid. Verify your accounts existence and/or recover the secret key.");
             }
 
-            // if the result was not successful and the user is temporarily banned,
+            // If unsuccessful due to temp ban, return that the user is temp banned.
             if (!authResult.Success && authResult.TempBan)
             {
-                _logger.LogWarning("Authenticate:TEMPBAN:{id}:{ident}", authResult.Uid ?? "NOUID", charaIdent);
-                return Unauthorized("Due to an excessive amount of failed authentication attempts you are temporarily banned. Check your Secret Key configuration and try connecting again in 5 minutes.");
+                _logger.LogWarning($"Authenticate:TEMPBAN:{(authResult?.Uid ?? "NOUID")}:{charaIdent}");
+                return Unauthorized("Due to an excessive amount of failed authentication attempts you are temporarily banned. " +
+                    "Check your Secret Key configuration and try connecting again in 5 minutes.");
             }
 
-            // if the user is expecting to connect with the primary account, but the results primary uid is not null or empty.
-            // Return that we are unauthorized to connect with this account as it is not the primary account.
-            if (forceMain && string.IsNullOrEmpty(authResult.PrimaryUid))
-            {
-                _logger.LogWarning("Authenticate:NOTPRIMARY:{id}:{ident}", authResult.Uid, charaIdent);
-                return Unauthorized("You are connecting to an alt account while you should be connecting with your primary one.");
-            }
-
-            // if the user is permanently banned, ensure the ban and return an unauthorized result.
+            // If banned via Reputation detection, ensure other elements of this connection are banned!
             if (authResult.Permaban)
             {
-                // sure ban before returning the unauthorized result.
-                await EnsureBan(authResult.Uid, charaIdent);
-
-                _logger.LogWarning("Authenticate:UIDBAN:{id}:{ident}", authResult.Uid, charaIdent);
+                await EnsureBanFromDetectedRepBan(authResult.Uid, charaIdent, authResult.AccountUid);
+                _logger.LogWarning($"Authenticate:UIDBAN:{authResult.Uid}:{charaIdent}");
                 return Unauthorized("You are permanently banned.");
             }
 
-            // see if the user is already currently logged in with the same identifier.
-            string? existingIdent = await _redis.GetAsync<string>("GagspeakHub:UID:" + authResult.Uid);
-            // if they are, return an unauthorized result. (already logged in)
-            if (!string.IsNullOrEmpty(existingIdent))
+            // If they are not yet disconnected from the redis database, do not authenticate a duplicate.
+            if (!string.IsNullOrEmpty(await _redis.GetAsync<string>("SundouleiaHub:UID:" + authResult.Uid)))
             {
-                _logger.LogWarning("Authenticate:DUPLICATE:{id}:{ident}", authResult.Uid, charaIdent);
+                _logger.LogWarning($"Authenticate:DUPLICATE:{authResult.Uid}:{charaIdent}");
                 return Unauthorized("Already logged in to this account. Reconnect in 60 seconds. If you keep seeing this issue, restart your game.");
             }
 
             // if the user is not already logged in, set the redis key to the identifier.
-            _logger.LogInformation("Authenticate:SUCCESS:{id}:{ident}", authResult.Uid, charaIdent);
-
-            // finally, create a jwt from the user's ID and character identity.
-            return CreateJwtFromId(authResult.Uid, charaIdent, authResult.Alias ?? string.Empty);     // we create the jwt here
+            _logger.LogInformation($"Authenticate:SUCCESS:{authResult.Uid}:{charaIdent}");
+            return CreateJwtFromId(authResult.Uid, charaIdent, authResult.Alias ?? string.Empty);
         }
         catch (Exception ex)
         {
@@ -237,7 +187,10 @@ public class JwtController : Controller
         }
     }
 
-    /// <summary> Method to create a JWT token from a provided user ID, character identity, and alias. </summary>
+    /// <summary>
+    ///     Method to create a temporary JWT token from a provided user ID, character identity, and alias. <para />
+    ///     For One-Time AccountGeneration.
+    /// </summary>
     private IActionResult CreateTempAccessJwtFromId(string charaIdent, string localConentId)
     {
         JwtSecurityToken token = CreateJwt(new List<Claim>
@@ -250,7 +203,9 @@ public class JwtController : Controller
         return Content(token.RawData);
     }
 
-    /// <summary> Method to create a JWT token from a provided user ID, character identity, and alias. </summary>
+    /// <summary>
+    ///     Method to create a JWT token from a provided user ID, character identity, and alias.
+    /// </summary>
     private IActionResult CreateJwtFromId(string uid, string charaIdent, string alias)
     {
         // create a new token from the provided claims.
@@ -267,7 +222,9 @@ public class JwtController : Controller
         return Content(token.RawData);
     }
 
-    /// <summary> Method to create a JWT token from a provided set of claims. </summary>
+    /// <summary>
+    ///     Method to create a JWT token from a provided set of claims.
+    /// </summary>
     private JwtSecurityToken CreateJwt(IEnumerable<Claim> authClaims)
     {
         // create the authentication signing key using the configuration value for the JWT.
@@ -290,66 +247,54 @@ public class JwtController : Controller
         return handler.CreateJwtSecurityToken(token);
     }
 
-    /// <summary> Helper method to ensure a user UID and identifier is banned from the service. </summary>
-    /// <param name="uid">the user UID that we want to ensure is banned</param>
-    /// <param name="charaIdent"> the character identifier that we want to ensure is banned</param>
-    private async Task EnsureBan(string uid, string charaIdent)
+    /// <summary>
+    ///     Ensure ban across the board if detected from user identity.
+    /// </summary>
+    private async Task EnsureBanFromDetectedIdentBan(string uid, string charaIdent)
     {
-        // if the character identifier is not already banned,
+        if (_dbContext.Auth.Include(a => a.AccountRep).AsNoTracking().SingleOrDefault(a => a.UserUID == uid) is not { } matchedAuth)
+            return;
+
+        // Ensure ban.
+        if (!matchedAuth.AccountRep.IsBanned)
+        {
+            matchedAuth.AccountRep.IsBanned = true;
+            _dbContext.Update(matchedAuth.AccountRep);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        // Attach the banned discordID in the auth claims exist.
+        if (await _dbContext.AccountClaimAuth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == matchedAuth.PrimaryUserUID) is { } authClaim)
+        {
+            if (!_dbContext.BannedRegistrations.AsNoTracking().Any(c => c.DiscordId == authClaim.DiscordId.ToString()))
+                _dbContext.BannedRegistrations.Add(new BannedRegistrations() { DiscordId = authClaim.DiscordId.ToString() });
+            await _dbContext.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    ///     Ensure ban across the board if detected true from account rep.
+    /// </summary>
+    private async Task EnsureBanFromDetectedRepBan(string uid, string charaIdent, string accountUid)
+    {
+        // Ensure that this new account they tried to make also gets account banned.
         if (!_dbContext.BannedUsers.AsNoTracking().Any(c => c.CharacterIdentification == charaIdent))
         {
-            // add the banned user to the database by adding it to the bannedUsers table.
             _dbContext.BannedUsers.Add(new Banned()
             {
                 CharacterIdentification = charaIdent,
                 UserUID = uid,
                 Reason = $"Auto-Banned CharacterIdent ({uid})",
             });
-
-            // save the gagspeak database changes.
             await _dbContext.SaveChangesAsync();
         }
 
-        // fetch the primary user from the auth table where the primary user UID is the same as the user UID.
-        Auth? primaryUser = await _dbContext.Auth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(f => f.PrimaryUserUID == uid);
-        // set the toBanUID to the primary user UID if the primary user is not null, otherwise set it to the user UID.
-        string? toBanUid = primaryUser is null ? uid : primaryUser.UserUID;
-
-        // fetch the accountClaimAuth used to claim ownership over the account, if one exists.
-        if (await _dbContext.AccountClaimAuth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == toBanUid) is { } authClaim)
+        // Ensure discord gets re-banned if they tried making a discord alt.
+        if (await _dbContext.AccountClaimAuth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(c => c.User!.UID == accountUid) is { } authClaim)
         {
             if (!_dbContext.BannedRegistrations.AsNoTracking().Any(c => c.DiscordId == authClaim.DiscordId.ToString()))
                 _dbContext.BannedRegistrations.Add(new BannedRegistrations() { DiscordId = authClaim.DiscordId.ToString() });
-            // save the changes to the gagspeak database.
             await _dbContext.SaveChangesAsync();
         }
-    }
-
-    /// <summary> Helper func to see if the character identifier is banned from the service. </summary>
-    /// <param name="uid">the user UID</param>
-    /// <param name="charaIdent">the user identifier</param>
-    /// <returns> A task that represents the asynchronous operation. The task result contains a boolean. </returns>
-    private async Task<bool> IsIdentBanned(string uid, string charaIdent)
-    {
-        // see if user is in banned users table where the charaIdentis the same as the character identifier.
-        bool isBanned = await _dbContext.BannedUsers.AsNoTracking().AnyAsync(u => u.CharacterIdentification == charaIdent).ConfigureAwait(false);
-
-        // if they are
-        if (isBanned)
-        {
-            // fetch the authentication object as the row found in the database where the user UID matches.
-            Auth? authToBan = _dbContext.Auth.SingleOrDefault(a => a.UserUID == uid);
-
-            // if it isnt null
-            if (authToBan != null)
-            {
-                // set IsBanned to true and save the changes to the database.
-                authToBan.IsBanned = true;
-                await _dbContext.SaveChangesAsync().ConfigureAwait(false);
-            }
-        }
-
-        // return if they were banned.
-        return isBanned;
     }
 }

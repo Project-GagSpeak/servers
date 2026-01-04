@@ -1,4 +1,6 @@
-﻿using GagspeakAPI.Enums;
+﻿using GagspeakAPI;
+using GagspeakAPI.Enums;
+using GagspeakAPI.Extensions;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakServer.Utils;
@@ -18,7 +20,7 @@ public partial class GagspeakHub
 	public async Task<HubResponse> UserPushMoodlesFull(PushMoodlesFull dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesFull(new(new(UserUID), new(UserUID), dto.NewData)).ConfigureAwait(false);
+		await Clients.Users(recipientUids).Callback_MoodleDataUpdated(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferFull);
 		return HubResponseBuilder.Yippee();
 	}
@@ -27,7 +29,7 @@ public partial class GagspeakHub
 	public async Task<HubResponse> UserPushMoodlesSM(PushMoodlesSM dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesSM(new(new(UserUID), new(UserUID), dto.DataString, dto.DataInfo)).ConfigureAwait(false);
+		await Clients.Users(recipientUids).Callback_MoodleSMUpdated(new(new(UserUID), dto.DataString, dto.DataInfo)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferSM);
 		return HubResponseBuilder.Yippee();
 	}
@@ -36,7 +38,7 @@ public partial class GagspeakHub
 	public async Task<HubResponse> UserPushMoodlesStatuses(PushMoodlesStatuses dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesStatuses(new(new(UserUID), new(UserUID), dto.Statuses)).ConfigureAwait(false);
+		await Clients.Users(recipientUids).Callback_MoodleStatusesUpdate(new(new(UserUID), dto.Statuses)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferStatus);
 		return HubResponseBuilder.Yippee();
 	}
@@ -45,87 +47,69 @@ public partial class GagspeakHub
 	public async Task<HubResponse> UserPushMoodlesPresets(PushMoodlesPresets dto)
 	{
 		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_SetKinksterMoodlesPresets(new(new(UserUID), new(UserUID), dto.Presets)).ConfigureAwait(false);
+		await Clients.Users(recipientUids).Callback_MoodlePresetsUpdate(new(new(UserUID), dto.Presets)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferPreset);
 		return HubResponseBuilder.Yippee();
 	}
 
-	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserApplyMoodlesByGuid(MoodlesApplierById dto)
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushStatusModified(PushStatusModified dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_MoodleStatusModified(new(new(UserUID), dto.Status, dto.Deleted)).ConfigureAwait(false);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushPresetModified(PushPresetModified dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+		await Clients.Users(recipientUids).Callback_MoodlePresetModified(new(new(UserUID), dto.Preset, dto.Deleted)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterMoodleTransferPreset);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+	public async Task<HubResponse> UserApplyMoodlesByGuid(ApplyMoodleId dto)
 	{
 		// Must be paired.
-		if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+		if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } perms)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
 		// Must have permission.
-		if ((pairPerms.MoodlePerms & MoodlePerms.PairCanApplyYourMoodlesToYou) == MoodlePerms.None)
+		if ((perms.MoodleAccess & MoodleAccess.AllowOwn) == MoodleAccess.None)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
 		// Apply it to them.
-		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByGuid(new(new(UserUID), dto.Ids, dto.Type)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByGuid(new(new(UserUID), dto.Ids, dto.IsPresets, dto.LockIds)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesAppliedId);
 		return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserApplyMoodlesByStatus(MoodlesApplierByStatus dto)
+	public async Task<HubResponse> UserApplyMoodlesByStatus(ApplyMoodleStatus dto)
 	{
-        // Must be paired.
-        if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-
         // Must have permission.
-        if ((pairPerms.MoodlePerms & MoodlePerms.PairCanApplyTheirMoodlesToYou) == MoodlePerms.None)
+        if (!pairPerms.MoodleAccess.HasAny(MoodleAccess.AllowOther))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-		// Validate permission to apply based on the moodlePerms.
-        var moodlesToApply = dto.Statuses;
-
-		if (moodlesToApply.Any(m => m.Type is StatusType.Positive && (pairPerms.MoodlePerms & MoodlePerms.PositiveStatusTypes) == MoodlePerms.None))
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses have a positive type, which this pair does not allow!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
-		else if (moodlesToApply.Any(m => m.Type is StatusType.Negative && (pairPerms.MoodlePerms & MoodlePerms.NegativeStatusTypes) == MoodlePerms.None))
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses have a negative type, which this pair does not allow!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
-		else if (moodlesToApply.Any(m => m.Type is StatusType.Special && (pairPerms.MoodlePerms & MoodlePerms.SpecialStatusTypes) == MoodlePerms.None))
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses have a special type, which this pair does not allow!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
-		else if (moodlesToApply.Any(m => m.NoExpire && (pairPerms.MoodlePerms & MoodlePerms.PermanentMoodles) == MoodlePerms.None))
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses is permanent, which this pair does not allow!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
-		else if (moodlesToApply.Any(m => new TimeSpan(m.Days, m.Hours, m.Minutes, m.Seconds) > pairPerms.MaxMoodleTime && m.NoExpire == false))
-		{
-			await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "One of the Statuses exceeds the max allowed time!").ConfigureAwait(false);
-			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-		}
-
-		// Apply them.
-		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByStatus(new(new(UserUID), moodlesToApply, dto.Type)).ConfigureAwait(false);
+		// If someone applies this via Moodles, Moodles does its own internal check before sending.
+		// If sent from GagSpeak, it also does it's own check.
+		// So there is no reason to check permissions, we can do one on the recieving client as a failsafe, but not much reason to do so here.
+		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByStatus(new(new(UserUID), dto.Statuses, dto.LockIds)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesAppliedStatus);
         return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserRemoveMoodles(MoodlesRemoval dto)
+	public async Task<HubResponse> UserRemoveMoodles(RemoveMoodleId dto)
 	{
-        // Must be paired.
-        if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
-        // Must have permission.
-        if ((pairPerms.MoodlePerms & MoodlePerms.RemovingMoodles) == MoodlePerms.None)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-
-		// Remove the moodle.
-        await Clients.User(dto.User.UID).Callback_RemoveMoodles(new(new(UserUID), dto.StatusIds)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_RemoveMoodles(new(new(UserUID), dto.Ids)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesRemoved);
         return HubResponseBuilder.Yippee();
 	}
@@ -133,15 +117,12 @@ public partial class GagspeakHub
 	[Authorize(Policy = "Identified")]
 	public async Task<HubResponse> UserClearMoodles(KinksterBase dto)
 	{
-        // Must be paired.
-        if (await DbContext.ClientPairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-
         // Must have permission.
-        if ((pairPerms.MoodlePerms & MoodlePerms.ClearingMoodles) == MoodlePerms.None)
+        if (!pairPerms.MoodleAccess.HasAny(MoodleAccess.Clearing))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-        // Clear them.
         await Clients.User(dto.User.UID).Callback_ClearMoodles(new(new(UserUID))).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesCleared);
         return HubResponseBuilder.Yippee();
@@ -157,11 +138,11 @@ public partial class GagspeakHub
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
 		// Must have valid globals.
-		if (await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } globals)
+		if (await DbContext.GlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } globals)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
 		// Must be paired.
-		if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
+		if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
 		// Target must be in hardcore mode.

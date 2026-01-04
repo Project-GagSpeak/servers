@@ -17,21 +17,21 @@ public partial class AccountWizard : InteractionModuleBase
     private IServiceProvider _services;
     private DiscordBotServices _botServices;
     private IConfigurationService<ServerConfiguration> _gagspeakConfigService;
-    private IConfigurationService<DiscordConfiguration> _discordConfigService;
+    private IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> _discordConfig;
     private IConnectionMultiplexer _connectionMultiplexer;
     private IDbContextFactory<GagspeakDbContext> _dbContextFactory;
     private Random random = new();
 
     public AccountWizard(ILogger<AccountWizard> logger, IServiceProvider services, DiscordBotServices botServices,
         IConfigurationService<ServerConfiguration> gagspeakConfigService,
-        IConfigurationService<DiscordConfiguration> discordConfigService, IConnectionMultiplexer connectionMultiplexer,
+        IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> discordConfigService, IConnectionMultiplexer connectionMultiplexer,
         IDbContextFactory<GagspeakDbContext> dbContextFactory)
     {
         _logger = logger;
         _services = services;
         _botServices = botServices;
         _gagspeakConfigService = gagspeakConfigService;
-        _discordConfigService = discordConfigService;
+        _discordConfig = discordConfigService;
         _connectionMultiplexer = connectionMultiplexer;
         _dbContextFactory = dbContextFactory;
     }

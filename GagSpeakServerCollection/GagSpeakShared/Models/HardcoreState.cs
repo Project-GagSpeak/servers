@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 
-public class UserHardcoreState : IReadOnlyHardcoreState
+public class HardcoreState : IReadOnlyHardcoreState
 {
     [Key]
     public string UserUID { get; set; }

@@ -9,7 +9,7 @@ namespace GagspeakShared.Models;
 /// All sent requests expire after 3 days, (and are automatically rejected).
 /// </para>
 /// </summary>
-public class KinksterRequest
+public class PairRequest
 {
     [Key]
     [MaxLength(10)] // Composite key with OtherUserUID
@@ -22,6 +22,14 @@ public class KinksterRequest
     public User OtherUser { get; set; }         // The User object of the other user
 
     [Required]
-    public DateTime CreationTime { get; set; } = DateTime.MinValue; // The time the request was created.
-    public string AttachedMessage { get; set; } = string.Empty; // A message attached to the request.
+    public DateTime CreationTime { get; set; } = DateTime.MinValue;
+
+    // If the request is for a temporary pairing, or a permanent one.
+    public bool IsTemporary { get; set; } = false;
+
+    // Preferred nickname to assign to OtherUser upon acceptance.
+    public string PreferredNickname { get; set; } = string.Empty;
+
+    // Optionally attached message.
+    public string AttachedMessage { get; set; } = string.Empty;
 }

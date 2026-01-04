@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Attributes;
+﻿using GagspeakAPI;
+using GagspeakAPI.Attributes;
 using GagspeakAPI.Data;
 using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Enums;
@@ -28,7 +29,7 @@ public partial class GagspeakHub
         {
             _logger.LogWarning($"FOR SOME REASON, {UserUID} SAFEWORDED! Clearing all gag data, restriction data, and restraint data for them.");
             // Grab the gag data ordered by layer.
-            List<UserGagData> curGagData = await DbContext.UserGagData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            List<UserGagData> curGagData = await DbContext.ActiveGagData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
             if (curGagData.Any(g => g is null))
             {
                 await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot clear Gag Data, it does not exist!").ConfigureAwait(false);
@@ -36,7 +37,7 @@ public partial class GagspeakHub
             }
 
             // Grab the restriction data ordered by layer.
-            List<UserRestrictionData> curRestrictions = await DbContext.UserRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            List<UserRestrictionData> curRestrictions = await DbContext.ActiveRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
             if (curRestrictions.Any(r => r is null))
             {
                 await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot clear Active Restriction Data, it does not exist!").ConfigureAwait(false);
@@ -44,7 +45,7 @@ public partial class GagspeakHub
             }
 
             // Grab the restraint set data.
-            UserRestraintData? curRestraint = await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            UserRestraintData? curRestraint = await DbContext.ActiveRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
             if (curRestraint is null)
             {
                 await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot clear Restraint Data, it does not exist!").ConfigureAwait(false);
@@ -106,7 +107,7 @@ public partial class GagspeakHub
         var recipientUids = dto.Recipients.Select(r => r.UID);
 
         // Grab the appearance data from the database at the layer we want to interact with.
-        UserGagData? curGagData = await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false);
+        UserGagData? curGagData = await DbContext.ActiveGagData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false);
         if (curGagData is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ActiveGagSlot());
 
@@ -169,7 +170,7 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
 
-        if (await DbContext.UserRestrictionData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false) is not { } curData)
+        if (await DbContext.ActiveRestrictionData.FirstOrDefaultAsync(u => u.UserUID == UserUID && u.Layer == dto.Layer).ConfigureAwait(false) is not { } curData)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ActiveRestriction());
 
         // get the previous gag type and padlock from the current data.
@@ -233,7 +234,7 @@ public partial class GagspeakHub
         var recipientUids = dto.Recipients.Select(r => r.UID);
 
         // grab the restraintSetData from the database.
-        if (await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } curData)
+        if (await DbContext.ActiveRestraintData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } curData)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new CharaActiveRestraint());
 
         Guid prevSetId = curData.Identifier;
@@ -304,8 +305,8 @@ public partial class GagspeakHub
 
         // Client must be collared to do this.
         UserCollarData? collar = dto.Type is DataUpdateType.CollarRemoved
-            ? await DbContext.UserCollarData.Include(c => c.Owners).FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false)
-            : await DbContext.UserCollarData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            ? await DbContext.ActiveCollarData.Include(c => c.Owners).FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false)
+            : await DbContext.ActiveCollarData.FirstOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
         if (collar is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotCollared, new CharaActiveCollar());
 
@@ -332,7 +333,7 @@ public partial class GagspeakHub
                 collar.MoodleIconId = dto.Moodle.IconID;
                 collar.MoodleTitle = dto.Moodle.Title;
                 collar.MoodleDescription = dto.Moodle.Description;
-                collar.MoodleType = (byte)dto.Moodle.Type;
+                collar.MoodleType = dto.Moodle.Type;
                 collar.MoodleVFXPath = dto.Moodle.CustomVFXPath;
                 break;
 
@@ -352,7 +353,7 @@ public partial class GagspeakHub
                 collar.MoodleIconId = 0; // reset moodle icon to default.
                 collar.MoodleTitle = string.Empty; // reset moodle title to default.
                 collar.MoodleDescription = string.Empty; // reset moodle description to default.
-                collar.MoodleType = 0; // reset moodle type to default.
+                collar.MoodleType = StatusType.Positive; // reset moodle type to default.
                 collar.MoodleVFXPath = string.Empty; // reset moodle vfx path to default.
                 collar.Writing = string.Empty; // reset writing to default.
                 collar.EditAccess = CollarAccess.None; // reset edit access to none.
@@ -386,7 +387,7 @@ public partial class GagspeakHub
         if (dto.LootItem is { } item && item.Type is CursedLootType.Gag && item.Gag.HasValue)
         {
             // grab the UserGagData for the first open slot with no gag item applied, if no layers are available, return invalid layer.
-            if (await DbContext.UserGagData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Gag == GagType.None).ConfigureAwait(false) is not { } curGagData)
+            if (await DbContext.ActiveGagData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Gag == GagType.None).ConfigureAwait(false) is not { } curGagData)
                 return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer, new AppliedCursedItem(Guid.Empty));
 
             // update the data.
@@ -571,23 +572,21 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse<ClientGlobals>> UserBulkChangeGlobal(BulkChangeGlobal dto)
     {
-        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
         // Cannot update anyone but self.
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new ClientGlobals(new GlobalPerms(), new HardcoreState()));
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new ClientGlobals(new GlobalPerms(), new GagspeakAPI.Data.Permissions.HardcoreStatus()));
 
         // Globals must exist
-        if (await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } globals)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new HardcoreState()));
+        if (await DbContext.GlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } globals)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new GagspeakAPI.Data.Permissions.HardcoreStatus()));
 
         // HardcoreState must exist.
-        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hardcoreState)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new HardcoreState()));
+        if (await DbContext.HardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hardcoreState)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new GagspeakAPI.Data.Permissions.HardcoreStatus()));
 
         // Update the permissions to the new values.
-        UserGlobalPermissions newGlobals = dto.NewPerms.ToModelGlobalPerms(globals);
-        UserHardcoreState newHardcore = dto.NewState.ToModelHardcoreState(hardcoreState);
+        GlobalPermissions newGlobals = dto.NewPerms.ToModel(globals);
+        HardcoreState newHardcore = dto.NewState.ToModel(hardcoreState);
         DbContext.Update(newGlobals);
         DbContext.Update(newHardcore);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -612,16 +611,16 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // KinksterPair must exist.
-        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Access must exist.
-        if (await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } pairAccess)
+        if (await DbContext.PairAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } pairAccess)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Set, Update, & Save.
-        ClientPairPermissions newPairPerms = dto.NewPerms.ToModelKinksterPerms(pairPerms);
-        ClientPairPermissionAccess newPairAccess = dto.NewAccess.ToModelKinksterEditAccess(pairAccess);
+        PairPermissions newPairPerms = dto.NewPerms.ToModel(pairPerms);
+        PairPermissionAccess newPairAccess = dto.NewAccess.ToModel(pairAccess);
         DbContext.Update(newPairPerms);
         DbContext.Update(newPairAccess);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -643,7 +642,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Perms must exist.
-        if (await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } perms)
+        if (await DbContext.GlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } perms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Change must be valid.
@@ -670,11 +669,8 @@ public partial class GagspeakHub
         // _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Permissions must exist.
-        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
+        if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-
-        // store to see if change is a pause change
-        bool prevPauseState = perms.IsPaused;
 
         // Ensure change is valid.
         if (!PropertyChanger.TrySetProperty(perms, dto.NewPerm.Key, dto.NewPerm.Value, out object? convertedValue))
@@ -687,29 +683,6 @@ public partial class GagspeakHub
         await Clients.User(dto.User.UID).Callback_SingleChangeUnique(new(new(UserUID), dto.NewPerm, UpdateDir.Other, dto.Enactor)).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeUnique);
-
-        // Handle sending offline/online if a pause was toggled.
-        if (!(perms.IsPaused != prevPauseState))
-            return HubResponseBuilder.Yippee();
-
-        // Only perform if other side of pairPerms is valid.
-        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is { } otherPairData && !otherPairData.IsPaused)
-        {
-            if (await GetUserIdent(dto.User.UID).ConfigureAwait(false) is { } otherIdent && UserCharaIdent is not null)
-            {
-                if ((bool)dto.NewPerm.Value)
-                {
-                    await Clients.User(UserUID).Callback_KinksterOffline(new(new(dto.User.UID))).ConfigureAwait(false);
-                    await Clients.User(dto.User.UID).Callback_KinksterOffline(new(new(UserUID))).ConfigureAwait(false);
-                }
-                else
-                {
-                    await Clients.User(UserUID).Callback_KinksterOnline(new(new(dto.User.UID), otherIdent)).ConfigureAwait(false);
-                    await Clients.User(dto.User.UID).Callback_KinksterOnline(new(new(UserUID), UserCharaIdent)).ConfigureAwait(false);
-                }
-            }
-        }
-
         return HubResponseBuilder.Yippee();
     }
 
@@ -719,7 +692,7 @@ public partial class GagspeakHub
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // Permissions must exist.
-        if (await DbContext.ClientPairPermissionAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
+        if (await DbContext.PairAccess.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Property must be valid.
@@ -739,20 +712,20 @@ public partial class GagspeakHub
     // hacky with it and break things client side, this can easily be embedded into
     // a cleanup task server-side, (but also, it is necessary for safeword maybe?)
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse<HardcoreState>> UserHardcoreAttributeExpired(HardcoreAttributeExpired dto)
+    public async Task<HubResponse<HardcoreStatus>> UserHardcoreAttributeExpired(HardcoreAttributeExpired dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Hardcore State must exist.
-        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hcState)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new HardcoreState());
+        if (await DbContext.HardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hcState)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new GagspeakAPI.Data.Permissions.HardcoreStatus());
 
         // Attribute MUST be enabled, because we should only disable.
         if (!hcState.IsEnabled(dto.Attribute))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState, new HardcoreState());
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState, new GagspeakAPI.Data.Permissions.HardcoreStatus());
 
         // Must be able to change (we can fake this with auto-unlock-service so dont worry)
         if (!hcState.CanChange(dto.Attribute, dto.Enactor.UID))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new HardcoreState());
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new GagspeakAPI.Data.Permissions.HardcoreStatus());
 
         switch (dto.Attribute)
         {
@@ -804,14 +777,14 @@ public partial class GagspeakHub
                 break;
 
             default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new HardcoreState());
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new GagspeakAPI.Data.Permissions.HardcoreStatus());
 
         }
 
         DbContext.Update(hcState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var newData = hcState.ToApiHardcoreState();
+        var newData = hcState.ToApi();
 
         var pairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
         var onlinePairsOfCaller = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
@@ -820,29 +793,6 @@ public partial class GagspeakHub
         await Clients.Users(onlinePairUids).Callback_StateChangeHardcore(new(new(UserUID), newData, dto.Attribute, dto.Enactor)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterPermissionChangeHardcore);
         return HubResponseBuilder.Yippee(newData);
-    }
-
-
-
-    /// <summary> 
-    ///     Method will delete the caller user profile from the database, and all associated data with it. <para />
-    ///     If the caller's User entry is the primary account, then all secondary profiles are deleted with it.
-    /// </summary>
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserDelete()
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args());
-
-        // Obtain the caller's Auth entry, which contains the User entry inside.
-        if (await DbContext.Users.AsNoTracking().SingleOrDefaultAsync(a => a.UID == UserUID).ConfigureAwait(false) is not { } caller)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-
-        var pairRemovals = await SharedDbFunctions.DeleteUserProfile(caller, _logger.Logger, DbContext, _metrics).ConfigureAwait(false);
-        // send out to all the pairs to remove the deleted profile(s) from their lists.
-        foreach (var (deletedProfile, profilePairUids) in pairRemovals)
-            await Clients.Users(profilePairUids).Callback_RemoveClientPair(new(new(deletedProfile))).ConfigureAwait(false);
-
-        return HubResponseBuilder.Yippee();
     }
 }
 

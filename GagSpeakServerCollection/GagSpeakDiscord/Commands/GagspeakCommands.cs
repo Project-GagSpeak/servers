@@ -8,9 +8,11 @@ using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using System.Data;
 using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 namespace GagspeakDiscord.Commands;
 #nullable enable
@@ -22,12 +24,12 @@ public class GagspeakCommands : InteractionModuleBase
     private readonly ServerTokenGenerator _serverTokenGenerator;                   // the server token generator
     private readonly ILogger<GagspeakCommands> _logger;                               // the logger for the GagspeakCommands
     private readonly IServiceProvider _services;                                    // our service provider
-    private readonly IConfigurationService<DiscordConfiguration> _discordConfigService;    // the discord configuration service
+    private readonly IConfigurationService<DiscordConfig> _discordConfigService;    // the discord configuration service
     private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
 
     public GagspeakCommands(DiscordBotServices botServices, ServerTokenGenerator tokenGenerator, 
         ILogger<GagspeakCommands> logger, IServiceProvider services,
-        IConfigurationService<DiscordConfiguration> gagspeakDiscordConfiguration,
+        IConfigurationService<DiscordConfig> gagspeakDiscordConfiguration,
         IConnectionMultiplexer connectionMultiplexer)
     {
         _botServices = botServices;
@@ -142,12 +144,12 @@ public class GagspeakCommands : InteractionModuleBase
 
             ClientMessage payload = new ClientMessage(messageType, message, uid ?? string.Empty);
             string jsonPayload = JsonSerializer.Serialize(payload);
-            _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), jsonPayload);
+            _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfig.MainServerAddress)), "/msgc/sendMessage"), jsonPayload);
 
-            using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/sendMessage"), payload).ConfigureAwait(false);
+            using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfig.MainServerAddress)), "/msgc/sendMessage"), payload).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
+                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfig.DiscordChannelForMessages), null);
                 if (uid is null && discordChannelForMessages != null)
                 {
                     IMessageChannel? discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
@@ -218,7 +220,7 @@ public class GagspeakCommands : InteractionModuleBase
         using IServiceScope scope = _services.CreateScope();
         GagspeakDbContext? db = scope.ServiceProvider.GetService<GagspeakDbContext>();
         // create a list of all users from the users table whose LastLoggedIn time was greater than time current time - timespan
-        var users = await db.Users.Where(u => u.LastLoggedIn < DateTime.UtcNow - purgeTimeSpan).ToListAsync();
+        var users = await db.Users.Where(u => u.LastLogin < DateTime.UtcNow - purgeTimeSpan).ToListAsync();
         // purge the user profiles from the database
         foreach(var user in users)
             await SharedDbFunctions.DeleteUserProfile(user, _logger, db).ConfigureAwait(false);
@@ -254,12 +256,12 @@ public class GagspeakCommands : InteractionModuleBase
             HardReconnectMessage payload = new HardReconnectMessage(messageType, message, ServerState.ForcedReconnect, uid);
             string jsonPayload = JsonSerializer.Serialize(payload);
             _logger.LogInformation("Sending message to {uri} with payload: {jsonPayload}", 
-                new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), jsonPayload);
+                new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfig.MainServerAddress)), "/msgc/forceHardReconnect"), jsonPayload);
 
-            using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfiguration.MainServerAddress)), "/msgc/forceHardReconnect"), payload).ConfigureAwait(false);
+            using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfig.MainServerAddress)), "/msgc/forceHardReconnect"), payload).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfiguration.DiscordChannelForMessages), null);
+                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfig.DiscordChannelForMessages), null);
                 if (discordChannelForMessages != null)
                 {
                     IMessageChannel? discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
@@ -396,46 +398,34 @@ public class GagspeakCommands : InteractionModuleBase
         using GagspeakDbContext? db = scope.ServiceProvider.GetService<GagspeakDbContext>();
 
         // locate the auth first, as it is linked to registered and unregistered players.
-        Auth? auth = await db.Auth.Include(u => u.User).SingleOrDefaultAsync(u => u.User.UID == desiredUid).ConfigureAwait(false);
-        if (auth is null)
+        if (await db.Auth.Include(a => a.AccountRep).Include(a => a.User).SingleOrDefaultAsync(a => a.User.UID == desiredUid).ConfigureAwait(false) is not { } auth)
         {
             // The embed message is updated to indicate that the user already exists in the database
             embed.WithTitle("Failed to add user");
             embed.WithDescription("Already in Database");
             return embed.Build();
-
         }
 
-        // grab the banned user associated with this.
-        Banned? bannedUser = await db.BannedUsers.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
-        if(bannedUser is not null)
-        {
-            // remove the banned user from the database
-            db.BannedUsers.Remove(bannedUser);
-        }
+        auth.AccountRep.IsBanned = false;
 
-        // grab the account auth claim, if one exists.
-        AccountClaimAuth? accountClaim = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == auth.UserUID).ConfigureAwait(false);
-        // if it exists, we should also grab the banned registration row, then delete both of these.
-        if(accountClaim is not null)
+        // Grab the banned user associated with this UID
+        if (await db.BannedUsers.SingleOrDefaultAsync(u => u.UserUID == desiredUid).ConfigureAwait(false) is { } bannedEntry)
+            db.BannedUsers.Remove(bannedEntry);
+
+        // Remove the banned registration if it exists
+        if (await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.User.UID == auth.UserUID).ConfigureAwait(false) is { } claimAuth)
         {
-            BannedRegistrations? bannedRegistration = await db.BannedRegistrations.SingleOrDefaultAsync(u => u.DiscordId == accountClaim.DiscordId.ToString()).ConfigureAwait(false);
-            if(bannedRegistration is not null)
-            {
+            if (await db.BannedRegistrations.SingleOrDefaultAsync(u => u.DiscordId == claimAuth.DiscordId.ToString()).ConfigureAwait(false) is { } bannedRegistration)
                 db.BannedRegistrations.Remove(bannedRegistration);
-            }
         }
 
-        // update the disabled to false.
-        UserProfileData? profile = await db.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false);
-        if (profile is not null)
+        // Modify the profile data.
+        if (await db.ProfileData.SingleAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false) is { } profile)
         {
+            profile.FlaggedForReport = false;
             profile.ProfileDisabled = false;
-            profile.UserDescription = string.Empty;
+            profile.Description = string.Empty;
         }
-
-        // update the auth table to set is-banned to false.
-        auth.IsBanned = false;
 
         // update all tables and save changes.
         await db.SaveChangesAsync();
@@ -556,7 +546,7 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // Add a field to the embed builder with the title "Last Online (UTC)" and the value of the user's last login time in UTC
-        eb.AddField("Last Online (UTC)", dbUser.LastLoggedIn.ToString("U", CultureInfo.InvariantCulture));
+        eb.AddField("Last Online (UTC)", dbUser.LastLogin.ToString("U", CultureInfo.InvariantCulture));
 
         // Add a field to the embed builder with the title "Currently online" and the value of whether the user is currently online
         eb.AddField("Currently online ", !string.IsNullOrEmpty(identity));

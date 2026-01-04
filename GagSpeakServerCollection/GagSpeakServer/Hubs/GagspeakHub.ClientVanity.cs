@@ -58,7 +58,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // The achievement data can be null, or contain data. If it contains data, we should update it.
-        UserAchievementData userSaveData = await DbContext.UserAchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        UserAchievementData userSaveData = await DbContext.AchievementData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (userSaveData is not null)
         {
             if (!string.IsNullOrEmpty(dto.AchievementDataBase64))
@@ -73,7 +73,7 @@ public partial class GagspeakHub
                 UserUID = dto.User.UID,
                 Base64AchievementData = dto.AchievementDataBase64,
             };
-            await DbContext.UserAchievementData.AddAsync(newProfileData).ConfigureAwait(false);
+            await DbContext.AchievementData.AddAsync(newProfileData).ConfigureAwait(false);
             await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Fresh Achievement Data Created").ConfigureAwait(false);
         }
 
@@ -94,7 +94,7 @@ public partial class GagspeakHub
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
-        if (await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is { } data)
+        if (await DbContext.ProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is { } data)
         {
             data.UpdateInfoFromDto(dto.Info);
             DbContext.Update(data);
@@ -103,7 +103,7 @@ public partial class GagspeakHub
         {
             var newData = new UserProfileData() { UserUID = dto.User.UID };
             newData.UpdateInfoFromDto(dto.Info);
-            await DbContext.UserProfileData.AddAsync(newData).ConfigureAwait(false);
+            await DbContext.ProfileData.AddAsync(newData).ConfigureAwait(false);
         }
 
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -131,7 +131,7 @@ public partial class GagspeakHub
         }
 
         // Grab Client Callers current profile data from the database
-        UserProfileData existingData = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        UserProfileData existingData = await DbContext.ProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
 
         // Grab the new ProfilePictureData if it exists
         if (!string.IsNullOrEmpty(dto.ImageBase64))
@@ -173,7 +173,7 @@ public partial class GagspeakHub
         {
             UserProfileData userProfileData = new UserProfileData() { UserUID = dto.User.UID };
             userProfileData.Base64ProfilePic = dto.ImageBase64;
-            await DbContext.UserProfileData.AddAsync(userProfileData).ConfigureAwait(false);
+            await DbContext.ProfileData.AddAsync(userProfileData).ConfigureAwait(false);
         }
 
         // Save DB Changes
@@ -196,7 +196,7 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
         // if the client caller has already reported this profile, inform them and return.
-        UserProfileDataReport report = await DbContext.UserProfileReports.SingleOrDefaultAsync(u => u.ReportedUserUID == dto.User.UID && u.ReportingUserUID == UserUID).ConfigureAwait(false);
+        ReportEntry report = await DbContext.ReportEntries.SingleOrDefaultAsync(u => u.ReportedUserUID == dto.User.UID && u.ReportingUserUID == UserUID).ConfigureAwait(false);
         if (report is not null)
         {
             await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "You already reported this profile and it's pending validation").ConfigureAwait(false);
@@ -204,7 +204,7 @@ public partial class GagspeakHub
         }
 
         // grab the profile of the user being reported. If it doesn't exist, inform the client caller and return.
-        UserProfileData profile = await DbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
+        UserProfileData profile = await DbContext.ProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
         if (profile is null)
         {
             await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "This user has no profile").ConfigureAwait(false);
@@ -212,11 +212,11 @@ public partial class GagspeakHub
         }
 
         // Reporting if valid, so construct new report object, at the current time as a snapshot, to avoid tempering by the reported user post-report.
-        UserProfileDataReport reportToAdd = new()
+        ReportEntry reportToAdd = new()
         {
             ReportTime = DateTime.UtcNow,
-            ReportedBase64Picture = profile.Base64ProfilePic,
-            ReportedDescription = profile.UserDescription,
+            SnapshotImage = profile.Base64ProfilePic,
+            SnapshotDescription = profile.Description,
             ReportingUserUID = UserUID,
             ReportReason = dto.ReportReason,
             ReportedUserUID = dto.User.UID,
@@ -226,7 +226,7 @@ public partial class GagspeakHub
         profile.FlaggedForReport = true;
 
         // add it to the table of reports in the database & save changes.
-        await DbContext.UserProfileReports.AddAsync(reportToAdd).ConfigureAwait(false);
+        await DbContext.ReportEntries.AddAsync(reportToAdd).ConfigureAwait(false);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // DO NOT INFORM CLIENT THEIR PROFILE HAS BEEN REPORTED. THIS IS TO MAINTAIN CONFIDENTIALITY OF REPORTS.
@@ -244,4 +244,3 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 }
-

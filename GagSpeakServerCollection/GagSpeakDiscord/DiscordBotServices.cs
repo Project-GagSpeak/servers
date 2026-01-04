@@ -6,9 +6,9 @@ using System.Text;
 using Discord.Rest;
 using GagspeakDiscord.Services;
 using GagspeakShared.Data;
-using GagspeakShared.Utils.Configuration;
 using GagspeakShared.Services;
 using Microsoft.EntityFrameworkCore;
+using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 // namespace dedicated to the discord bot.
 namespace GagspeakDiscord;
@@ -38,7 +38,7 @@ public class DiscordBotServices
     public ConcurrentDictionary<ulong, SelectionBoardService> BoardData = new(); // the board data service
 
     public ILogger<DiscordBotServices> Logger { get; init; }
-    private readonly IConfigurationService<DiscordConfiguration> _config;
+    private readonly IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> _config;
     private readonly IServiceProvider _services;
     public RestGuild? KinkporiumGuildCached; // The cached Guild for Ck Discord Guild
     public ConcurrentQueue<KeyValuePair<ulong, Func<DiscordBotServices, Task>>> VerificationQueue { get; } = new(); // the verification queue
@@ -47,7 +47,7 @@ public class DiscordBotServices
 #pragma warning restore IDISP006 // Implement IDisposable, We already do this in start & stop.
 
     public DiscordBotServices(ILogger<DiscordBotServices> logger, IServiceProvider services,
-        IConfigurationService<DiscordConfiguration> config)
+        IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> config)
     {
         Logger = logger;
         _config = config;
@@ -124,7 +124,7 @@ public class DiscordBotServices
             " from User: " + discordUser.GlobalName);
 
         // otherwise grab our channel report ID
-        var reportChannelId = _config.GetValue<ulong?>(nameof(DiscordConfiguration.DiscordChannelForReports));
+        var reportChannelId = _config.GetValue<ulong?>(nameof(DiscordConfig.DiscordChannelForReports));
         if (reportChannelId is null)
         {
             Logger.LogWarning("No report channel configured");
@@ -155,13 +155,13 @@ public class DiscordBotServices
             {
                 Logger.LogInformation("Checking for Profile Reports");
                 var dbContext = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
-                if (!dbContext.UserProfileReports.Any()) {
+                if (!dbContext.ReportEntries.Any()) {
                     Logger.LogInformation("No Profile Reports Found");
                     return;
                 }
 
                 // collect the list of profile reports otherwise and get the report channel
-                var reports = await dbContext.UserProfileReports.ToListAsync().ConfigureAwait(false);
+                var reports = await dbContext.ReportEntries.ToListAsync().ConfigureAwait(false);
                 Logger.LogInformation("Found {count} Reports", reports.Count);
 
                 // for each report, generate an embed and send it to the report channel
@@ -177,7 +177,7 @@ public class DiscordBotServices
                     var reportingUserAccountClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u!.User!.UID == report.ReportingUserUID).ConfigureAwait(false);
 
                     // get the profile data of the reported user.
-                    var reportedUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
+                    var reportedUserProfile = await dbContext.ProfileData.SingleAsync(u => u.UserUID == report.ReportedUserUID).ConfigureAwait(false);
 
 
                     // create an embed post to display reported profiles.
@@ -204,7 +204,7 @@ public class DiscordBotServices
 
                     // main report:
                     eb.AddField("Reported User", reportedUserSb.ToString());
-                    eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(report.ReportedDescription) ? "-" : report.ReportedDescription);
+                    eb.AddField("Reported User Profile Description", string.IsNullOrWhiteSpace(report.SnapshotDescription) ? "-" : report.SnapshotDescription);
 
                     var cb = new ComponentBuilder();
                     cb.WithButton("Dismiss Report", customId: $"gagspeak-report-button-dismissreport-{reportedUser.UID}", style: ButtonStyle.Primary);
@@ -223,10 +223,10 @@ public class DiscordBotServices
                     try
                     {
                         // Conditionally add the reported image
-                        if (!string.IsNullOrEmpty(report.ReportedBase64Picture))
+                        if (!string.IsNullOrEmpty(report.SnapshotImage))
                         {
                             var reportedImageFileName = reportedUser.UID + "_profile_reported_" + Guid.NewGuid().ToString("N") + ".png";
-                            var reportedImageStream = new MemoryStream(Convert.FromBase64String(report.ReportedBase64Picture));
+                            var reportedImageStream = new MemoryStream(Convert.FromBase64String(report.SnapshotImage));
                             streamsToDispose.Add(reportedImageStream);
                             var reportedImageAttachment = new FileAttachment(reportedImageStream, reportedImageFileName);
                             attachments.Add(reportedImageAttachment);
@@ -267,5 +267,3 @@ public class DiscordBotServices
         KinkporiumGuildCached = guild;
     }
 }
-
-#nullable disable

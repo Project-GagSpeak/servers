@@ -8,7 +8,7 @@ namespace GagspeakShared.Models;
 /// <para> Primary key is a composite key of UserUID and OtherUserUID.</para>
 /// <para> This allows USER A to constrict the level of control USER B has for them. </para>
 /// </summary>
-public class ClientPairPermissionAccess
+public class PairPermissionAccess
 {
     [MaxLength(10)] // Composite key with OtherUserUID
     public string UserUID { get; set; }          // the UID of client's user
@@ -61,7 +61,7 @@ public class ClientPairPermissionAccess
 
     // Moodles
     public bool MoodlesEnabledAllowed               { get; set; } = false; // Global
-    public MoodlePerms MoodlePermsAllowed           { get; set; } = MoodlePerms.None;
+    public MoodleAccess MoodleAccessAllowed         { get; set; } = MoodleAccess.None;
     public bool MaxMoodleTimeAllowed                { get; set; } = false; 
 
     // Misc.

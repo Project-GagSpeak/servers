@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Hub;
+﻿using GagspeakAPI.Enums;
+using GagspeakAPI.Hub;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
@@ -35,6 +36,8 @@ public class UserCleanupService : BackgroundService
         _hubContext = hubContext;
         _redis = redis;
     }
+
+    internal static DateTime UploadResetTimeEpoc => new DateTime(2020, 1, 6, 0, 0, 0, DateTimeKind.Utc);
 
     public override async Task StartAsync(CancellationToken cancellationToken)
     {
@@ -73,21 +76,38 @@ public class UserCleanupService : BackgroundService
 
     private async Task ResetUploadCounters(GagspeakDbContext dbContext)
     {
+        // Get the last reset datetimeUTC, compare against current, to get if we should reset counters.
+        var utcNow = DateTime.UtcNow;
+        // get how many full weeks passed since epoch.
+        int weeksSinceEpoch = (int)((DateTime.UtcNow - UploadResetTimeEpoc).TotalDays / 7);
+        // Last deterministic reset time.
+        var lastResetUtc = UploadResetTimeEpoc.AddDays(weeksSinceEpoch * 7);
+        // Get the time since the last reset period.
+        var timeSinceLastReset = utcNow - lastResetUtc;
+
+        // If less than 7 days since last reset, skip.
+        if (timeSinceLastReset.TotalDays < 7)
+            return;
+
+        // Otherwise, we should reset all upload counters for the users.
         try
         {
-            _logger.LogInformation("Resetting upload counters for users");
-
-            DateTime oneWeekAgo = DateTime.UtcNow.AddDays(-7);
-            List<User> usersToReset = await dbContext.Users
-                .Where(user => user.FirstUploadTimestamp != DateTime.MinValue && user.FirstUploadTimestamp >= oneWeekAgo)
-                .ToListAsync().ConfigureAwait(false);
-
-            foreach (User user in usersToReset)
-            {
-                user.UploadLimitCounter = 0;
-                user.FirstUploadTimestamp = DateTime.MinValue;
-                _logger.LogInformation("Reset upload counter for user: {userUID}", user.UID);
-            }
+            _logger.LogInformation("[ResetUploadCounters] Resetting upload counts for users.");
+            // Grab all auths, including the rep and user.
+            await dbContext.Auth
+                .Include(a => a.AccountRep)
+                .ThenInclude(a => a.User)
+                // Could perform a ExecuteSqlRawAsync if we wanted, but try this out for now so it is more readable.
+                .ExecuteUpdateAsync(ar => ar.SetProperty(
+                    a => a.AccountRep.UploadAllowances,
+                    // Check no role fist, as people will more likely match the first case.
+                    a => a.User.Tier == CkSupporterTier.NoRole ? 10 :
+                         a.User.Tier == CkSupporterTier.KinkporiumMistress ? 999999 :
+                         a.User.Tier == CkSupporterTier.DistinguishedConnoisseur ? 20 :
+                         a.User.Tier == CkSupporterTier.EsteemedPatron ? 15 :
+                         a.User.Tier == CkSupporterTier.ServerBooster ? 15 :
+                         12
+                )).ConfigureAwait(false);
 
             await dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
@@ -183,7 +203,7 @@ public class UserCleanupService : BackgroundService
                 List<User> usersToRemove = new List<User>();
                 foreach (User user in allUsers)
                 {
-                    if (user.LastLoggedIn < DateTime.UtcNow - TimeSpan.FromDays(usersOlderThanDays))
+                    if (user.LastLogin < DateTime.UtcNow - TimeSpan.FromDays(usersOlderThanDays))
                     {
                         _logger.LogInformation("User outdated: {userUID}", user.UID);
                         usersToRemove.Add(user);
@@ -213,9 +233,9 @@ public class UserCleanupService : BackgroundService
         {
             _logger.LogInformation("Cleaning up expired pair requests");
 
-            List<KinksterRequest> expiredRequests = dbContext.KinksterPairRequests.Where(r => r.CreationTime < DateTime.UtcNow - TimeSpan.FromDays(3)).ToList();
+            List<PairRequest> expiredRequests = dbContext.PairRequests.Where(r => r.CreationTime < DateTime.UtcNow - TimeSpan.FromDays(3)).ToList();
             _logger.LogInformation("Removing " + expiredRequests.Count + " expired pair requests");
-            dbContext.KinksterPairRequests.RemoveRange(expiredRequests);
+            dbContext.PairRequests.RemoveRange(expiredRequests);
         }
         catch (Exception ex)
         {

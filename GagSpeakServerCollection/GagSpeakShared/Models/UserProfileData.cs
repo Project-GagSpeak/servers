@@ -17,58 +17,88 @@ public class UserProfileData
     public virtual UserCollarData CollarData { get; set; }
 
     /// <summary>
-    /// Defines if a profile is displayed to any user that is not a direct pair of them.
-    /// Keeping this false will hide the profile picture and description from any unpaired users.
+    ///     Defines if a profile is displayed to any user that is not a direct pair of them. <para />
+    ///     Keeping this false will hide the profile picture and description from any unpaired users.
     /// </summary>
     public bool ProfileIsPublic { get; set; } = false;
 
     /// <summary>
-    /// Determines if a user is currently flagged for report.
-    /// Flagged Kinksters will still be able to see their own profile, however, no one else will.
-    /// This is done intentionally to prevent predators from watching when a profile is reported to point the blame on someone.
+    ///     Determines if a user is currently flagged for report. <para />
+    ///     Others cannot see flagged Kinkster's profiles, but they will be able to. <para />
+    ///     This is done intentionally to prevent predators from watching when a 
+    ///     profile is reported to point the blame on someone.
     /// </summary>
     public bool FlaggedForReport { get; set; } = false;
 
     /// <summary>
-    /// Determines if a profile has been disabled.
-    /// Disabled Profiles can still show decoration and titles, but the images and descriptions will no longer be modifiable.
+    ///     Disabled Profiles can still show decoration and titles, but 
+    ///     the images and descriptions will no longer be modifiable.
     /// </summary>
     public bool ProfileDisabled { get; set; } = false;
 
     /// <summary>
-    /// The number of warnings that this profile has received.
-    /// Profile warnings go up by one whenever a profile is cleared, or whenever a malicious report attempt is made.
-    /// Warning strikes are a simple way to show the CK Team how many repeat offenses a profile has had when we evalulate reports.
+    ///     The number of warnings that this profile has received. <para />
+    ///     Warnings inc whenever a profile is reported. But we should 
+    ///     migrate this to account reputation later.
     /// </summary>
     public int WarningStrikeCount { get; set; } = 0;
 
-    public string Base64ProfilePic { get; set; } = string.Empty; // string.empty == no image provided.
-    public string UserDescription { get; set; } = string.Empty; // Description of the user.
-    public int CompletedAchievementsTotal { get; set; } = 0; // Total number of achievements completed.
-    public int ChosenTitleId { get; set; } = 0; // Chosen Achievement Title. 0 == no title chosen.
+    public string Base64ProfilePic      { get; set; } = string.Empty;   // empty is no image provided.
+    public string Description           { get; set; } = string.Empty;   // Description of the user.
+    public int    AchievementsEarned    { get; set; } = 0;              // Total number of achievements completed.
+    public int    ChosenTitleId         { get; set; } = 0;              // Chosen Achievement Title. 0 == no title chosen.
 
-    public ProfileStyleBG PlateBackground { get; set; } = ProfileStyleBG.Default;
-    public ProfileStyleBorder PlateBorder { get; set; } = ProfileStyleBorder.Default;
+    // S - T - Y - L - E
+    public KinkPlateBG      PlateBG             { get; set; } = KinkPlateBG.Default;
+    public KinkPlateBorder  PlateBorder         { get; set; } = KinkPlateBorder.Default;
+    
+    public KinkPlateBG      PlateLightBG        { get; set; } = KinkPlateBG.Default;
+    public KinkPlateBorder  PlateLightBorder    { get; set; } = KinkPlateBorder.Default;
 
-    public ProfileStyleBorder ProfilePictureBorder { get; set; } = ProfileStyleBorder.Default;
-    public ProfileStyleOverlay ProfilePictureOverlay { get; set; } = ProfileStyleOverlay.Default;
+    public KinkPlateBorder  AvatarBorder        { get; set; } = KinkPlateBorder.Default;
+    public KinkPlateOverlay AvatarOverlay       { get; set; } = KinkPlateOverlay.Default;
 
-    public ProfileStyleBG DescriptionBackground { get; set; } = ProfileStyleBG.Default;
-    public ProfileStyleBorder DescriptionBorder { get; set; } = ProfileStyleBorder.Default;
-    public ProfileStyleOverlay DescriptionOverlay { get; set; } = ProfileStyleOverlay.Default;
+    public KinkPlateBG      DescriptionBG       { get; set; } = KinkPlateBG.Default;
+    public KinkPlateBorder  DescriptionBorder   { get; set; } = KinkPlateBorder.Default;
+    public KinkPlateOverlay DescriptionOverlay  { get; set; } = KinkPlateOverlay.Default;
 
-    public ProfileStyleBG GagSlotBackground { get; set; } = ProfileStyleBG.Default;
-    public ProfileStyleBorder GagSlotBorder { get; set; } = ProfileStyleBorder.Default;
-    public ProfileStyleOverlay GagSlotOverlay { get; set; } = ProfileStyleOverlay.Default;
+    public KinkPlateBG      GagSlotBG           { get; set; } = KinkPlateBG.Default;
+    public KinkPlateBorder  GagSlotBorder       { get; set; } = KinkPlateBorder.Default;
+    public KinkPlateOverlay GagSlotOverlay      { get; set; } = KinkPlateOverlay.Default;
 
-    public ProfileStyleBG PadlockBackground { get; set; } = ProfileStyleBG.Default;
-    public ProfileStyleBorder PadlockBorder { get; set; } = ProfileStyleBorder.Default;
-    public ProfileStyleOverlay PadlockOverlay { get; set; } = ProfileStyleOverlay.Default;
+    public KinkPlateBG      PadlockBG           { get; set; } = KinkPlateBG.Default;
+    public KinkPlateBorder  PadlockBorder       { get; set; } = KinkPlateBorder.Default;
+    public KinkPlateOverlay PadlockOverlay      { get; set; } = KinkPlateOverlay.Default;
 
-    public ProfileStyleBG BlockedSlotsBackground { get; set; } = ProfileStyleBG.Default;
-    public ProfileStyleBorder BlockedSlotsBorder { get; set; } = ProfileStyleBorder.Default;
-    public ProfileStyleOverlay BlockedSlotsOverlay { get; set; } = ProfileStyleOverlay.Default;
+    public KinkPlateBG      BlockedSlotsBG      { get; set; } = KinkPlateBG.Default;
+    public KinkPlateBorder  BlockedSlotsBorder  { get; set; } = KinkPlateBorder.Default;
+    public KinkPlateOverlay BlockedSlotsOverlay { get; set; } = KinkPlateOverlay.Default;
 
-    public ProfileStyleBorder BlockedSlotBorder { get; set; } = ProfileStyleBorder.Default;
-    public ProfileStyleOverlay BlockedSlotOverlay { get; set; } = ProfileStyleOverlay.Default;
+    public KinkPlateBorder  BlockedSlotBorder   { get; set; } = KinkPlateBorder.Default;
+    public KinkPlateOverlay BlockedSlotOverlay  { get; set; } = KinkPlateOverlay.Default;
+
+    //public KinkPlateBG PlateBackground { get; set; } = KinkPlateBG.Default;
+    //public KinkPlateBorder PlateBorder { get; set; } = KinkPlateBorder.Default;
+
+    //public KinkPlateBorder ProfilePictureBorder { get; set; } = KinkPlateBorder.Default;
+    //public KinkPlateOverlay ProfilePictureOverlay { get; set; } = KinkPlateOverlay.Default;
+
+    //public KinkPlateBG DescriptionBackground { get; set; } = KinkPlateBG.Default;
+    //public KinkPlateBorder DescriptionBorder { get; set; } = KinkPlateBorder.Default;
+    //public KinkPlateOverlay DescriptionOverlay { get; set; } = KinkPlateOverlay.Default;
+
+    //public KinkPlateBG GagSlotBackground { get; set; } = KinkPlateBG.Default;
+    //public KinkPlateBorder GagSlotBorder { get; set; } = KinkPlateBorder.Default;
+    //public KinkPlateOverlay GagSlotOverlay { get; set; } = KinkPlateOverlay.Default;
+
+    //public KinkPlateBG PadlockBackground { get; set; } = KinkPlateBG.Default;
+    //public KinkPlateBorder PadlockBorder { get; set; } = KinkPlateBorder.Default;
+    //public KinkPlateOverlay PadlockOverlay { get; set; } = KinkPlateOverlay.Default;
+
+    //public KinkPlateBG BlockedSlotsBackground { get; set; } = KinkPlateBG.Default;
+    //public KinkPlateBorder BlockedSlotsBorder { get; set; } = KinkPlateBorder.Default;
+    //public KinkPlateOverlay BlockedSlotsOverlay { get; set; } = KinkPlateOverlay.Default;
+
+    //public KinkPlateBorder BlockedSlotBorder { get; set; } = KinkPlateBorder.Default;
+    //public KinkPlateOverlay BlockedSlotOverlay { get; set; } = KinkPlateOverlay.Default;
 }

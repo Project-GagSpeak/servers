@@ -122,7 +122,7 @@ public class Startup
         signalRServiceBuilder.AddStackExchangeRedis(redisConnection, options => { });
 
         // now we can add the gagspeak discord configure, singleton, hosted service, and interfaces to the service collection.
-        services.Configure<DiscordConfiguration>(_config.GetRequiredSection("GagSpeak"));
+        services.Configure<DiscordConfig>(_config.GetRequiredSection("GagSpeak"));
         services.Configure<ServerConfiguration>(_config.GetRequiredSection("GagSpeak")); // everything should be preset already
         services.Configure<GagspeakConfigurationBase>(_config.GetRequiredSection("GagSpeak"));
 
@@ -130,7 +130,7 @@ public class Startup
         services.AddSingleton<ServerTokenGenerator>();
         services.AddSingleton<DiscordBotServices>();
         services.AddHostedService<DiscordBot>();
-        services.AddSingleton<IConfigurationService<DiscordConfiguration>, GagspeakConfigServiceServer<DiscordConfiguration>>();
+        services.AddSingleton<IConfigurationService<DiscordConfig>, GagspeakConfigServiceServer<DiscordConfig>>();
         services.AddSingleton<IConfigurationService<ServerConfiguration>, GagspeakConfigServiceClient<ServerConfiguration>>();
         services.AddSingleton<IConfigurationService<GagspeakConfigurationBase>, GagspeakConfigServiceClient<GagspeakConfigurationBase>>();
 

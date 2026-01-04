@@ -18,6 +18,7 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 using System.Collections.Concurrent;
 
 namespace GagspeakServer.Hubs;
+#pragma warning disable MA0011
 
 public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 {
@@ -105,37 +106,41 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Welcome to Gagspeak! " +
             $"{_systemInfoService.SystemInfoDto.OnlineUsers} Kinksters are online.\nI hope you have fun and enjoy~").ConfigureAwait(false);
 
-        // Now that we have optimized our user creation and removal, as can use .AsNoTracking() to retrieve all relative data.
-        var isPrimary = string.IsNullOrEmpty(auth.PrimaryUserUID);
-        var primaryUid = isPrimary ? UserUID : auth.PrimaryUserUID;
-        var altProfileUids = await DbContext.Auth.AsNoTracking().Where(a => a.PrimaryUserUID == primaryUid).Select(a => a.UserUID).ToListAsync().ConfigureAwait(false);
+        // All connected clients need a list of their account profile UID's and their global permissions, hardcore state, active states, and rep.
 
-        // pull into a try-catch for debugging purposes, but if this ever throws an exception, something went wrong in the user creation/removal process.
+        // Determine if the auth is the primary account profile or alt profile. Gather the account list based on this.
+        var accountProfiles = await DbContext.Auth.AsNoTracking().Include(a => a.AccountRep)
+            .Where(a => a.PrimaryUserUID == auth.PrimaryUserUID)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        // Handle cases where the SingleAsync fails. But this should never fail as all are made upon profile creation.
         try
         {
-            var globals = await DbContext.UserGlobalPermissions.AsNoTracking().SingleAsync(g => g.UserUID == UserUID).ConfigureAwait(false);
-            var hcState = await DbContext.UserHardcoreState.AsNoTracking().SingleAsync(h => h.UserUID == UserUID).ConfigureAwait(false);
-            var gags = await DbContext.UserGagData.AsNoTracking().Where(g => g.UserUID == UserUID).OrderBy(g => g.Layer).ToListAsync().ConfigureAwait(false);
-            var restrictions = await DbContext.UserRestrictionData.AsNoTracking().Where(r => r.UserUID == UserUID).OrderBy(r => r.Layer).ToListAsync().ConfigureAwait(false);
-            var restraint = await DbContext.UserRestraintData.AsNoTracking().SingleAsync(r => r.UserUID == UserUID).ConfigureAwait(false);
-            var collar = await DbContext.UserCollarData.AsNoTracking().Include(c => c.Owners).SingleAsync(c => c.UserUID == UserUID).ConfigureAwait(false);
-            var achievements = await DbContext.UserAchievementData.AsNoTracking().SingleAsync(a => a.UserUID == UserUID).ConfigureAwait(false);
+            var globals = await DbContext.GlobalPermissions.AsNoTracking().SingleAsync(g => g.UserUID == UserUID).ConfigureAwait(false);
+            var hcState = await DbContext.HardcoreState.AsNoTracking().SingleAsync(h => h.UserUID == UserUID).ConfigureAwait(false);
+            var gags = await DbContext.ActiveGagData.AsNoTracking().Where(g => g.UserUID == UserUID).OrderBy(g => g.Layer).ToListAsync().ConfigureAwait(false);
+            var restrictions = await DbContext.ActiveRestrictionData.AsNoTracking().Where(r => r.UserUID == UserUID).OrderBy(r => r.Layer).ToListAsync().ConfigureAwait(false);
+            var restraint = await DbContext.ActiveRestraintData.AsNoTracking().SingleAsync(r => r.UserUID == UserUID).ConfigureAwait(false);
+            var collar = await DbContext.ActiveCollarData.AsNoTracking().Include(c => c.Owners).SingleAsync(c => c.UserUID == UserUID).ConfigureAwait(false);
+            var achievements = await DbContext.AchievementData.AsNoTracking().SingleAsync(a => a.UserUID == UserUID).ConfigureAwait(false);
 
             // Ret the connection response data.
-            return new ConnectionResponse(auth.User.ToUserData())
+            return new ConnectionResponse(auth.User.ToUserData(), accountProfiles.Select(ap => ap.UserUID).ToList())
             {
                 CurrentClientVersion = _expectedClientVersion,
                 ServerVersion = IGagspeakHub.ApiVersion,
 
-                GlobalPerms = globals.ToApiGlobalPerms(),
-                HardcoreState = hcState.ToApiHardcoreState(),
-                SyncedGagData = new CharaActiveGags(gags.Select(g => g.ToApiGagSlot()).ToArray()),
-                SyncedRestrictionsData = new CharaActiveRestrictions(restrictions.Select(r => r.ToApiRestrictionSlot()).ToArray()),
-                SyncedRestraintSetData = restraint.ToApiRestraintData(),
-                SyncedCollarData = collar.ToApiCollarData(),
+                Reputation = auth.AccountRep.ToApi(),
+
+                GlobalPerms = globals.ToApi(),
+                HardcoreState = hcState.ToApi(),
+                GagData = new CharaActiveGags(gags.Select(g => g.ToApiGagSlot()).ToArray()),
+                RestrictionsData = new CharaActiveRestrictions(restrictions.Select(r => r.ToApiRestrictionSlot()).ToArray()),
+                RestraintSetData = restraint.ToApiRestraintData(),
+                CollarData = collar.ToApiCollarData(),
 
                 UserAchievements = achievements.Base64AchievementData,
-                ActiveAccountUidList = [.. altProfileUids, primaryUid],
             };
         }
         catch (Exception ex)
@@ -177,10 +182,12 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     [Authorize(Policy = "TemporaryAccess")]
     public async Task<(string, string)> OneTimeUseAccountGeneration()
     {
-        // we will use this function to generate a new UID, and create an auth object for the user.
-        User user = new User()
+        // Need to create the User & Auth entries first before generating all associated content.
+        // Ensure UID Uniqueness.
+        var user = new User()
         {
-            CreatedDate = DateTime.UtcNow
+            LastLogin = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow
         };
 
         // set has valid UID to false, so we can generate a new UID
@@ -193,24 +200,31 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
             hasValidUid = true;
         }
 
-        // set the last logged in time to now.
-        user.LastLoggedIn = DateTime.UtcNow;
-
-        // generate a hashed secret key based on a randomly generated string + the current time to make sure it is always unique.
-#pragma warning disable MA0011
-        string computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
-#pragma warning restore MA0011
-        // now we create a new authentication object with that hashed secret key in it and the user object.
-        Auth auth = new Auth()
+        // Make an AccountRep entry for this user.
+        var reputation = new AccountReputation()
         {
-            HashedKey = computedHash,
+            UserUID = user.UID,
             User = user,
         };
 
+        // Gen secret key 64long plus the current time.
+        string computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        // Add the auth for this user. In this case, the auth created is always the account's auth.
+        // Add the respective Auth, referencing the User.
+        var auth = new Auth()
+        {
+            HashedKey = computedHash, // This should technically be hashed again but it would disrupt how all other client's hashes currently are.
+            UserUID = user.UID,
+            User = user,
+            PrimaryUserUID = user.UID,
+            PrimaryUser = user,
+            AccountRep = reputation,
+        };
+
         // run the shared database function to create the new profile data.
-        await SharedDbFunctions.CreateUser(user, auth, _logger.Logger, DbContext, _metrics).ConfigureAwait(false);
+        await SharedDbFunctions.CreateMainProfile(user, reputation, auth, _logger.Logger, DbContext, _metrics).ConfigureAwait(false);
+        
         _logger.LogMessage($"Created User [{user.UID} (Alias: {user.Alias})] Key -> {computedHash}");
-        // return the user UID and the hashed secret key to the client who requested it.
         return (user.UID, computedHash);
     }
 
@@ -224,7 +238,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// </para>
     /// </summary>
     [Authorize(Policy = "Authenticated")]
-    public async Task<bool> CheckMainClientHealth()
+    public async Task<bool> HealthCheck()
     {
         await UpdateUserOnRedis().ConfigureAwait(false);
         return false;

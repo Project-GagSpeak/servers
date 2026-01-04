@@ -21,62 +21,32 @@ public partial class GagspeakHub
         _logger.LogCallInfo();
 
         // if the guid is empty, it's not a valid pattern.
-        if (dto.patternInfo.Identifier == Guid.Empty)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Invalid Pattern Identifier.").ConfigureAwait(false);
+        if (dto.PatternInfo.Identifier == Guid.Empty)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-        }
 
-        // ensure the right person is doing this and that they exist.
-        User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null || !string.Equals(user.UID, UserUID, StringComparison.Ordinal))
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Your User Doesn't exist.").ConfigureAwait(false);
+        // Uploader must have valid auth.
+        if (await DbContext.Auth.Include(a => a.User).Include(a => a.AccountRep).SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } auth)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
 
-        // Attempt to prevent reuploads and duplicate uploads.
-        PatternEntry existingPattern = await DbContext.Patterns
-            .SingleOrDefaultAsync(p => p.Identifier == dto.patternInfo.Identifier || (p.Name == dto.patternInfo.Label && p.Length == dto.patternInfo.Length))
-            .ConfigureAwait(false);
-        if (existingPattern is not null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Pattern already exists.").ConfigureAwait(false);
+        // A Pattern of the same GUID cannot exist, or be a pattern of the same name.
+        if (await DbContext.Patterns.AsNoTracking().AnyAsync(p => p.Identifier == dto.PatternInfo.Identifier || p.Name == dto.PatternInfo.Label).ConfigureAwait(false))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.DuplicateEntry);
-        }
 
-        // determine max upload allowance
-        int maxUploadsPerWeek = user.VanityTier switch
-        {
-            CkSupporterTier.KinkporiumMistress => 999999,
-            CkSupporterTier.DistinguishedConnoisseur => 20,
-            CkSupporterTier.EsteemedPatron => 15,
-            _ => 10
-        };
-
-        // Check if the user has exceeded the upload limit
-        if (user.UploadLimitCounter >= maxUploadsPerWeek)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning,
-                $"Upload limit exceeded. You can only upload {maxUploadsPerWeek} patterns per week.").ConfigureAwait(false);
+        // Must have remaining upload allowances.
+        if (auth.AccountRep.UploadAllowances <= 0)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.UploadLimitExceeded);
-        }
 
-        // Otherwise, update the upload counter and timestamp
-        if (user.UploadLimitCounter == 0) user.FirstUploadTimestamp = DateTime.UtcNow;
-        user.UploadLimitCounter++;
-
-        // save the user data on the DB.
-        DbContext.Users.Update(user);
+        // Decrement their upload allowances and begin the upload.
+        auth.AccountRep.UploadAllowances = Math.Max(0, auth.AccountRep.UploadAllowances - 1);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         /////////////// Step 1: Check and add tags //////////////////
-        // ENSURE THE TAGS ARE LOWERCASE.
-        List<string> uploadTagsLower = dto.patternInfo.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.ToLowerInvariant()).ToList();
+        var uploadTagsLower = dto.PatternInfo.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.ToLowerInvariant()).ToList();
         // Get all existing tags from the database
-        List<Keyword> existingTags = await DbContext.Keywords.Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
+        var existingTags = await DbContext.Keywords.AsNoTracking().Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
-        List<string> newTags = dto.patternInfo.Tags.Except(existingTags.Select(t => t.Word), StringComparer.Ordinal).ToList();
-        // Create and insert the new tags not yet in DB.
+        var newTags = uploadTagsLower.Except(existingTags.Select(t => t.Word), StringComparer.Ordinal).ToList();
+        // Create and insert the new tags not yet in DB
         foreach (string newTagName in newTags)
         {
             Keyword newTag = new Keyword { Word = newTagName };
@@ -87,34 +57,34 @@ public partial class GagspeakHub
         ///////////// Step 2: Create and insert the new Pattern Entry /////////////
         PatternEntry newPatternEntry = new()
         {
-            Identifier = dto.patternInfo.Identifier,
+            Identifier = dto.PatternInfo.Identifier,
             PublisherUID = UserUID,
             TimePublished = DateTime.UtcNow,
-            Name = dto.patternInfo.Label,
-            Description = dto.patternInfo.Description,
-            Author = dto.patternInfo.Author,
+            Name = dto.PatternInfo.Label,
+            Description = dto.PatternInfo.Description,
+            Author = dto.PatternInfo.Author,
             PatternKeywords = new List<PatternKeyword>(),
             DownloadCount = 0,
             UserPatternLikes = new List<LikesPatterns>(),
-            ShouldLoop = dto.patternInfo.Looping,
-            Length = dto.patternInfo.Length,
-            Base64PatternData = dto.base64PatternData,
+            ShouldLoop = dto.PatternInfo.Looping,
+            Length = dto.PatternInfo.Length,
+            Base64PatternData = dto.PatternDataBase64,
         };
         DbContext.Patterns.Add(newPatternEntry);
 
         ///////////// Step 3: Create and insert the new Pattern Entry Tags /////////////
         foreach (Keyword tag in existingTags)
         {
-            PatternKeyword patternEntryTag = new PatternKeyword
+            DbContext.PatternKeywords.Add(new PatternKeyword
             {
                 PatternEntryId = newPatternEntry.Identifier,
                 KeywordWord = tag.Word
-            };
-            DbContext.PatternKeywords.Add(patternEntryTag);
+            });
         }
 
-        // Save the user with the new upload log
+        // Save the user with the new uploaded pattern.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
         _metrics.IncCounter(MetricsAPI.CounterUploadedPatterns);
         _metrics.IncGauge(MetricsAPI.GaugeShareHubPatterns);
         return HubResponseBuilder.Yippee();
@@ -124,37 +94,28 @@ public partial class GagspeakHub
     {
         _logger.LogCallInfo();
 
-        // if the guid is empty, it's not a valid pattern.
+        // Ensure valid Moodle ID.
         if (dto.MoodleInfo.GUID == Guid.Empty)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Invalid Moodle Identifier.").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
-        }
 
-        // ensure the uploader is a valid user in the database.
-        User user = await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        if (user is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "You are not authorized to upload this moodle.").ConfigureAwait(false);
+        // Ensure valid uploader.
+        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == UserUID).ConfigureAwait(false) is not { } user)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-        }
 
-        // Attempt to prevent reuploads and duplicate uploads.
-        MoodleStatus existingMoodle = await DbContext.Moodles.SingleOrDefaultAsync(p => p.Identifier == dto.MoodleInfo.GUID).ConfigureAwait(false);
-        if (existingMoodle is not null)
+        // Ensure Moodle does not already exist.
+        if (await DbContext.Moodles.AsNoTracking().AnyAsync(p => p.Identifier == dto.MoodleInfo.GUID).ConfigureAwait(false))
         {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Moodle already exists.").ConfigureAwait(false);
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, "Moodle with the same ID already exists.").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.DuplicateEntry);
         }
 
         /////////////// Step 1: Check and add tags //////////////////
-        // ENSURE THE TAGS ARE LOWERCASE.
-        List<string> uploadTagsLower = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.ToLowerInvariant()).ToList();
+        var uploadTagsLower = dto.Tags.Where(t => !string.IsNullOrWhiteSpace(t)).Select(t => t.ToLowerInvariant()).ToList();
         // Get all existing tags from the database
-        List<Keyword> existingTags = await DbContext.Keywords.Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
+        var existingTags = await DbContext.Keywords.AsNoTracking().Where(t => uploadTagsLower.Contains(t.Word)).ToListAsync().ConfigureAwait(false);
         // Get the new tags that are not in the database
-        List<string> newTags = dto.Tags.Except(existingTags.Select(t => t.Word), StringComparer.OrdinalIgnoreCase).ToList();
-        // Create and insert the new tags not yet in DB.
+        var newTags = uploadTagsLower.Except(existingTags.Select(t => t.Word), StringComparer.Ordinal).ToList();
+        // Create and insert the new tags not yet in DB
         foreach (string newTagName in newTags)
         {
             Keyword newTag = new Keyword { Word = newTagName };
@@ -163,9 +124,10 @@ public partial class GagspeakHub
         }
 
         ///////////// Step 2: Create and insert the new Pattern Entry /////////////
+        var totalTime = dto.MoodleInfo.ExpireTicks == -1 
+            ? TimeSpan.Zero : TimeSpan.FromMilliseconds(dto.MoodleInfo.ExpireTicks);
         MoodleStatus newMoodleEntry = new()
         {
-
             Identifier = dto.MoodleInfo.GUID,
             PublisherUID = UserUID,
             TimePublished = DateTime.UtcNow,
@@ -175,35 +137,34 @@ public partial class GagspeakHub
             IconID = dto.MoodleInfo.IconID,
             Title = dto.MoodleInfo.Title,
             Description = dto.MoodleInfo.Description,
+            CustomFXPath = dto.MoodleInfo.CustomVFXPath,
             Type = dto.MoodleInfo.Type,
-            Dispelable = dto.MoodleInfo.Dispelable,
             Stacks = dto.MoodleInfo.Stacks,
-            Persistent = dto.MoodleInfo.Persistent,
-            Days = dto.MoodleInfo.Days,
-            Hours = dto.MoodleInfo.Hours,
-            Minutes = dto.MoodleInfo.Minutes,
-            Seconds = dto.MoodleInfo.Seconds,
-            NoExpire = dto.MoodleInfo.NoExpire,
-            AsPermanent = dto.MoodleInfo.AsPermanent,
-            StatusOnDispell = dto.MoodleInfo.StatusOnDispell,
-            CustomVFXPath = dto.MoodleInfo.CustomVFXPath,
-            StackOnReapply = dto.MoodleInfo.StackOnReapply
+            StackSteps = dto.MoodleInfo.StackSteps,
+            Modifiers = dto.MoodleInfo.Modifiers,
+            ChainedStatus = dto.MoodleInfo.ChainedStatus,
+            ChainTrigger = dto.MoodleInfo.ChainTrigger,
+            Days = totalTime.Days,
+            Hours = totalTime.Hours,
+            Minutes = totalTime.Minutes,
+            Seconds = totalTime.Seconds,
+            Permanent = dto.MoodleInfo.Permanent,
         };
         DbContext.Moodles.Add(newMoodleEntry);
 
         ///////////// Step 3: Create and insert the new Pattern Entry Tags /////////////
         foreach (Keyword tag in existingTags)
         {
-            MoodleKeyword moodleEntryTag = new MoodleKeyword
+            DbContext.MoodleKeywords.Add(new MoodleKeyword
             {
                 MoodleStatusId = newMoodleEntry.Identifier,
                 KeywordWord = tag.Word
-            };
-            DbContext.MoodleKeywords.Add(moodleEntryTag);
+            });
         }
 
         // Save the user with the new upload log
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
         _metrics.IncCounter(MetricsAPI.CounterUploadedMoodles);
         _metrics.IncGauge(MetricsAPI.GaugeShareHubMoodles);
         return HubResponseBuilder.Yippee();
@@ -504,7 +465,7 @@ public partial class GagspeakHub
             HasLikedMoodle = p.LikesMoodles.Any(likes => string.Equals(likes.UserUID, user.UID, StringComparison.Ordinal)),
             Author = p.Author,
             Tags = p.MoodleKeywords.Select(t => t.KeywordWord).ToHashSet(StringComparer.OrdinalIgnoreCase),
-            MoodleStatus = p.ToStatusInfo(),
+            Status = p.ToStatusInfo(),
         }).ToList();
         _metrics.IncCounter(MetricsAPI.CounterShareHubSearches);
         return HubResponseBuilder.Yippee(result);

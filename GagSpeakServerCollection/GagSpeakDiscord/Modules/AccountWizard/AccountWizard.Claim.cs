@@ -1,8 +1,10 @@
 using Discord;
 using Discord.Interactions;
+using GagspeakAPI.Enums;
 using GagSpeakDiscord.Modules.Popups;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
+using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -26,7 +28,7 @@ public partial class AccountWizard
         EmbedBuilder eb = new();
         eb.WithColor(Color.Magenta);
         eb.WithTitle("Start Claim Process");
-        eb.WithDescription("The shop Mistress has put in extra effort to make sure end users put in less work!\n"+
+        eb.WithDescription("The shop Mistress has put in extra effort to make sure end users put in less work!\n" +
             "In other words, you wont need to login and mess with your lodestone page for verification!" + Environment.NewLine + Environment.NewLine
             + "**To claim your account, please make sure:**" + Environment.NewLine + Environment.NewLine
             + " 🔘 You are logged into FFXIV and connected to the GagSpeak Server" + Environment.NewLine + Environment.NewLine
@@ -84,7 +86,7 @@ public partial class AccountWizard
         cb.WithButton("Cancel", "wizard-claim", ButtonStyle.Secondary, emote: new Emoji("❌"));
 
         // if the modal returned successful, allow them to verify (pass in item2, the verification)
-        if (success) cb.WithButton("Send Verification Code to Client", "wizard-claim-verify-start:"+initialKeyModal.InitialKeyStr, ButtonStyle.Primary, emote: new Emoji("✅"));
+        if (success) cb.WithButton("Send Verification Code to Client", "wizard-claim-verify-start:" + initialKeyModal.InitialKeyStr, ButtonStyle.Primary, emote: new Emoji("✅"));
         // otherwise, ask them to try again, stepping back to where we ask them for the initial key. Often we get here is the key is not correct.
         else cb.WithButton("Try again", "wizard-claim-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
         await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
@@ -214,7 +216,7 @@ public partial class AccountWizard
 
         _botServices.DiscordVerifiedUsers.Remove(Context.User.Id, out _);
         // Ensure still valid in mapping context.
-        if(!_botServices.DiscordInitialKeyMapping.ContainsKey(Context.User.Id))
+        if (!_botServices.DiscordInitialKeyMapping.ContainsKey(Context.User.Id))
         {
             _logger.LogInformation($"User {Context.User.Id} does not have an initial key mapping");
             eb.WithTitle("You have not started the registration process, or you timed out. Please try again.");
@@ -235,10 +237,11 @@ public partial class AccountWizard
         // grab tables to be modified.
         var authClaim = await dbContext.AccountClaimAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false);
         var auth = await dbContext.Auth.Include(a => a.User).SingleOrDefaultAsync(u => u.HashedKey == initialKey).ConfigureAwait(false);
+        var rep = await dbContext.AccountReputation.SingleOrDefaultAsync(r => r.UserUID == auth.PrimaryUserUID).ConfigureAwait(false);
         var user = auth.User;
 
         // If any of the fetched table entries are null, fail it.
-        if (authClaim is null || auth is null || user is null)
+        if (authClaim is null || auth is null || user is null || rep is null)
         {
             _logger.LogInformation($"Keys matched, but failed to fetch AccountClaimAuth, Auth, or User for {Context.User.Id} with initial key {initialKey}");
             eb.WithTitle("Keys matched, but failed to fetch your account information. Please try again.");
@@ -254,54 +257,53 @@ public partial class AccountWizard
         authClaim.InitialGeneratedKey = null;
         authClaim.StartedAt = null;
         authClaim.VerificationCode = null;
-
         // declare the user since it is now verified.
         authClaim.User = user;
-
         // mark the user as verified and set the last login time to now.
-        user.Verified = true;
-        user.LastLoggedIn = DateTime.UtcNow;
+        user.LastLogin = DateTime.UtcNow;
+        // set Verified to true for the rep.
+        rep.IsVerified = true;
 
+        // Update entries in the database.
         dbContext.Update(authClaim);
         dbContext.Update(user);
+        dbContext.Update(rep);
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        // Do a personalized vanity role update check.
+        _logger.LogInformation("Grabbing supporter roles from both discords for personalized update..");
+        var ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
+        // Grab the context discord user from sundouleia.
+        var sundouleiaUser = await _botServices.KinkporiumGuildCached.GetUserAsync(Context.User.Id).ConfigureAwait(false);
+        // Now we should check their roles in sundouleia, and assign the highest role they have.
+        if (sundouleiaUser.RoleIds.Any(ckRoles.ContainsKey))
+        {
+            // fetch the roles they have, and output them.
+            _logger.LogInformation($"User {authClaim!.User!.UID} has roles: {string.Join(", ", sundouleiaUser.RoleIds)}");
+            // Determine the highest priority role
+            CkSupporterTier highestRole = sundouleiaUser.RoleIds
+                .Where(ckRoles.ContainsKey)
+                .Select(id => DiscordBot.RoleToVanityTier[ckRoles[id]])
+                .OrderByDescending(tier => tier)
+                .FirstOrDefault();
+
+            // Assign Highest role found.
+            authClaim.User.Tier = highestRole;
+            dbContext.Update(authClaim.User);
+            _logger.LogInformation($"User {authClaim.User.UID} assigned to tier {highestRole} (highest role)");
+
+            // Update this on all secondary accounts of this user.
+            var altProfiles = await dbContext.Auth.Include(a => a.User).AsNoTracking().Where(a => a.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
+            foreach (var profile in altProfiles)
+            {
+                _logger.LogDebug($"AltProfile [{profile.User.UID}] also given this perk!");
+                profile.User.Tier = highestRole;
+                dbContext.Update(profile.User);
+            }
+            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+        }
+
         // return success with the user's UID
         return (true, user.UID, initialKey);
     }
-
-    //private async Task<(string, string)> HandleAddUser(GagspeakDbContext db)
-    //{
-    //    var accountClaimAuth = db.AccountClaimAuth.SingleOrDefault(u => u.DiscordId == Context.User.Id);
-
-    //    var user = new User();
-
-    //    var hasValidUid = false;
-    //    while (!hasValidUid)
-    //    {
-    //        var uid = StringUtils.GenerateRandomString(10);
-    //        if (db.Users.Any(u => u.UID == uid || u.Alias == uid)) continue;
-    //        user.UID = uid;
-    //        hasValidUid = true;
-    //    }
-
-    //    user.LastLoggedIn = DateTime.UtcNow;
-
-    //    var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
-    //    var auth = new Auth()
-    //    {
-    //        HashedKey = StringUtils.Sha256String(computedHash),
-    //        User = user,
-    //    };
-
-    //    // run the shared database function to create the new profile data.
-    //    await SharedDbFunctions.CreateUser(user, auth, _logger, db).ConfigureAwait(false);
-    //    _botServices.Logger.LogInformation($"Registered User [{user.UID} (Alias: {user.Alias})]");
-
-    //    accountClaimAuth.StartedAt = null;
-    //    accountClaimAuth.User = user;
-    //    accountClaimAuth.VerificationCode = null;
-    //    _botServices.DiscordVerifiedUsers.Remove(Context.User.Id, out _);
-
-    //    return (user.UID, computedHash);
-    //}
 }

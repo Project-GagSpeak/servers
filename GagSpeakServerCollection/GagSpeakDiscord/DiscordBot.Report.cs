@@ -56,8 +56,8 @@ internal partial class DiscordBot
         string[] split = id.Split('-', StringSplitOptions.RemoveEmptyEntries);
 
         // grab the profile of the reported user.
-        UserProfileData profile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
-        UserProfileDataReport report = await dbContext.UserProfileReports.SingleAsync(u => u.ReportedUserUID == split[1]).ConfigureAwait(false);
+        UserProfileData profile = await dbContext.ProfileData.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+        ReportEntry report = await dbContext.ReportEntries.SingleAsync(u => u.ReportedUserUID == split[1]).ConfigureAwait(false);
 
         Embed embed = arg.Message.Embeds.First();
 
@@ -78,7 +78,7 @@ internal partial class DiscordBot
                 builder.AddField("Resolution", $"Profile Image has been cleared, and a warning strike has been added. Authorized by <@{userId}>");
                 builder.WithColor(Color.Red);
                 profile.Base64ProfilePic = string.Empty;
-                profile.UserDescription = string.Empty;
+                profile.Description = string.Empty;
                 profile.FlaggedForReport = false;
                 await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Callback_ServerMessage),
                     MessageSeverity.Warning, "The CK Team has reviewed your KinkPlate and decided that your Picture / Description " +
@@ -91,7 +91,7 @@ internal partial class DiscordBot
                 builder.AddField("Resolution", $"Profile Image & Description Access has revoked. Action Authorized by <@{userId}>");
                 builder.WithColor(Color.Red);
                 profile.Base64ProfilePic = string.Empty;
-                profile.UserDescription = string.Empty;
+                profile.Description = string.Empty;
                 profile.ProfileDisabled = true;
                 profile.FlaggedForReport = false;
                 await _gagspeakHubContext.Clients.User(split[1]).SendAsync(nameof(IGagspeakHub.Callback_ServerMessage),
@@ -103,10 +103,10 @@ internal partial class DiscordBot
             case "banuser":
                 builder.AddField("Resolution", $"User has been banned by <@{userId}>");
                 builder.WithColor(Color.DarkRed);
-                Auth offendingUser = await dbContext.Auth.SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
-                offendingUser.IsBanned = true;
+                Auth offendingUser = await dbContext.Auth.Include(a => a.AccountRep).SingleAsync(u => u.UserUID == split[1]).ConfigureAwait(false);
+                offendingUser.AccountRep.IsBanned = true;
                 profile.Base64ProfilePic = string.Empty;
-                profile.UserDescription = string.Empty;
+                profile.Description = string.Empty;
                 profile.FlaggedForReport = false;
                 profile.ProfileDisabled = true;
                 AccountClaimAuth reg = await dbContext.AccountClaimAuth.SingleAsync(u => u.User.UID == offendingUser.UserUID).ConfigureAwait(false);
@@ -125,7 +125,7 @@ internal partial class DiscordBot
                 builder.AddField("Resolution", $"Dismissed by <@{userId}>, But abusive reports lead to the user being flagged.");
                 builder.WithColor(Color.DarkGreen);
                 profile.FlaggedForReport = false;
-                UserProfileData reportingUserProfile = await dbContext.UserProfileData.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
+                UserProfileData reportingUserProfile = await dbContext.ProfileData.SingleAsync(u => u.UserUID == split[2]).ConfigureAwait(false);
                 reportingUserProfile.WarningStrikeCount++;
                 await _gagspeakHubContext.Clients.User(split[2]).SendAsync(nameof(IGagspeakHub.Callback_ServerMessage),
                     MessageSeverity.Warning, "The CK Team has determined your report to be a miss-use of our system, or made with malicious " +

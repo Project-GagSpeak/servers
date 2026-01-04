@@ -1,13 +1,10 @@
 ﻿using GagspeakAPI.Data;
 using GagspeakAPI.Network;
 using GagspeakServer.Utils;
-using GagspeakShared.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 
 namespace GagspeakServer.Hubs;
-#nullable enable
-
 public partial class GagspeakHub
 {
     [Authorize(Policy = "Identified")]
@@ -32,13 +29,14 @@ public partial class GagspeakHub
         // return the list of UserPair DTO's containing the paired clients of the client caller
         return pairs.Select(p =>
         {
-            KinksterPair pairList = new(new UserData(p.Key, p.Value.Verified, p.Value.Alias, p.Value.SupporterTier, p.Value.createdDate),
-                p.Value.ownPairPermissions.ToApiKinksterPerms(),
-                p.Value.ownPairPermissionAccess.ToApiKinksterEditAccess(),
-                p.Value.otherGlobalPerms.ToApiGlobalPerms(),
-                p.Value.otherHardcoreState.ToApiHardcoreState(),
-                p.Value.otherPairPermissions.ToApiKinksterPerms(),
-                p.Value.otherPairPermissionAccess.ToApiKinksterEditAccess());
+            KinksterPair pairList = new(new UserData(p.Key, p.Value.Alias, p.Value.Tier, p.Value.Created),
+                p.Value.OwnPerms.ToApi(),
+                p.Value.OwnAccess.ToApi(),
+                p.Value.OtherGlobals.ToApi(),
+                p.Value.OtherHcState.ToApi(),
+                p.Value.OtherPerms.ToApi(),
+                p.Value.OtherAccess.ToApi(),
+                p.Value.PairInitAt);
             return pairList;
         }).ToList();
     }
@@ -47,13 +45,13 @@ public partial class GagspeakHub
     public async Task<ActiveRequests> UserGetActiveRequests()
     {
         // fetch all the pair requests with the UserUid in either the UserUID or OtherUserUID
-        List<KinksterPairRequest> pairRequests = await DbContext.KinksterPairRequests.AsNoTracking()
+        List<KinksterRequest> pairRequests = await DbContext.PairRequests.AsNoTracking()
             .Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID)
-            .Select(r => r.ToApiPairRequest())
+            .Select(r => r.ToApi())
             .ToListAsync()
             .ConfigureAwait(false);
 
-        List<GagspeakAPI.Network.CollarRequest> collarRequests = await DbContext.CollarRequests.AsNoTracking()
+        List<CollarRequest> collarRequests = await DbContext.CollarRequests.AsNoTracking()
             .Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID)
             .Select(r => r.ToApiCollarRequest())
             .ToListAsync()
@@ -64,28 +62,45 @@ public partial class GagspeakHub
     [Authorize(Policy = "Identified")]
     public async Task<KinkPlateFull> UserGetKinkPlate(KinksterBase user)
     {
-        List<string> callerPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        // If requested profile matches the caller, return the full profile always.
+        if (string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
+        {
+            var ownProfile = await DbContext.ProfileData.AsNoTracking().SingleAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            return new KinkPlateFull(user.User, ownProfile.FromProfileData(), ownProfile.Base64ProfilePic);
+        }
 
-        UserProfileData? data = await DbContext.UserProfileData.AsNoTracking()
-            .Include(p => p.CollarData).ThenInclude(c => c.Owners)
-            .SingleOrDefaultAsync(u => u.UserUID == user.User.UID)
-            .ConfigureAwait(false);
-
-        // Return blank profile if it does not exist.
-        if (data is null)
+        // Obtain the auth to know if they are allowed to view the profile to begin with, and if the caller is legit.
+        if (await DbContext.Auth.Include(a => a.AccountRep).AsNoTracking().SingleOrDefaultAsync(a => a.UserUID == UserUID).ConfigureAwait(false) is not { } auth)
             return new KinkPlateFull(user.User, new KinkPlateContent(), string.Empty);
 
-        // If not in the callers KinksterPair list and not set to public, return nonPublic profile.
-        // If requested User Profile is not in list of pairs, and is not self, return blank profile update.
-        if (!callerPairs.Contains(user.User.UID, StringComparer.Ordinal) && !string.Equals(user.User.UID, UserUID, StringComparison.Ordinal) && !data.ProfileIsPublic)
-            return new KinkPlateFull(user.User, new KinkPlateContent() { Description = "Profile is not Public!" }, string.Empty);
+        // If the caller has bad reputation for profile viewing abuse, return blank profile.
+        if (!auth.AccountRep.ProfileViewing)
+            return new KinkPlateFull(user.User, new KinkPlateContent() { Description = "Your Reputation prevents you from viewing KinkPlates." }, string.Empty);
 
-        // If profile is disabled / restricted, return disabled profile.
+        // Profile is valid so get the full profile data.
+        var data = await DbContext.ProfileData.AsNoTracking()
+            .Include(p => p.CollarData)
+            .ThenInclude(c => c.Owners)
+            .SingleAsync(u => u.UserUID == user.User.UID)
+            .ConfigureAwait(false);
+        var content = data.FromProfileData();
+
+        // Get the pairs of the context caller for the IsPublic check.
+        if (!data.ProfileIsPublic)
+        {
+            var callerPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+            if (!callerPairs.Contains(user.User.UID, StringComparer.Ordinal))
+                return new KinkPlateFull(user.User, content with { Description = "Profile Pic is hidden as they have not allowed public plates!" }, string.Empty);
+        }
+
+        // If the profile is disabled by moderation, return a disabled profile.
         if (data.ProfileDisabled)
-            return new KinkPlateFull(user.User, new KinkPlateContent() { Disabled = true, Description = "This profile is currently disabled" }, string.Empty);
+            return new KinkPlateFull(user.User, content with { Description = "This profile is disabled" }, string.Empty);
 
-        // It is valid, so we should grab the collar related data.
-        KinkPlateContent content = data.FromProfileData();
+        if (data.FlaggedForReport)
+            return new KinkPlateFull(user.User, content with { Description = "Profile is pending review from CK after being reported" }, string.Empty);
+
+        // Otherwise return the complete profile. 
         content.CollarWriting = data.CollarData.Writing;
         content.CollarOwners = data.CollarData.Owners.Select(o => o.OwnerUID).ToList();
         return new KinkPlateFull(user.User, content, data.Base64ProfilePic);

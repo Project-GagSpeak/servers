@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260104200603_2026-01-04RefactorForBigUpdate")]
+    partial class _20260104RefactorForBigUpdate
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -688,8 +691,8 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("text")
                         .HasColumnName("title");
 
-                    b.Property<byte>("Type")
-                        .HasColumnType("smallint")
+                    b.Property<int>("Type")
+                        .HasColumnType("integer")
                         .HasColumnName("type");
 
                     b.Property<int>("Version")
@@ -1407,8 +1410,8 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("text")
                         .HasColumnName("moodle_title");
 
-                    b.Property<byte>("MoodleType")
-                        .HasColumnType("smallint")
+                    b.Property<int>("MoodleType")
+                        .HasColumnType("integer")
                         .HasColumnName("moodle_type");
 
                     b.Property<string>("MoodleVFXPath")

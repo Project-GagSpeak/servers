@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 #pragma warning disable CS8632
@@ -10,14 +11,29 @@ namespace GagspeakShared.Models;
 /// </summary>
 public class Auth
 {
-     [Key]
-     [MaxLength(64)]
-     public string HashedKey { get; set; }        // The "Secret Key" for a profile. The secret key where the UserUID == PrimaryUserUID is the account secret key.
+    // The "Secret Key" for a profile.
+    [Key]
+    [MaxLength(64)]
+    public string HashedKey { get; set; }
 
-     public string UserUID { get; set; }
-     public User User { get; set; }
-     public bool IsBanned { get; set; }
-    public string? PrimaryUserUID { get; set; }  // the UID of the first profile made under this account
-    public User? PrimaryUser { get; set; }       // the user profile object of the first profile made under this account
+    [Required]
+    public string UserUID { get; set; }
+
+    [ForeignKey(nameof(UserUID))]
+    public virtual User User { get; set; }
+
+    [Required]
+    public string PrimaryUserUID { get; set; }
+
+    [ForeignKey(nameof(PrimaryUserUID))]
+    public virtual User PrimaryUser { get; set; }
+
+    [ForeignKey(nameof(PrimaryUserUID))]
+    public virtual AccountReputation AccountRep { get; set; }
+
+    [NotMapped] public bool IsPrimary => string.Equals(UserUID, PrimaryUserUID);
+
+    // Designed for efficient loading. Without any includes, this will only retrieve the HashedKey, UserUID, and PrimaryUID.
+    // If we need to scan for account validation, we can make use of accessing the account reputation.
 }
 #pragma warning restore CS8632

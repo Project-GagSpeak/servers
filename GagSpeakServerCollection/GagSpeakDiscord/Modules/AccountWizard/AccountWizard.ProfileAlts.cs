@@ -57,38 +57,44 @@ public partial class AccountWizard
 
     public async Task HandleAddAltProfile(GagspeakDbContext db, EmbedBuilder embed, string primaryUID)
     {
-        // get the vanity tier of the primary user UID.
-        var primaryUser = await db.Users.SingleAsync(u => u.UID == primaryUID).ConfigureAwait(false);
-        // construct a new user to the DB, set to have logged in right now.
-        User newUser = new()
-        {
-            CreatedDate = DateTime.UtcNow,
-            LastLoggedIn = DateTime.UtcNow,
-            VanityTier = primaryUser.VanityTier
-        };
+        // Locate the account's main profile user.
+        var accountRep = await db.AccountReputation.Include(r => r.User).AsNoTracking().SingleAsync(r => r.UserUID == primaryUID).ConfigureAwait(false);
 
         // while the UID is not unique, generate a new one.
         var hasValidUid = false;
+        var generatedUid = string.Empty;
         while (!hasValidUid)
         {
             var uid = StringUtils.GenerateRandomString(10);
-            if (await db.Users.AnyAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false)) continue;
-            newUser.UID = uid;
+            if (await db.Users.AsNoTracking().AnyAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false))
+                continue;
+            generatedUid = uid;
             hasValidUid = true;
         }
+
+        // Create the new User and Auth entries for the alt profile.
+        User newUser = new()
+        {
+            UID = generatedUid,
+            CreatedAt = DateTime.UtcNow,
+            LastLogin = DateTime.UtcNow,
+            Tier = accountRep.User.Tier
+        };
 
         // compute the secret key for the user, and initialize the auth as an alt character profile, linking it to the primary account.
         var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString(CultureInfo.InvariantCulture));
         var auth = new Auth()
         {
-            HashedKey = computedHash,
+            HashedKey = computedHash, // Should technically hash this again but if we changed how we do this all other logins would break.
+            UserUID = newUser.UID,
             User = newUser,
-            PrimaryUserUID = primaryUID
+            PrimaryUserUID = primaryUID,
+            PrimaryUser = accountRep.User,
+            AccountRep = accountRep,
         };
-        // add the rows to the user and the auth tables in the database, and save the changes.
-        await db.Users.AddAsync(newUser).ConfigureAwait(false);
-        await db.Auth.AddAsync(auth).ConfigureAwait(false);
-        await db.SaveChangesAsync().ConfigureAwait(false);
+
+        // Create through the shared DB functions.
+        await SharedDbFunctions.CreateAltProfile(newUser, auth, _logger, db).ConfigureAwait(false);
 
         // output the window contents.
         embed.WithDescription("Copy the Secret Key Provided below and paste it in the Account Creation Section of your GagSpeak Settings for the character you wish to add it to.");

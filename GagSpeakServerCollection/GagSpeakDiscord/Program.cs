@@ -22,7 +22,7 @@ public class Program
             using var dbContext = services.GetRequiredService<GagspeakDbContext>();
 
             // Get the Discord configuration options.
-            var options = host.Services.GetService<IConfigurationService<DiscordConfiguration>>();
+            var options = host.Services.GetService<IConfigurationService<DiscordConfig>>();
             // Get the Server configuration options.
             var optionsServer = host.Services.GetService<IConfigurationService<ServerConfiguration>>();
             // Get the logger instance for the program class

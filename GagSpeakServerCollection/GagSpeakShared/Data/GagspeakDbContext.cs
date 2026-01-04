@@ -28,25 +28,26 @@ public class GagspeakDbContext : DbContext
 #endif
     public GagspeakDbContext(DbContextOptions<GagspeakDbContext> options) : base(options) { }
 
-    /*  Tables responsible for handling account authentication(validation) and account claiming(verification).   */
-    public DbSet<Auth> Auth { get; set; }
+    // Account Handling.
     public DbSet<AccountClaimAuth> AccountClaimAuth { get; set; }
+    public DbSet<Auth> Auth { get; set; }
+    public DbSet<AccountReputation> AccountReputation { get; set; }
 
-    /*  Tables handling bans and ban management.    */
+    // Naughty users timeout corner management tables.
     public DbSet<BannedRegistrations> BannedRegistrations { get; set; }
     public DbSet<Banned> BannedUsers { get; set; }
 
-    /*  Tables that handle what defines a client pair, the permissions associated with them, and the settings associated with them.    */
-    public DbSet<ClientPair> ClientPairs { get; set; } // a table storing all of the pairs a client has made.
-    public DbSet<ClientPairPermissions> ClientPairPermissions { get; set; } // the unique permissions a user has for each of their client pairs.
-    public DbSet<ClientPairPermissionAccess> ClientPairPermissionAccess { get; set; } // determines what permissions the client pair can change on the client.
-    public DbSet<CollarOwner> CollarOwners { get; set; } // A form of ClientPair, but links a Kinkster to what collar(s) they own.
+    // Kinkster management.
+    public DbSet<ClientPair> ClientPairs { get; set; }
+    public DbSet<PairPermissions> PairPermissions { get; set; }
+    public DbSet<PairPermissionAccess> PairAccess { get; set; }
+    public DbSet<CollarOwner> CollarOwners { get; set; }
 
-    /* Format used to go from no-sided pairing to two-sided pairing directly. */
-    public DbSet<KinksterRequest> KinksterPairRequests { get; set; }
-    public DbSet<CollarRequest> CollarRequests { get; set; }
+    // Requests
+    public DbSet<PairRequest> PairRequests { get; set; }
+    public DbSet<CollaringRequest> CollarRequests { get; set; }
 
-    /* Tables for the Share Hubs */
+    // ShareHub related tables.
     public DbSet<PatternEntry> Patterns { get; set; } // Toybox Pattern Sharing
     public DbSet<MoodleStatus> Moodles { get; set; } // Moodle Sharing
     public DbSet<PatternKeyword> PatternKeywords { get; set; } // Linker between tags and Patterns.
@@ -55,54 +56,58 @@ public class GagspeakDbContext : DbContext
     public DbSet<LikesPatterns> LikesPatterns { get; set; } // tracks the patterns a user has liked.
     public DbSet<LikesMoodles> LikesMoodles { get; set; } // tracks the moodles a user has liked.
 
-    /*  Tables that handle what defines a user, their profile, the information, and settings associated with them.    */
-    public DbSet<User> Users { get; set; } // Reflects a User profile. UID, last login time, timestamp of creation, alias, and vanity tier are defined here.
-    public DbSet<UserGlobalPermissions> UserGlobalPermissions { get; set; } // Global permissions visable to all kinkster pairs.
-    public DbSet<UserHardcoreState> UserHardcoreState { get; set; } // Current Hardcore State of the kinkster.
-    
-    public DbSet<UserGagData> UserGagData { get; set; } // Container for active gag items.
-    public DbSet<UserRestrictionData> UserRestrictionData { get; set; } // Container for active restriction items.
-    public DbSet<UserRestraintData> UserRestraintData { get; set; } // Container for active restraint set
-    public DbSet<UserCollarData> UserCollarData { get; set; } // Container for active collar data.
-    
-    public DbSet<UserAchievementData> UserAchievementData { get; set; } // tracks the achievements a user has unlocked.
-    public DbSet<UserProfileData> UserProfileData { get; set; } // every user has a profile associated with them, this contains information unique to the profile.
-    public DbSet<UserProfileDataReport> UserProfileReports { get; set; } // Holds info about reported profiles for assistants to overview.
+    // Reporting
+    public DbSet<ReportEntry> ReportEntries { get; set; } // Holds info about reported profiles for assistants to overview.
 
+    // User Information
+    public DbSet<User> Users { get; set; }
+    public DbSet<GlobalPermissions> GlobalPermissions { get; set; }
+    public DbSet<HardcoreState> HardcoreState { get; set; }
+    public DbSet<UserProfileData> ProfileData { get; set; }
+    public DbSet<UserAchievementData> AchievementData { get; set; } // tracks the achievements a user has unlocked.
+
+    // User Active State Data
+    public DbSet<UserGagData> ActiveGagData { get; set; }
+    public DbSet<UserRestrictionData> ActiveRestrictionData { get; set; }
+    public DbSet<UserRestraintData> ActiveRestraintData { get; set; }
+    public DbSet<UserCollarData> ActiveCollarData { get; set; }
+    
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<AccountClaimAuth>().ToTable("account_claim_auth");
         modelBuilder.Entity<Auth>().ToTable("auth");
         modelBuilder.Entity<Auth>().HasIndex(a => a.UserUID);
         modelBuilder.Entity<Auth>().HasIndex(a => a.PrimaryUserUID);
-        modelBuilder.Entity<AccountClaimAuth>().ToTable("account_claim_auth");
-        modelBuilder.Entity<BannedRegistrations>().ToTable("banned_registrations");
+        modelBuilder.Entity<AccountReputation>().ToTable("account_reputation");
+
         modelBuilder.Entity<Banned>().ToTable("banned_users");
+        modelBuilder.Entity<BannedRegistrations>().ToTable("banned_registrations");
         
         modelBuilder.Entity<ClientPair>().ToTable("client_pairs");
         modelBuilder.Entity<ClientPair>().HasKey(u => new { u.UserUID, u.OtherUserUID });
         modelBuilder.Entity<ClientPair>().HasIndex(c => c.UserUID);
         modelBuilder.Entity<ClientPair>().HasIndex(c => c.OtherUserUID);
-        modelBuilder.Entity<ClientPairPermissions>().ToTable("client_pair_permissions");
-        modelBuilder.Entity<ClientPairPermissions>().HasKey(u => new { u.UserUID, u.OtherUserUID });
-        modelBuilder.Entity<ClientPairPermissions>().HasIndex(c => c.UserUID);
-        modelBuilder.Entity<ClientPairPermissions>().HasIndex(c => c.OtherUserUID);
-        modelBuilder.Entity<ClientPairPermissionAccess>().ToTable("client_pair_permissions_access");
-        modelBuilder.Entity<ClientPairPermissionAccess>().HasKey(u => new { u.UserUID, u.OtherUserUID });
-        modelBuilder.Entity<ClientPairPermissionAccess>().HasIndex(c => c.UserUID);
-        modelBuilder.Entity<ClientPairPermissionAccess>().HasIndex(c => c.OtherUserUID);
+        modelBuilder.Entity<PairPermissions>().ToTable("client_pair_permissions");
+        modelBuilder.Entity<PairPermissions>().HasKey(u => new { u.UserUID, u.OtherUserUID });
+        modelBuilder.Entity<PairPermissions>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<PairPermissions>().HasIndex(c => c.OtherUserUID);
+        modelBuilder.Entity<PairPermissionAccess>().ToTable("client_pair_permissions_access");
+        modelBuilder.Entity<PairPermissionAccess>().HasKey(u => new { u.UserUID, u.OtherUserUID });
+        modelBuilder.Entity<PairPermissionAccess>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<PairPermissionAccess>().HasIndex(c => c.OtherUserUID);
         modelBuilder.Entity<CollarOwner>().ToTable("collar_owner");
         modelBuilder.Entity<CollarOwner>().HasKey(u => new { u.OwnerUID, u.CollaredUserUID });
         modelBuilder.Entity<CollarOwner>().HasIndex(c => c.OwnerUID);
         modelBuilder.Entity<CollarOwner>().HasIndex(c => c.CollaredUserUID);
 
-        modelBuilder.Entity<KinksterRequest>().ToTable("kinkster_pair_requests");
-        modelBuilder.Entity<KinksterRequest>().HasKey(u => new { u.UserUID, u.OtherUserUID });
-        modelBuilder.Entity<KinksterRequest>().HasIndex(c => c.UserUID);
-        modelBuilder.Entity<KinksterRequest>().HasIndex(c => c.OtherUserUID);
-        modelBuilder.Entity<CollarRequest>().ToTable("kinkster_collar_requests");
-        modelBuilder.Entity<CollarRequest>().HasKey(u => new { u.UserUID, u.OtherUserUID });
-        modelBuilder.Entity<CollarRequest>().HasIndex(c => c.UserUID);
-        modelBuilder.Entity<CollarRequest>().HasIndex(c => c.OtherUserUID);
+        modelBuilder.Entity<PairRequest>().ToTable("kinkster_pair_requests");
+        modelBuilder.Entity<PairRequest>().HasKey(u => new { u.UserUID, u.OtherUserUID });
+        modelBuilder.Entity<PairRequest>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<PairRequest>().HasIndex(c => c.OtherUserUID);
+        modelBuilder.Entity<CollaringRequest>().ToTable("kinkster_collar_requests");
+        modelBuilder.Entity<CollaringRequest>().HasKey(u => new { u.UserUID, u.OtherUserUID });
+        modelBuilder.Entity<CollaringRequest>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<CollaringRequest>().HasIndex(c => c.OtherUserUID);
 
         // should probably rework this at some point
         modelBuilder.Entity<Keyword>().ToTable("keywords");
@@ -140,13 +145,20 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<LikesMoodles>().HasIndex(uml => uml.MoodleStatusId);
 
         modelBuilder.Entity<User>().ToTable("users");
-        modelBuilder.Entity<UserGlobalPermissions>().ToTable("user_global_permissions");
-        modelBuilder.Entity<UserGlobalPermissions>().HasKey(c => c.UserUID);
-        modelBuilder.Entity<UserGlobalPermissions>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<GlobalPermissions>().ToTable("user_global_permissions");
+        modelBuilder.Entity<GlobalPermissions>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<GlobalPermissions>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<HardcoreState>().ToTable("user_hardcore_state");
+        modelBuilder.Entity<HardcoreState>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<HardcoreState>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
+        modelBuilder.Entity<UserProfileData>().HasOne(c => c.CollarData).WithOne().HasForeignKey<UserProfileData>(c => c.UserUID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<UserProfileData>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");
+        modelBuilder.Entity<UserAchievementData>().HasIndex(c => c.UserUID);
 
-        modelBuilder.Entity<UserHardcoreState>().ToTable("user_hardcore_state");
-        modelBuilder.Entity<UserHardcoreState>().HasKey(c => c.UserUID);
-        modelBuilder.Entity<UserHardcoreState>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<ReportEntry>().ToTable("report_entries");
 
         modelBuilder.Entity<UserGagData>().ToTable("user_gag_data");
         modelBuilder.Entity<UserGagData>().HasKey(u => new { u.UserUID, u.Layer });
@@ -156,21 +168,10 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserRestrictionData>().HasIndex(u => new { u.UserUID, u.Layer }).IsUnique(); // Ensures no duplicates for UserUID + Layer
         modelBuilder.Entity<UserRestraintData>().ToTable("user_restraintset_data");
         modelBuilder.Entity<UserRestraintData>().HasIndex(u => u.UserUID);
-
         // Collars can have one or more owners, that link back to the collar's UserUID, via the foreign key CollaredUserUID.
         modelBuilder.Entity<UserCollarData>().ToTable("user_collar_data");
         modelBuilder.Entity<UserCollarData>().HasMany(c => c.Owners).WithOne(o => o.CollaredUserData).HasForeignKey(o => o.CollaredUserUID);
         modelBuilder.Entity<UserCollarData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserCollarData>().HasIndex(c => c.UserUID);
-
-
-        modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");
-        modelBuilder.Entity<UserAchievementData>().HasIndex(c => c.UserUID);
-        modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
-        modelBuilder.Entity<UserProfileData>().HasOne(c => c.CollarData).WithOne().HasForeignKey<UserProfileData>(c => c.UserUID).OnDelete(DeleteBehavior.Restrict);
-        modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
-        modelBuilder.Entity<UserProfileData>().HasIndex(c => c.UserUID);
-
-        modelBuilder.Entity<UserProfileDataReport>().ToTable("user_profile_data_reports");
     }
 }

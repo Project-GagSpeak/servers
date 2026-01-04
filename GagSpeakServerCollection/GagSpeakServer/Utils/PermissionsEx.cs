@@ -60,27 +60,41 @@ public static class PermissionsEx
             Visuals = data.Visuals,
             Dye1 = data.Dye1,
             Dye2 = data.Dye2,
-            Moodle = MoodleConverter.FromValues(data.MoodleId, data.MoodleIconId, data.MoodleTitle,
-                data.MoodleDescription, data.MoodleType, data.MoodleVFXPath),
+            Moodle = MoodleConverter.FromValues(data.MoodleId, data.MoodleIconId, data.MoodleTitle, data.MoodleDescription, data.MoodleType, data.MoodleVFXPath),
             Writing = data.Writing
         };
     }
 
-    public static KinksterPairRequest ToApiPairRequest(this KinksterRequest request)
-        => new KinksterPairRequest(new(request.UserUID), new(request.OtherUserUID), request.AttachedMessage, request.CreationTime);
+    public static KinksterRequest ToApi(this PairRequest req)
+        => new KinksterRequest(new(req.UserUID), new(req.OtherUserUID), new(false, req.PreferredNickname, req.AttachedMessage), req.CreationTime);
 
-    public static GagspeakAPI.Network.CollarRequest ToApiCollarRequest(this GagspeakShared.Models.CollarRequest request)
-        => new GagspeakAPI.Network.CollarRequest(new(request.UserUID), new(request.OtherUserUID), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
+    public static KinksterRequest ToApiRemoval(UserData user, UserData target)
+        => new KinksterRequest(user, target, new(false, string.Empty, string.Empty), DateTime.MinValue);
+
+    public static CollarRequest ToApiCollarRequest(this CollaringRequest request)
+        => new CollarRequest(new(request.UserUID), new(request.OtherUserUID), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
     
-    public static KinksterPairRequest PairRequestRemoval(UserData user, UserData target) =>
-        new(user, target, string.Empty, DateTime.MinValue);
 
-    public static GagspeakAPI.Network.CollarRequest CollarRequestRemoval(UserData user, UserData target) =>
+    public static CollarRequest CollarRequestRemoval(UserData user, UserData target) =>
         new(user, target, string.Empty, DateTime.MinValue, CollarAccess.None, CollarAccess.None);
+
+    public static UserReputation ToApi(this AccountReputation? dbState)
+        => dbState is null ? new() : new UserReputation()
+        {
+            IsVerified = dbState.IsVerified,
+            IsBanned = dbState.IsBanned,
+            WarningStrikes = dbState.WarningStrikes,
+            ProfileViewing = dbState.ProfileViewing,
+            ProfileViewStrikes = dbState.ProfileViewStrikes,
+            ProfileEditing = dbState.ProfileEditing,
+            ProfileEditStrikes = dbState.ProfileEditStrikes,
+            ChatUsage = dbState.ChatUsage,
+            ChatStrikes = dbState.ChatStrikes
+        };
 
     #endregion CacheDataMigrations
 
-    public static GlobalPerms ToApiGlobalPerms(this UserGlobalPermissions? dbState)
+    public static GlobalPerms ToApi(this GlobalPermissions? dbState)
     {
         var apiPerms = new GlobalPerms();
 
@@ -117,7 +131,7 @@ public static class PermissionsEx
         return apiPerms;
     }
 
-    public static UserGlobalPermissions ToModelGlobalPerms(this GlobalPerms apiPerms, UserGlobalPermissions current)
+    public static GlobalPermissions ToModel(this GlobalPerms apiPerms, GlobalPermissions current)
     {
         if (apiPerms is null)
             return current;
@@ -152,9 +166,9 @@ public static class PermissionsEx
         return current;
     }
 
-    public static HardcoreState ToApiHardcoreState(this UserHardcoreState? dbState)
+    public static HardcoreStatus ToApi(this HardcoreState? dbState)
     {
-        var apiState = new HardcoreState();
+        var apiState = new HardcoreStatus();
         if (dbState is null)
             return apiState;
 
@@ -195,7 +209,7 @@ public static class PermissionsEx
         return apiState;
     }
 
-    public static UserHardcoreState ToModelHardcoreState(this HardcoreState apiState, UserHardcoreState current)
+    public static HardcoreState ToModel(this HardcoreStatus apiState, HardcoreState current)
     {
         if (apiState is null)
             return current;
@@ -238,14 +252,11 @@ public static class PermissionsEx
         return current;
     }
 
-    public static PairPerms ToApiKinksterPerms(this ClientPairPermissions? dbState)
+    public static PairPerms ToApi(this PairPermissions? dbState)
     {
         var apiPerms = new PairPerms();
         if (dbState is null)
             return apiPerms;
-
-        // Otherwise update it.
-        apiPerms.IsPaused = dbState.IsPaused;
 
         apiPerms.PermanentLocks = dbState.PermanentLocks;
         apiPerms.OwnerLocks = dbState.OwnerLocks;
@@ -278,7 +289,7 @@ public static class PermissionsEx
         apiPerms.EndChar = dbState.EndChar;
         apiPerms.PuppetPerms = dbState.PuppetPerms;
 
-        apiPerms.MoodlePerms = dbState.MoodlePerms;
+        apiPerms.MoodleAccess = dbState.MoodleAccess;
         apiPerms.MaxMoodleTime = dbState.MaxMoodleTime;
 
         apiPerms.MaxHypnosisTime = dbState.MaxHypnosisTime;
@@ -313,12 +324,10 @@ public static class PermissionsEx
         return apiPerms;
     }
 
-    public static ClientPairPermissions ToModelKinksterPerms(this PairPerms apiPerms, ClientPairPermissions dbState)
+    public static PairPermissions ToModel(this PairPerms apiPerms, PairPermissions dbState)
     {
         if (apiPerms is null)
             return dbState;
-
-        dbState.IsPaused = apiPerms.IsPaused;
 
         dbState.PermanentLocks = apiPerms.PermanentLocks;
         dbState.OwnerLocks = apiPerms.OwnerLocks;
@@ -351,7 +360,7 @@ public static class PermissionsEx
         dbState.EndChar = apiPerms.EndChar;
         dbState.PuppetPerms = apiPerms.PuppetPerms;
 
-        dbState.MoodlePerms = apiPerms.MoodlePerms;
+        dbState.MoodleAccess = apiPerms.MoodleAccess;
         dbState.MaxMoodleTime = apiPerms.MaxMoodleTime;
 
         dbState.MaxHypnosisTime = apiPerms.MaxHypnosisTime;
@@ -386,7 +395,7 @@ public static class PermissionsEx
         return dbState;
     }
 
-    public static PairPermAccess ToApiKinksterEditAccess(this ClientPairPermissionAccess? dbState)
+    public static PairPermAccess ToApi(this PairPermissionAccess? dbState)
     {
         var apiPerms = new PairPermAccess();
         if (dbState is null)
@@ -431,7 +440,7 @@ public static class PermissionsEx
         apiPerms.PuppetPermsAllowed = dbState.PuppetPermsAllowed;
 
         apiPerms.MoodlesEnabledAllowed = dbState.MoodlesEnabledAllowed;
-        apiPerms.MoodlePermsAllowed = dbState.MoodlePermsAllowed;
+        apiPerms.MoodleAccessAllowed = dbState.MoodleAccessAllowed;
         apiPerms.MaxMoodleTimeAllowed = dbState.MaxMoodleTimeAllowed;
 
         apiPerms.HypnosisMaxTimeAllowed = dbState.HypnosisMaxTimeAllowed;
@@ -446,7 +455,7 @@ public static class PermissionsEx
         return apiPerms;
     }
 
-    public static ClientPairPermissionAccess ToModelKinksterEditAccess(this PairPermAccess apiPerms, ClientPairPermissionAccess dbState)
+    public static PairPermissionAccess ToModel(this PairPermAccess apiPerms, PairPermissionAccess dbState)
     {
         if (apiPerms is null)
             return dbState;
@@ -491,7 +500,7 @@ public static class PermissionsEx
         dbState.PuppetPermsAllowed = apiPerms.PuppetPermsAllowed;
 
         dbState.MoodlesEnabledAllowed = apiPerms.MoodlesEnabledAllowed;
-        dbState.MoodlePermsAllowed = apiPerms.MoodlePermsAllowed;
+        dbState.MoodleAccessAllowed = apiPerms.MoodleAccessAllowed;
         dbState.MaxMoodleTimeAllowed = apiPerms.MaxMoodleTimeAllowed;
 
         dbState.HypnosisMaxTimeAllowed = apiPerms.HypnosisMaxTimeAllowed;

@@ -6,7 +6,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 
-public class UserGlobalPermissions : IReadOnlyGlobalPerms
+public class GlobalPermissions : IReadOnlyGlobalPerms
 {
     [Key]
     public string UserUID { get; set; }

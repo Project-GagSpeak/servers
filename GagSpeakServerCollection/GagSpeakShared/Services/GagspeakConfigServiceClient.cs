@@ -32,8 +32,8 @@ public class GagspeakConfigServiceClient<T> : IHostedService, IConfigurationServ
             return new Uri((_config.CurrentValue as ServerConfiguration).MainServerAddress, $"configuration/GagspeakServerConfiguration/{nameof(GagspeakServerConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
         if (_config.CurrentValue.GetType() == typeof(GagspeakConfigurationBase))
             return new Uri((_config.CurrentValue as GagspeakConfigurationBase).MainServerAddress, $"configuration/GagspeakBaseConfiguration/{nameof(GagspeakBaseConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
-        if (_config.CurrentValue.GetType() == typeof(DiscordConfiguration))
-            return new Uri((_config.CurrentValue as DiscordConfiguration).MainServerAddress, $"configuration/GagspeakDiscordConfiguration/{nameof(GagspeakDiscordConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
+        if (_config.CurrentValue.GetType() == typeof(DiscordConfig))
+            return new Uri((_config.CurrentValue as DiscordConfig).MainServerAddress, $"configuration/GagspeakDiscordConfiguration/{nameof(GagspeakDiscordConfigurationController.GetConfigurationEntry)}?key={key}&defaultValue={value}");
 
         throw new NotSupportedException("Config is not supported to be gotten remotely");
     }

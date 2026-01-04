@@ -6,7 +6,7 @@ namespace GagspeakShared.Models;
 /// <summary>
 ///     Sent requests expire after 8 hours (automatically rejected)
 /// </summary>
-public class CollarRequest
+public class CollaringRequest
 {
     [Key]
     [MaxLength(10)]

@@ -17,18 +17,20 @@ public partial class GagspeakHub
 	public Task Callback_ServerInfo(ServerInfoResponse info) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_AddClientPair(KinksterPair dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveClientPair(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_AddPairRequest(KinksterPairRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_RemovePairRequest(KinksterPairRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_AddPairRequest(KinksterRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RemovePairRequest(KinksterRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_AddCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 
-    public Task Callback_SetKinksterMoodlesFull(KinksterMoodlesDataFull dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_SetKinksterMoodlesSM(KinksterMoodlesSM dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_SetKinksterMoodlesStatuses(KinksterMoodlesStatuses dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_SetKinksterMoodlesPresets(KinksterMoodlesPresets dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_ApplyMoodlesByGuid(MoodlesApplierById dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_ApplyMoodlesByStatus(MoodlesApplierByStatus dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_RemoveMoodles(MoodlesRemoval dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_MoodleDataUpdated(MoodlesDataUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_MoodleSMUpdated(MoodlesSMUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_MoodleStatusesUpdate(MoodlesStatusesUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_MoodlePresetsUpdate(MoodlesPresetsUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_MoodleStatusModified(MoodlesStatusModified dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_MoodlePresetModified(MoodlesPresetModified dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_ApplyMoodlesByGuid(ApplyMoodleId dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_ApplyMoodlesByStatus(ApplyMoodleStatus dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_RemoveMoodles(RemoveMoodleId dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ClearMoodles(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 		
 	public Task Callback_BulkChangeGlobal(BulkChangeGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

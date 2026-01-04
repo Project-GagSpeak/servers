@@ -82,10 +82,10 @@ public class Startup
         // configure redi's for our authentication server.
         ConfigureRedis(services, gagspeakConfig);
 
-        services.AddSingleton<SecretKeyAuthenticatorService>();
+        services.AddSingleton<SecretKeyAuthService>();
 
         // Amend the configuration services for the gagspeak authentication server
-        services.Configure<AuthServiceConfiguration>(_config.GetRequiredSection("GagSpeak"));
+        services.Configure<AuthServiceConfig>(_config.GetRequiredSection("GagSpeak"));
         services.Configure<GagspeakConfigurationBase>(_config.GetRequiredSection("GagSpeak"));
 
         // append the servers token generator so we can properly generate tokens.
@@ -275,7 +275,7 @@ public class Startup
     /// </summary>
     private void ConfigureConfigServices(IServiceCollection services)
     {
-        services.AddSingleton<IConfigurationService<AuthServiceConfiguration>, GagspeakConfigServiceServer<AuthServiceConfiguration>>();
+        services.AddSingleton<IConfigurationService<AuthServiceConfig>, GagspeakConfigServiceServer<AuthServiceConfig>>();
         services.AddSingleton<IConfigurationService<GagspeakConfigurationBase>, GagspeakConfigServiceServer<GagspeakConfigurationBase>>();
     }
 

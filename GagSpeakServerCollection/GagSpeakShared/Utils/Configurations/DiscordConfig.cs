@@ -2,7 +2,7 @@ using System.Text;
 
 namespace GagspeakShared.Utils.Configuration;
 
-public class DiscordConfiguration : GagspeakConfigurationBase
+public class DiscordConfig : GagspeakConfigurationBase
 {
     public string DiscordBotToken { get; set; } = string.Empty;     // the discord bot token
     public ulong? DiscordChannelForMessages { get; set; } = null;   // the discord channel for messages

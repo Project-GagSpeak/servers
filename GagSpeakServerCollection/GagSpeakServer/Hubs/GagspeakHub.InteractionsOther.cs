@@ -28,11 +28,11 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Must be paired.
-        if (await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // GagData must exist.
-        if (await DbContext.UserGagData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID && u.Layer == dto.Layer).ConfigureAwait(false) is not { } currentGagData)
+        if (await DbContext.ActiveGagData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID && u.Layer == dto.Layer).ConfigureAwait(false) is not { } currentGagData)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer);
 
         // Store previous values.
@@ -153,11 +153,11 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Must be paired.
-        if (await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Must have a restriction data set.
-        if (await DbContext.UserRestrictionData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID && u.Layer == dto.Layer).ConfigureAwait(false) is not { } curRestrictionData)
+        if (await DbContext.ActiveRestrictionData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID && u.Layer == dto.Layer).ConfigureAwait(false) is not { } curRestrictionData)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer);
 
         // Store previous values.
@@ -277,11 +277,11 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Must be paired.
-        if (await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.User.UID && p.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Must have a restraint data set.
-        if (await DbContext.UserRestraintData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } curRestraintSetData)
+        if (await DbContext.ActiveRestraintData.FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } curRestraintSetData)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Store previous values.
@@ -459,7 +459,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Target must be collared to do this.
-        if (await DbContext.UserCollarData.Include(c => c.Owners).FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } collar)
+        if (await DbContext.ActiveCollarData.Include(c => c.Owners).FirstOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } collar)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Caller must be one of the Collar Owners.
@@ -489,7 +489,7 @@ public partial class GagspeakHub
                 collar.MoodleIconId = dto.Moodle.IconID;
                 collar.MoodleTitle = dto.Moodle.Title;
                 collar.MoodleDescription = dto.Moodle.Description;
-                collar.MoodleType = (byte)dto.Moodle.Type;
+                collar.MoodleType = dto.Moodle.Type;
                 collar.MoodleVFXPath = dto.Moodle.CustomVFXPath;
                 break;
 
@@ -509,7 +509,7 @@ public partial class GagspeakHub
                 collar.MoodleIconId = 0; // reset moodle icon to default.
                 collar.MoodleTitle = string.Empty; // reset moodle title to default.
                 collar.MoodleDescription = string.Empty; // reset moodle description to default.
-                collar.MoodleType = 0; // reset moodle type to default.
+                collar.MoodleType = StatusType.Positive; // reset moodle type to default.
                 collar.MoodleVFXPath = string.Empty; // reset moodle vfx path to default.
                 collar.Writing = string.Empty; // reset writing to default.
                 collar.EditAccess = CollarAccess.None; // reset edit access to none.
@@ -544,7 +544,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Must be paired.
-        if (await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Validate change based on DataUpdateType.
@@ -588,7 +588,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
 
         // Must be paired.
-        if (await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Permission must be granted.
@@ -617,7 +617,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
 
         // Must be paired.
-        if (await DbContext.ClientPairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Permission must be granted.
@@ -660,7 +660,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Perms must exist.
-        if (await DbContext.UserGlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
+        if (await DbContext.GlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Change must be valid.
@@ -689,7 +689,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Must be paired.
-        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } perms)
+        if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } perms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Change must be valid.
@@ -718,11 +718,11 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Pair Permissions must exist.
-        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Hardcore State must exist.
-        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } hcState)
+        if (await DbContext.HardcoreState.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } hcState)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Make changes based on the attribute type, if allowed.
@@ -880,8 +880,7 @@ public partial class GagspeakHub
         DbContext.Update(hcState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var newData = hcState.ToApiHardcoreState();
-
+        var newData = hcState.ToApi(); 
         var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
@@ -905,7 +904,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // HcState must exist.
-        if (await DbContext.UserHardcoreState.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } hcState)
+        if (await DbContext.HardcoreState.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } hcState)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Current Hypno Effect must be empty (maybe make changeable later)
@@ -913,7 +912,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState);
 
         // Must be paired. (Obtain targets perms for us)
-        if (await DbContext.ClientPairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
+        if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // If sending custom image, must have permission.
@@ -930,8 +929,7 @@ public partial class GagspeakHub
         DbContext.Update(hcState);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var newHcState = hcState.ToApiHardcoreState();
-
+        var newHcState = hcState.ToApi();
         // Otherwise we can set it (assuming the permissions are valid) and should also inform all of this pair's pairs.
         var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
@@ -946,52 +944,4 @@ public partial class GagspeakHub
         _metrics.IncCounter(MetricsAPI.CounterHypnoticEffectsSent);
         return HubResponseBuilder.Yippee();
     }
-
-
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserRemoveKinkster(KinksterBase dto)
-    {
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-
-        // Dont allow removing self
-        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-
-        // See if clientPair exists at all in the database
-        ClientPair? callerPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == UserUID && w.OtherUserUID == dto.User.UID).ConfigureAwait(false);
-        if (callerPair is null)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
-
-        // Get pair info of the user we are removing
-        UserInfo? pairData = await GetPairInfo(UserUID, dto.User.UID).ConfigureAwait(false);
-
-        // remove the client pair from the database and all associated permissions. And then update changes
-        DbContext.ClientPairs.Remove(callerPair);
-        if (pairData?.ownPairPermissions is not null) DbContext.ClientPairPermissions.Remove(pairData.ownPairPermissions);
-        if (pairData?.ownPairPermissionAccess is not null) DbContext.ClientPairPermissionAccess.Remove(pairData.ownPairPermissionAccess);
-        // remove the other user's permissions as well.
-        // grab the clientPairs item for the other direction.
-        ClientPair? otherPair = await DbContext.ClientPairs.SingleOrDefaultAsync(w => w.UserUID == dto.User.UID && w.OtherUserUID == UserUID).ConfigureAwait(false);
-        if (otherPair is not null)
-        {
-            DbContext.ClientPairs.Remove(otherPair);
-            if (pairData?.otherPairPermissions is not null) DbContext.ClientPairPermissions.Remove(pairData.otherPairPermissions);
-            if (pairData?.otherPairPermissionAccess is not null) DbContext.ClientPairPermissionAccess.Remove(pairData.otherPairPermissionAccess);
-        }
-        await DbContext.SaveChangesAsync().ConfigureAwait(false);
-
-        _logger.LogCallInfo(GagspeakHubLogger.Args(dto, "Success"));
-        // return to the client callers callback functions that we should remove them from the client callers pair manager.
-        await Clients.User(UserUID).Callback_RemoveClientPair(dto).ConfigureAwait(false);
-
-        // Check if the other user is online.
-        string? otherIdent = await GetUserIdent(dto.User.UID).ConfigureAwait(false);
-        if (otherIdent is null)
-            return HubResponseBuilder.Yippee();
-
-        // if they are, we should ask them to remove the client pair from their listing as well.
-        await Clients.User(dto.User.UID).Callback_RemoveClientPair(new(new(UserUID))).ConfigureAwait(false);
-        return HubResponseBuilder.Yippee();
-    }
-
 }

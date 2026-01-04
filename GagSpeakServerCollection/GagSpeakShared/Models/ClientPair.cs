@@ -21,4 +21,7 @@ public class ClientPair
 
     [Timestamp] // replace with time of commitment later
     public byte[] Timestamp { get; set; }   // timestamp when the pair was created
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow; // when the pair was created
+    public string TempAccepterUID { get; set; } = string.Empty;
 }

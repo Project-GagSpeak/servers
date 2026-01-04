@@ -13,25 +13,24 @@ public static class Extensions
             IconID = status.IconID,
             Title = status.Title,
             Description = status.Description,
+            CustomVFXPath = status.CustomFXPath,
+            
             Type = status.Type,
-            Applier = string.Empty,
-            Dispelable = status.Dispelable,
             Stacks = status.Stacks,
-            Persistent = status.Persistent,
-            Days = status.Days,
-            Hours = status.Hours,
-            Minutes = status.Minutes,
-            Seconds = status.Seconds,
-            NoExpire = status.NoExpire,
-            AsPermanent = status.AsPermanent,
-            StatusOnDispell = status.StatusOnDispell,
-            CustomVFXPath = status.CustomVFXPath,
-            StackOnReapply = status.StackOnReapply,
-            StacksIncOnReapply = status.StacksIncOnReapply
+            StackSteps = status.StackSteps,
+
+            Modifiers = status.Modifiers,
+            ChainedStatus = status.ChainedStatus,
+            ChainTrigger = status.ChainTrigger,
+            Permanent = status.Permanent,
         };
 
     public static PublishedMoodle ToPublishedMoodle(this MoodleStatus status)
-        => new PublishedMoodle() { AuthorName = status.Author, MoodleStatus = status.ToStatusInfo() };
+        => new PublishedMoodle() 
+        { 
+            AuthorName = status.Author,
+            Status = status.ToStatusInfo()
+        };
 
     public static PublishedPattern ToPublishedPattern(this PatternEntry pattern)
         => new PublishedPattern()
@@ -52,30 +51,30 @@ public static class Extensions
     public static void UpdateInfoFromDto(this UserProfileData storedData, KinkPlateContent dtoContent)
     {
         // update all other values from the Info in the dto.
-        storedData.ProfileIsPublic = dtoContent.PublicPlate;
-        storedData.UserDescription = dtoContent.Description;
-        storedData.CompletedAchievementsTotal = dtoContent.CompletedAchievementsTotal;
+        storedData.ProfileIsPublic = dtoContent.IsPublic;
+        storedData.Description = dtoContent.Description;
+        storedData.AchievementsEarned = dtoContent.CompletedTotal;
         storedData.ChosenTitleId = dtoContent.ChosenTitleId;
 
-        storedData.PlateBackground = dtoContent.PlateBackground;
+        storedData.PlateBG = dtoContent.PlateBG;
         storedData.PlateBorder = dtoContent.PlateBorder;
 
-        storedData.ProfilePictureBorder = dtoContent.ProfilePictureBorder;
-        storedData.ProfilePictureOverlay = dtoContent.ProfilePictureOverlay;
+        storedData.AvatarBorder = dtoContent.AvatarBorder;
+        storedData.AvatarOverlay = dtoContent.AvatarOverlay;
 
-        storedData.DescriptionBackground = dtoContent.DescriptionBackground;
+        storedData.DescriptionBG = dtoContent.DescriptionBG;
         storedData.DescriptionBorder = dtoContent.DescriptionBorder;
         storedData.DescriptionOverlay = dtoContent.DescriptionOverlay;
 
-        storedData.GagSlotBackground = dtoContent.GagSlotBackground;
+        storedData.GagSlotBG = dtoContent.GagSlotBG;
         storedData.GagSlotBorder = dtoContent.GagSlotBorder;
         storedData.GagSlotOverlay = dtoContent.GagSlotOverlay;
 
-        storedData.PadlockBackground = dtoContent.PadlockBackground;
+        storedData.PadlockBG = dtoContent.PadlockBG;
         storedData.PadlockBorder = dtoContent.PadlockBorder;
         storedData.PadlockOverlay = dtoContent.PadlockOverlay;
 
-        storedData.BlockedSlotsBackground = dtoContent.BlockedSlotsBackground;
+        storedData.BlockedSlotsBG = dtoContent.BlockedSlotsBG;
         storedData.BlockedSlotsBorder = dtoContent.BlockedSlotsBorder;
         storedData.BlockedSlotsOverlay = dtoContent.BlockedSlotsOverlay;
 
@@ -86,32 +85,32 @@ public static class Extensions
     public static KinkPlateContent FromProfileData(this UserProfileData data)
         => new KinkPlateContent()
         {
-            PublicPlate = data.ProfileIsPublic,
+            IsPublic = data.ProfileIsPublic,
             Flagged = data.FlaggedForReport,
             Disabled = data.ProfileDisabled,
-            Description = data.UserDescription,
-            CompletedAchievementsTotal = data.CompletedAchievementsTotal,
+            Description = data.Description,
+            CompletedTotal = data.AchievementsEarned,
             ChosenTitleId = data.ChosenTitleId,
 
-            PlateBackground = data.PlateBackground,
+            PlateBG = data.PlateBG,
             PlateBorder = data.PlateBorder,
 
-            ProfilePictureBorder = data.ProfilePictureBorder,
-            ProfilePictureOverlay = data.ProfilePictureOverlay,
+            AvatarBorder = data.AvatarBorder,
+            AvatarOverlay = data.AvatarOverlay,
 
-            DescriptionBackground = data.DescriptionBackground,
+            DescriptionBG = data.DescriptionBG,
             DescriptionBorder = data.DescriptionBorder,
             DescriptionOverlay = data.DescriptionOverlay,
 
-            GagSlotBackground = data.GagSlotBackground,
+            GagSlotBG = data.GagSlotBG,
             GagSlotBorder = data.GagSlotBorder,
             GagSlotOverlay = data.GagSlotOverlay,
 
-            PadlockBackground = data.PadlockBackground,
+            PadlockBG = data.PadlockBG,
             PadlockBorder = data.PadlockBorder,
             PadlockOverlay = data.PadlockOverlay,
 
-            BlockedSlotsBackground = data.BlockedSlotsBackground,
+            BlockedSlotsBG = data.BlockedSlotsBG,
             BlockedSlotsBorder = data.BlockedSlotsBorder,
             BlockedSlotsOverlay = data.BlockedSlotsOverlay,
 
@@ -120,7 +119,7 @@ public static class Extensions
         };
 
     public static UserData ToUserData(this User user)
-        => new UserData(user.UID, user.Verified, user.Alias, user.VanityTier, user.CreatedDate);
+        => new UserData(user.UID, user.Alias, user.Tier, user.CreatedAt);
 
     /// <summary>
     ///     Copies all properties over from two objects of the same <typeparamref name="T"/> type. <para />

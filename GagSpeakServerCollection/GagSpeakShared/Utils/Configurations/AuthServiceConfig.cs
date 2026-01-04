@@ -2,7 +2,7 @@
 
 namespace GagspeakShared.Utils.Configuration;
 
-public class AuthServiceConfiguration : GagspeakConfigurationBase
+public class AuthServiceConfig : GagspeakConfigurationBase
 {
     public int FailedAuthForTempBan { get; set; } = 20; // making it 100 temporarily so i dont accidently tempban myself while testing lol.
     public int TempBanDurationInMinutes { get; set; } = 1;

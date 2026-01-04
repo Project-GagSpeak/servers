@@ -48,9 +48,9 @@ public class GagspeakServerConfigurationController : GagspeakConfigController<Se
 }
 
 /// <summary> The controller for the discord configuration </summary>
-public class GagspeakDiscordConfigurationController : GagspeakConfigController<DiscordConfiguration>
+public class GagspeakDiscordConfigurationController : GagspeakConfigController<DiscordConfig>
 {
-    public GagspeakDiscordConfigurationController(IOptionsMonitor<DiscordConfiguration> config, ILogger<GagspeakDiscordConfigurationController> logger) : base(config, logger)
+    public GagspeakDiscordConfigurationController(IOptionsMonitor<DiscordConfig> config, ILogger<GagspeakDiscordConfigurationController> logger) : base(config, logger)
     {
     }
 }

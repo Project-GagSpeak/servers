@@ -57,7 +57,7 @@ public class Program
             metrics.SetGaugeTo(MetricsAPI.GaugeMoodleLikes, context.LikesMoodles.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugeShareHubPatterns, context.Patterns.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugeShareHubMoodles, context.Moodles.AsNoTracking().Count());
-            metrics.SetGaugeTo(MetricsAPI.GaugePendingKinksterRequests, context.KinksterPairRequests.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugePendingKinksterRequests, context.PairRequests.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugePendingCollarRequests, context.CollarRequests.AsNoTracking().Count());
         }
 

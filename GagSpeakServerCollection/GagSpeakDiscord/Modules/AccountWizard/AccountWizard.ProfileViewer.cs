@@ -64,15 +64,15 @@ public partial class AccountWizard
         eb.AddField("Secret Key", dbUserAuth?.HashedKey ?? "No Secret Key");
 
         // Last login UTC & Last login Local
-        var lastOnlineUtc = new DateTimeOffset(dbUser.LastLoggedIn, TimeSpan.Zero);
+        var lastOnlineUtc = new DateTimeOffset(dbUser.LastLogin, TimeSpan.Zero);
         eb.AddField("Last Online (UTC)", lastOnlineUtc.ToString("u", CultureInfo.InvariantCulture));
         var formattedTimestamp = string.Create(CultureInfo.InvariantCulture, $"<t:{lastOnlineUtc.ToUnixTimeSeconds()}:F>");
         eb.AddField("Last Online (Local)", formattedTimestamp);
 
         // display this accounts vanity tier if they have one
-        if (dbUser.VanityTier != CkSupporterTier.NoRole)
+        if (dbUser.Tier != CkSupporterTier.NoRole)
         {
-            eb.AddField("Supporter Tier", dbUser.VanityTier.ToString());
+            eb.AddField("Supporter Tier", dbUser.Tier.ToString());
         }
         else
         {
