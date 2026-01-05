@@ -22,6 +22,9 @@ public static class Extensions
             Modifiers = status.Modifiers,
             ChainedStatus = status.ChainedStatus,
             ChainTrigger = status.ChainTrigger,
+
+            Applier = string.Empty,
+            Dispeller = string.Empty,
             Permanent = status.Permanent,
         };
 
