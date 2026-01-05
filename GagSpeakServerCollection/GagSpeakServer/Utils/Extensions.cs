@@ -7,26 +7,29 @@ namespace GagspeakServer;
 public static class Extensions
 {
     public static MoodlesStatusInfo ToStatusInfo(this MoodleStatus status)
-        => new MoodlesStatusInfo()
+    {
+        var duration = new TimeSpan(status.Days, status.Hours, status.Minutes, status.Seconds);
+        long expireTicks = status.NoExpire ? -1 : (long)duration.TotalMilliseconds;
+        return new MoodlesStatusInfo()
         {
+            Version = status.Version,
             GUID = status.Identifier,
             IconID = status.IconID,
             Title = status.Title,
             Description = status.Description,
             CustomVFXPath = status.CustomFXPath,
-            
+            ExpireTicks = expireTicks,
             Type = status.Type,
             Stacks = status.Stacks,
             StackSteps = status.StackSteps,
-
             Modifiers = status.Modifiers,
             ChainedStatus = status.ChainedStatus,
             ChainTrigger = status.ChainTrigger,
-
             Applier = string.Empty,
             Dispeller = string.Empty,
             Permanent = status.Permanent,
         };
+    }
 
     public static PublishedMoodle ToPublishedMoodle(this MoodleStatus status)
         => new PublishedMoodle() 
