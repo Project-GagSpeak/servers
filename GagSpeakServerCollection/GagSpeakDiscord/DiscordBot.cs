@@ -14,6 +14,8 @@ using GagspeakShared.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using System;
+using System.Diagnostics;
 using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 namespace GagspeakDiscord;
@@ -312,97 +314,86 @@ internal partial class DiscordBot : IHostedService
     /// <summary>
     /// Helps assign vanity perks to any users with an appropriate vanity role, and assigns them the perks.
     /// </summary>
-    private async Task AddPerksToUsersWithVanityRole(RestGuild ckGuid, CancellationToken token)
+    private async Task AddPerksToUsersWithVanityRole(RestGuild ckGuild, CancellationToken token)
     {
-        // while the cancellation token is not requested
-        while (!token.IsCancellationRequested)
+        // try and clean up the vanity UID's from people no longer Supporting CK
+        _logger.LogInformation("[AddVanityPerks] Adding VanityRoles to Active Supporters of CK");
+        Dictionary<ulong, string> ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
+
+        using var scope = _services.CreateAsyncScope();
+        using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
+
+        // Get all users in the database who have been verified by the bot but have no supporter role.
+        HashSet<string> perklessUserUids = await db.AccountReputation.Include(r => r.User)
+            .AsNoTracking()
+            .Where(r => r.IsVerified && r.User.Tier == CkSupporterTier.NoRole)
+            .Select(r => r.User.UID)
+            .ToHashSetAsync()
+            .ConfigureAwait(false);
+
+        _logger.LogDebug($"[AddVanityPerks] Found {perklessUserUids.Count} verified users without perks.");
+
+        var claimsToCheck = await db.AccountClaimAuth.Include(a => a.User)
+            .Where(a => a.User != null && perklessUserUids.Contains(a.User.UID))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var claimChecksDict = claimsToCheck.ToDictionary(c => c.DiscordId, c => c);
+        _logger.LogDebug($"[AddVanityPerks] Found {claimsToCheck.Count} claims that match this condition.");
+
+        // Run a loop to check each of these users with some delay to avoid triggering discord's rate limiting.
+        // For each check, ensure they have a valid accountClaimAuth.
+        await foreach (var ckUserList in ckGuild.GetUsersAsync(new RequestOptions { CancelToken = token }).ConfigureAwait(false))
         {
-            // try and clean up the vanity UID's from people no longer Supporting CK
-            try
+            _logger.LogInformation($"[AddVanityPerks] Processing chunk of {ckUserList.Count} users for vanity perks.");
+            foreach (var ckUser in ckUserList)
             {
-                _logger.LogInformation("Adding VanityRoles to Active Supporters of CK");
-                Dictionary<ulong, string> ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
-
-                using var scope = _services.CreateAsyncScope();
-                using (var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>())
+                // Skip if a bot.
+                if (ckUser.IsBot)
+                    continue;
+                try
                 {
-                    // Obtain all verified sundouleia accounts to narrow our search.
-                    var verifiedUsersWithoutPerks = await db.AccountReputation.Include(r => r.User).AsNoTracking()
-                        .Where(r => r.IsVerified && r.User.Tier == CkSupporterTier.NoRole)
-                        .ToListAsync()
-                        .ConfigureAwait(false);
-
-                    _logger.LogDebug($"Found {verifiedUsersWithoutPerks.Count} verified users without perks.");
-
-                    // Run a loop to check each of these users with some delay to avoid triggering discord's rate limiting.
-                    // For each check, ensure they have a valid accountClaimAuth.
-                    foreach (var verifiedAccount in verifiedUsersWithoutPerks)
+                    // Only process logic if they are in our claim checks dict.
+                    if (claimChecksDict.TryGetValue(ckUser.Id, out var authClaim))
                     {
-                        // Ensure they have a valid auth claim (should be unnecessary but never know.
-                        if (await db.AccountClaimAuth.AsNoTracking().Include(a => a.User).SingleOrDefaultAsync(a => a.User != null && a.User.UID == verifiedAccount.UserUID).ConfigureAwait(false) is not { } authClaim)
-                        {
-                            _logger.LogWarning($"Somehow was a verified account without an auth claim? Report this if seen!");
+                        // User has no vanity roles → skip
+                        if (!ckUser.RoleIds.Any(ckRoles.ContainsKey))
                             continue;
-                        }
 
-                        try
+                        _logger.LogDebug($"[AddVanityPerks] User {authClaim.User!.UID} has discord roles: {string.Join(", ", ckUser.RoleIds)}");
+                        // Determine highest supporter tier
+                        var highestRole = ckUser.RoleIds
+                            .Where(ckRoles.ContainsKey)
+                            .Select(id => RoleToVanityTier[ckRoles[id]])
+                            .OrderByDescending(tier => tier)
+                            .First();
+
+                        _logger.LogInformation($"[AddVanityPerks] User {authClaim.User.UID} assigned to tier {highestRole}");
+                        authClaim.User.Tier = highestRole;
+
+                        // Update this on all secondary accounts of this user.
+                        var altProfiles = await db.Auth.Include(a => a.User).Where(a => a.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
+                        foreach (var profile in altProfiles)
                         {
-                            // grab the discord user from sundouleia.
-                            if (await ckGuid.GetUserAsync(authClaim.DiscordId).ConfigureAwait(false) is not { } ckUser)
-                            {
-                                _logger.LogWarning($"Could not find discord user [{authClaim.DiscordId}] in CK guild.");
-                                await Task.Delay(250, token).ConfigureAwait(false);
-                                continue;
-                            }
-
-                            // Now we should check their roles in sundouleia, and assign the highest role they have.
-                            if (ckUser.RoleIds.Any(ckRoles.Keys.Contains))
-                            {
-                                // fetch the roles they have, and output them.
-                                _logger.LogInformation($"User {authClaim.User!.UID} has roles: {string.Join(", ", ckUser.RoleIds)}");
-                                // Determine the highest priority role
-                                CkSupporterTier highestRole = ckUser.RoleIds
-                                    .Where(ckRoles.ContainsKey)
-                                    .Select(id => RoleToVanityTier[ckRoles[id]])
-                                    .OrderByDescending(tier => tier)
-                                    .FirstOrDefault();
-
-                                // Assign Highest role found.
-                                authClaim.User.Tier = highestRole;
-                                db.Update(authClaim.User);
-                                _logger.LogInformation($"User {authClaim.User.UID} assigned to tier {highestRole} (highest role)");
-
-                                // Update this on all secondary accounts of this user.
-                                var altProfiles = await db.Auth.Include(a => a.User).Where(a => a.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
-                                foreach (var profile in altProfiles)
-                                {
-                                    _logger.LogDebug($"AltProfile [{profile.User.UID}] also given this perk!");
-                                    profile.User.Tier = highestRole;
-                                    db.Update(profile.User);
-                                }
-                            }
-
-                            // await for the database to save changes
-                            await db.SaveChangesAsync().ConfigureAwait(false);
+                            _logger.LogDebug($"[AddVanityPerks] AltProfile [{profile.User.UID}] also given this perk!");
+                            profile.User.Tier = highestRole;
                         }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, $"Error processing perks for user {authClaim.User!.UID}");
-                        }
-                        // await a second before checking the next user
-                        await Task.Delay(1000, token).ConfigureAwait(false);
+
+                        // await for the database to save changes for each chunk.
+                        await db.SaveChangesAsync().ConfigureAwait(false);
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Something failed during checking vanity user UID's");
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"[AddVanityPerks] Error processing vanity perks for user {ckUser.Id}");
+                }
             }
 
-            // log the completion, and execute it again in 2 hours.
-            _logger.LogInformation("Supporter Perks for UID's Assigned");
-            await Task.Delay(TimeSpan.FromHours(2), token).ConfigureAwait(false);
+            // await a second before checking the next user
+            await Task.Delay(1000, token).ConfigureAwait(false);
         }
+
+        _logger.LogInformation("[AddVanityPerks] Completed adding VanityRoles to Active Supporters of CK");
     }
 
     /// <summary> 
@@ -412,79 +403,74 @@ internal partial class DiscordBot : IHostedService
     {
         // set the guild to the guild ID of Cordy's Kinkporium
         RestGuild ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
-        // set the application ID to the application ID of the bot
         var appId = await _discordClient.GetApplicationInfoAsync().ConfigureAwait(false);
-        // while the cancellation token is not requested
-        while (!token.IsCancellationRequested)
+
+        _logger.LogInformation($"[VanityCleanup] Cleaning up Vanity UIDs from guild {ckGuild.Name}");
+        Dictionary<ulong, string> ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
+
+        using var scope = _services.CreateAsyncScope();
+        using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
+
+        // Get all users in the database who have been verified by the bot but have no supporter role.
+        HashSet<string> usersWithperks = await db.AccountReputation.Include(r => r.User)
+            .AsNoTracking()
+            .Where(r => r.IsVerified && r.User.Tier != CkSupporterTier.NoRole)
+            .Select(r => r.User.UID)
+            .ToHashSetAsync()
+            .ConfigureAwait(false);
+
+        _logger.LogDebug($"[VanityCleanup] Found {usersWithperks.Count} verified users with perks.");
+
+        var claimsToCheck = await db.AccountClaimAuth.Include(a => a.User)
+            .Where(a => a.User != null && usersWithperks.Contains(a.User.UID))
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var claimChecksDict = claimsToCheck.ToDictionary(c => c.DiscordId, c => c);
+        _logger.LogDebug($"[VanityCleanup] Identified {claimsToCheck.Count} claims that match this condition.");
+
+        // Run a loop to check each of these users with some delay to avoid triggering discord's rate limiting.
+        // For each check, ensure they have a valid accountClaimAuth.
+        await foreach (var ckUserList in ckGuild.GetUsersAsync(new RequestOptions { CancelToken = token }).ConfigureAwait(false))
         {
-            try
+            _logger.LogInformation($"[VanityCleanup] Processing chunk of {ckUserList.Count} users.");
+            foreach (var ckUser in ckUserList)
             {
-                _logger.LogInformation($"Cleaning up Vanity UIDs from guild {ckGuild.Name}");
-                Dictionary<ulong, string> ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
-                // display the list of allowed role ID's
-                _logger.LogDebug($"Allowed role ids: {string.Join(", ", ckRoles)}");
+                try
+                {
+                    // Only process logic if they are in our claim checks dict.
+                    if (!claimChecksDict.TryGetValue(ckUser.Id, out var authClaim))
+                        continue;
 
-                // if there are not any allowed roles for vanity perks, output it.
-                if (!ckRoles.Any())
-                {
-                    _logger.LogInformation("No roles for command defined, no cleanup performed");
-                }
-                // otherwise, handle it.
-                else
-                {
-                    using var scope = _services.CreateAsyncScope();
-                    using (var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>())
+                    // If they no longer have any roles, we should remove them from all profiles of the account.
+                    if (!ckUser.RoleIds.Any(ckRoles.Keys.Contains))
                     {
-                        var vanityUsers = await db.AccountClaimAuth.Include(a => a.User).AsNoTracking()
-                            .Where(c => c.User != null && c.User.Tier != CkSupporterTier.NoRole)
-                            .ToListAsync()
-                            .ConfigureAwait(false);
-
-                        // This should account for only the main accounts.
-                        foreach (var authClaim in vanityUsers)
+                        _logger.LogInformation($"[VanityCleanup] {ckUser.DisplayName} ({ckUser.Id}) is no longer a supporting CK. Cleaning up account profile alias and roles.");
+                        authClaim.User!.Alias = string.Empty;
+                        authClaim.User.Tier = CkSupporterTier.NoRole;
+                        // Clear out the vanity perks from their alts.
+                        var secondaryUsers = await db.Auth.Include(u => u.User).AsNoTracking().Where(u => u.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
+                        foreach (var secondaryUser in secondaryUsers)
                         {
-                            // grab the discord user from sundouleia.
-                            if (await ckGuild.GetUserAsync(authClaim.DiscordId).ConfigureAwait(false) is not { } sundouleiaUser)
-                            {
-                                _logger.LogWarning($"Could not find discord user [{authClaim.DiscordId}] in CK guild.");
-                                await Task.Delay(250, token).ConfigureAwait(false);
-                                continue;
-                            }
-
-                            if (!sundouleiaUser.RoleIds.Any(ckRoles.Keys.Contains))
-                            {
-                                _logger.LogInformation($"User {authClaim.User!.UID} not in allowed roles, deleting alias");
-                                authClaim.User.Alias = string.Empty;
-                                authClaim.User.Tier = CkSupporterTier.NoRole;
-                                db.Update(authClaim.User);
-                                // Clear out the vanity perks from their alts.
-                                var secondaryUsers = await db.Auth.Include(u => u.User).AsNoTracking().Where(u => u.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
-                                foreach (var secondaryUser in secondaryUsers)
-                                {
-                                    _logger.LogDebug($"Secondary User {secondaryUser!.User!.UID} not in allowed roles, deleting alias & resetting supporter tier");
-                                    secondaryUser.User.Alias = string.Empty;
-                                    secondaryUser.User.Tier = CkSupporterTier.NoRole;
-                                    db.Update(secondaryUser.User);
-                                }
-                            }
-
-                            // await for the database to save changes
-                            await db.SaveChangesAsync().ConfigureAwait(false);
-                            // await a second before checking the next user
-                            await Task.Delay(1000, token).ConfigureAwait(false);
+                            _logger.LogDebug($"Secondary User {secondaryUser!.User!.UID} not in allowed roles, deleting alias & resetting supporter tier");
+                            secondaryUser.User.Alias = string.Empty;
+                            secondaryUser.User.Tier = CkSupporterTier.NoRole;
                         }
+                        // await for the database to save changes
+                        await db.SaveChangesAsync().ConfigureAwait(false);
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Something failed during checking vanity user UID's");
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"[VanityCleanup] Error cleaning up {ckUser.DisplayName} ({ckUser.Id})");
+                }
             }
 
-            // log the competition, and execute it again in 12 hours.
-            _logger.LogInformation("Vanity UID cleanup complete");
-            await Task.Delay(TimeSpan.FromHours(12), token).ConfigureAwait(false);
+            // await a second before checking the next user
+            await Task.Delay(1000, token).ConfigureAwait(false);
         }
+
+        _logger.LogInformation("[VanityCleanup] Finished Cleaning up users no longer supporting CK");
     }
 
     /// <summary> Updates the status of the bot at the interval </summary>

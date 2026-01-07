@@ -11,6 +11,7 @@ using StackExchange.Redis;
 using System.Data;
 using System.Globalization;
 using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
@@ -38,6 +39,88 @@ public class GagspeakCommands : InteractionModuleBase
         _services = services;
         _discordConfigService = gagspeakDiscordConfiguration;
         _connectionMultiplexer = connectionMultiplexer;
+    }
+
+    [SlashCommand("debug", "Prints some debug info about the bot")]
+    public async Task DebugCommand()
+    {
+        await Context.Interaction.DeferAsync();
+        // print all current instances of every active gifdata, picdata, and board data service
+        StringBuilder sb = new();
+        sb.AppendLine("GIF Data Services:");
+        foreach (var gifData in _botServices.GifData)
+        {
+            sb.AppendLine($"User: {gifData.Key}, Message: {gifData.Value}");
+        }
+        sb.AppendLine("PIC Data Services:");
+        foreach (var picData in _botServices.PicData)
+        {
+            sb.AppendLine($"User: {picData.Key}, Message: {picData.Value}");
+        }
+        sb.AppendLine("Board Data Services:");
+        foreach (var boardData in _botServices.BoardData)
+        {
+            sb.AppendLine($"User: {boardData.Key}, Message: {boardData.Value}");
+        }
+        EmbedBuilder eb = new();
+        eb.WithTitle("Debug Info");
+        eb.WithDescription(sb.ToString());
+        eb.Color = Color.Magenta;
+
+        await FollowupAsync(embed: eb.Build());
+    }
+
+    [SlashCommand("purgemessages", "Purges a specified number of messages in the channel")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task PurgeCommand([Summary("amount", "Number of messages to delete (1–100)")] int amount)
+    {
+        if (amount < 1 || amount > 100)
+        {
+            await RespondAsync("You can only delete between 1 and 100 messages.", ephemeral: true);
+            return;
+        }
+
+        await Context.Interaction.DeferAsync(ephemeral: true);
+
+        if (Context.Channel is not ITextChannel textChannel)
+        {
+            await FollowupAsync("This command can only be used in text channels.", ephemeral: true);
+            return;
+        }
+
+        // Fetch messages safely
+        var messages = await textChannel.GetMessagesAsync(amount).FlattenAsync();
+
+        // Filter out messages older than 14 days
+        var deletable = messages
+            .Where(m => (DateTimeOffset.UtcNow - m.Timestamp).TotalDays < 14)
+            .ToList();
+
+        if (!deletable.Any())
+        {
+            await FollowupAsync("No messages could be deleted (they may be older than 14 days).", ephemeral: true);
+            return;
+        }
+
+        try
+        {
+            if (deletable.Count == 1)
+            {
+                await deletable[0].DeleteAsync();
+            }
+            else
+            {
+                // Bulk delete supports 2–100 messages
+                await textChannel.DeleteMessagesAsync(deletable);
+            }
+
+            await FollowupAsync($"Purged {deletable.Count} messages.", ephemeral: true);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to purge messages");
+            await FollowupAsync("An error occurred while trying to delete messages.", ephemeral: true);
+        }
     }
 
     // the menu displayed when the user types /userinfo, should be only allows for admins

@@ -14,49 +14,6 @@ namespace GagspeakDiscord.Modules.KinkDispenser;
 #pragma warning disable CS8601
 public partial class KinkDispenser : InteractionModuleBase
 {
-#region Debug Command
-    [SlashCommand("debug", "Prints some debug info about the bot")]
-    public async Task DebugCommand()
-    {
-        await Context.Interaction.DeferAsync();
-        // print all current instances of every active gifdata, picdata, and board data service
-        StringBuilder sb = new();
-        sb.AppendLine("GIF Data Services:");
-        foreach (var gifData in _botServices.GifData)
-        {
-            sb.AppendLine($"User: {gifData.Key}, Message: {gifData.Value}");
-        }
-        sb.AppendLine("PIC Data Services:");
-        foreach (var picData in _botServices.PicData)
-        {
-            sb.AppendLine($"User: {picData.Key}, Message: {picData.Value}");
-        }
-        sb.AppendLine("Board Data Services:");
-        foreach (var boardData in _botServices.BoardData)
-        {
-            sb.AppendLine($"User: {boardData.Key}, Message: {boardData.Value}");
-        }
-        EmbedBuilder eb = new();
-        eb.WithTitle("Debug Info");
-        eb.WithDescription(sb.ToString());
-        eb.Color = Color.Magenta;
-
-        await FollowupAsync(embed: eb.Build());
-    }
-
-    [SlashCommand("purgemessages", "Purges the last 5 messages in the channel")]
-    [RequireUserPermission(GuildPermission.Administrator)]
-    public async Task PurgeCommand()
-    {
-        await Context.Interaction.DeferAsync();
-        var messages = await Context.Channel.GetMessagesAsync(5).FlattenAsync();
-        foreach (var message in messages)
-        {
-            await message.DeleteAsync();
-        }
-        await RespondAsync("Purged the last 5 messages in the channel.");
-    }
-#endregion Debug Command
 #region EmbedHelpers
     public async Task ModifyMessageAsync(EmbedBuilder eb, ComponentBuilder cb, IUserMessage message, string text = "")
     {

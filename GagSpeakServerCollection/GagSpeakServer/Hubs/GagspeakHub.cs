@@ -95,7 +95,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         _logger.LogCallInfo();
 
         // Fail if Auth is not present.
-        if (await DbContext.Auth.AsNoTracking().Include(a => a.User).FirstOrDefaultAsync(a => a.UserUID == UserUID).ConfigureAwait(false) is not { } auth)
+        if (await DbContext.Auth.AsNoTracking().Include(a => a.AccountRep).Include(a => a.User).FirstOrDefaultAsync(a => a.UserUID == UserUID).ConfigureAwait(false) is not { } auth)
         {
             await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, $"Secret key no longer exists in the DB. Inactive for too long.").ConfigureAwait(false);
             return null!;
