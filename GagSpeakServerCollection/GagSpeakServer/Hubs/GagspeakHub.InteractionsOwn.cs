@@ -384,14 +384,14 @@ public partial class GagspeakHub
         var recipientUids = dto.Recipients.Select(r => r.UID);
         var returnItem = new AppliedCursedItem(dto.ChangeItem);
         // if the loot is not null, we assume application, so try and apply it if a gag item.
-        if (dto.LootItem is { } gagItem && gagItem.Type is CursedLootType.Gag && gagItem.Gag.HasValue)
+        if (dto.LootItem is { } item && item.Type is CursedLootType.Gag && item.Gag.HasValue)
         {
             // grab the UserGagData for the first open slot with no gag item applied, if no layers are available, return invalid layer.
             if (await DbContext.ActiveGagData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Gag == GagType.None).ConfigureAwait(false) is not { } curGagData)
                 return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer, new AppliedCursedItem(Guid.Empty));
 
             // update the data.
-            curGagData.Gag = gagItem.Gag.Value;
+            curGagData.Gag = item.Gag.Value;
             curGagData.Enabler = "Mimic";
             curGagData.Padlock = Padlocks.Mimic;
             curGagData.Password = string.Empty;
@@ -411,32 +411,8 @@ public partial class GagspeakHub
             returnItem = returnItem with { GagLayer = curGagData.Layer };
             // Return Gag Update.
             await Clients.Users(recipientUids).Callback_KinksterUpdateActiveGag(recipientDto).ConfigureAwait(false);
-        } else if (dto.LootItem is { } rItem && rItem.Type is CursedLootType.Restriction && rItem.RefId.HasValue)
-        {
-            // make sure there's an open restriction slot before trying to apply. return invalid layer if none.
-            if (await DbContext.ActiveRestrictionData.FirstOrDefaultAsync(data => data.UserUID == UserUID && data.Identifier == Guid.Empty).ConfigureAwait(false) is not { } curRestrictionData)
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidLayer, new AppliedCursedItem(Guid.Empty));
-
-            // update the data.
-            curRestrictionData.Identifier = (Guid)rItem.RefId;
-            curRestrictionData.Enabler = "Mimic";
-            curRestrictionData.Padlock = Padlocks.Mimic;
-            curRestrictionData.Password = string.Empty;
-            curRestrictionData.Timer = dto.LootItem.ReleaseTimeUTC;
-            curRestrictionData.PadlockAssigner = "Mimic";
-
-            // save changes to our tracked item.
-            await DbContext.SaveChangesAsync().ConfigureAwait(false);
-            ActiveRestriction newRestrictionData = curRestrictionData.ToApiRestrictionSlot();
-            KinksterUpdateActiveRestriction recipientDto = new(new(UserUID), new(UserUID), newRestrictionData, DataUpdateType.AppliedCursed)
-            {
-                AffectedLayer = curRestrictionData.Layer,
-                PreviousRestriction = Guid.Empty,
-                PreviousPadlock = Padlocks.None
-            };
-            // Return Restriction Update.
-            await Clients.Users(recipientUids).Callback_KinksterUpdateActiveRestriction(recipientDto).ConfigureAwait(false);
         }
+
         // Push CursedLoot update to all recipients.
         await Clients.Users(recipientUids).Callback_KinksterUpdateActiveCursedLoot(new(new(UserUID), dto.ActiveItems, dto.ChangeItem)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferLoot);
