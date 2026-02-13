@@ -444,19 +444,20 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushAliasGlobalUpdate(PushClientAliasGlobalUpdate dto)
+    public async Task<HubResponse> UserPushAliasState(PushClientAliasState dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterUpdateAliasGlobal(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterUpdateAliasState(new(new(UserUID), dto.AliasId, dto.NewState)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushAliasUniqueUpdate(PushClientAliasUniqueUpdate dto)
+    public async Task<HubResponse> UserPushActiveAliases(PushClientActiveAliases dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        await Clients.User(dto.Recipient.UID).Callback_KinksterUpdateAliasUnique(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
+        var recipientUids = dto.Recipients.Select(r => r.UID); 
+        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveAliases(new(new(UserUID), dto.ActiveItems)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
@@ -550,6 +551,16 @@ public partial class GagspeakHub
         var recipientUids = dto.Recipients.Select(r => r.UID);
         await Clients.Users(recipientUids).Callback_KinksterNewLootData(new(new(UserUID), dto.Id, dto.LightItem)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateLoot);
+        return HubResponseBuilder.Yippee();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserPushNewAliasData(PushClientDataChangeAlias dto)
+    {
+        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterNewAliasData(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterDataUpdateAlarms);
         return HubResponseBuilder.Yippee();
     }
 

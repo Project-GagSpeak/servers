@@ -634,7 +634,7 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserSendNameToKinkster(KinksterBase dto, string listenerName)
+    public async Task<HubResponse> UserSendNameToKinkster(SendNameAction dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Cannot be self-targeted.
@@ -646,7 +646,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
         // Give target name.
-        await Clients.User(dto.User.UID).Callback_ListenerName(new(UserUID), listenerName).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_ListenerName(new(new(UserUID), dto.Name)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterNamesSent);
         return HubResponseBuilder.Yippee();
     }

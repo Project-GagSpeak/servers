@@ -285,6 +285,7 @@ public static class PermissionsEx
         apiPerms.RemoveRestraintSets = dbState.RemoveRestraintSets;
 
         apiPerms.TriggerPhrase = dbState.TriggerPhrase;
+        apiPerms.IgnoreTriggerCase = dbState.IgnoreTriggerCase;
         apiPerms.StartChar = dbState.StartChar;
         apiPerms.EndChar = dbState.EndChar;
         apiPerms.PuppetPerms = dbState.PuppetPerms;
@@ -356,6 +357,7 @@ public static class PermissionsEx
         dbState.RemoveRestraintSets = apiPerms.RemoveRestraintSets;
 
         dbState.TriggerPhrase = apiPerms.TriggerPhrase;
+        dbState.IgnoreTriggerCase = apiPerms.IgnoreTriggerCase;
         dbState.StartChar = apiPerms.StartChar;
         dbState.EndChar = apiPerms.EndChar;
         dbState.PuppetPerms = apiPerms.PuppetPerms;

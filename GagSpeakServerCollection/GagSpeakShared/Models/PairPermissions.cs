@@ -51,6 +51,7 @@ public class PairPermissions
 
     // unique permissions for the puppeteer
     public string       TriggerPhrase               { get; set; } = "";
+    public bool         IgnoreTriggerCase           { get; set; } = false; // if true, the trigger phrase will be treated as case insensitive.
     public char         StartChar                   { get; set; } = '('; // the start char that is the left enclosing bracket character for commands.
     public char         EndChar                     { get; set; } = ')'; // the end char that is the right enclosing bracket character for commands.
     public PuppetPerms  PuppetPerms                 { get; set; } = PuppetPerms.None;
