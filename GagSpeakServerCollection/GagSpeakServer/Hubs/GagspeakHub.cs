@@ -40,7 +40,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     // Logger specific to GagSpeakHub
     private readonly GagspeakHubLogger _logger;
 
-    // Redis database for caching (Redi's allows us to have a simple way to store and manage user state with large scale)
+    // Redis database for caching (Redis allows us to have a simple way to store and manage user state with large scale)
     private readonly IRedisDatabase _redis;
 
     // Expected version of the client
