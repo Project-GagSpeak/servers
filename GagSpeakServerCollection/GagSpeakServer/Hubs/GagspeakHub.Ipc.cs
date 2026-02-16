@@ -142,7 +142,7 @@ public partial class GagspeakHub
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
 		// Must be paired.
-		if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID && u.OtherUserUID == dto.User.UID).ConfigureAwait(false) is not { } perms)
+		if (await DbContext.PairPermissions.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } perms)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
 		// Target must be in hardcore mode.
