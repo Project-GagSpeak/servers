@@ -58,7 +58,7 @@ public partial class AccountWizard
     public async Task HandleAddAltProfile(GagspeakDbContext db, EmbedBuilder embed, string primaryUID)
     {
         // Locate the account's main profile user.
-        var accountRep = await db.AccountReputation.Include(r => r.User).AsNoTracking().SingleAsync(r => r.UserUID == primaryUID).ConfigureAwait(false);
+        var accountRep = await db.AccountReputation.Include(r => r.User).SingleAsync(r => r.UserUID == primaryUID).ConfigureAwait(false);
 
         // while the UID is not unique, generate a new one.
         var hasValidUid = false;
