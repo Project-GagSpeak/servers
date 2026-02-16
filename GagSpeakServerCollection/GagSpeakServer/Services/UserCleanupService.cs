@@ -47,6 +47,24 @@ public class UserCleanupService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
+        // Do once only.
+        using (GagspeakDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
+        {
+            var legacyStatuses = await dbContext.Moodles.Where(m => m.Version == 0).ToListAsync().ConfigureAwait(false);
+            if (legacyStatuses.Count == 0)
+                return;
+
+            // Migrate.
+            foreach (var legacy in legacyStatuses)
+            {
+                legacy.Version = 2;
+                if (legacy.Dispelable) legacy.Modifiers |= GagspeakAPI.Modifiers.CanDispel;
+                if (legacy.StackOnReapply) legacy.Modifiers |= GagspeakAPI.Modifiers.StacksIncrease;
+            }
+            await dbContext.SaveChangesAsync().ConfigureAwait(false);
+            _logger.LogInformation($"Migrated {legacyStatuses.Count} legacy moodles.");
+        }
+
         while (!ct.IsCancellationRequested)
         {
             using (GagspeakDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false))

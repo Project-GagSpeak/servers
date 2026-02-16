@@ -23,7 +23,7 @@ public class MoodleStatus
     public ICollection<MoodleKeyword> MoodleKeywords { get; set; } = new List<MoodleKeyword>();
 
     // Data parsed from MoodleStatusInfo
-    public int Version { get; set; } = 0; // NEW (Current MyStatus.cs is version 2)
+    public int Version { get; set; } = 2; // NEW (Current MyStatus.cs is version 2)
     public int IconID { get; set; } = 0; // NEW (Same as old)
     public string Title { get; set; } = "UNK NAME"; // NEW (Same as old)
     public string Description { get; set; } = string.Empty; // NEW (Same as old)
