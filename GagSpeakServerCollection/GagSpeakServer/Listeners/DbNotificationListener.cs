@@ -25,8 +25,8 @@ public class DbNotificationListener : IHostedService
 
     public DbNotificationListener(
         ILogger<DbNotificationListener> logger,
-        IDbContextFactory<GagspeakDbContext> dbContext, 
-        IHubContext<GagspeakHub, IGagspeakHub> hubContext, 
+        IDbContextFactory<GagspeakDbContext> dbContext,
+        IHubContext<GagspeakHub, IGagspeakHub> hubContext,
         IConfiguration configuration)
     {
         _dbContextFactory = dbContext;
@@ -71,8 +71,20 @@ public class DbNotificationListener : IHostedService
         {
             while (!_stoppingCts.Token.IsCancellationRequested)
             {
-                // Start listening for notifications
-                await InternalListenForNotificationsAsync(OnConnectionStateChanged, connCancelCts.Token).ConfigureAwait(false);
+                try
+                {
+                    // Start listening for notifications
+                    await InternalListenForNotificationsAsync(OnConnectionStateChanged, connCancelCts.Token).ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError($"[[ Listener error ]] : An error occurred while listening for notifications: {ex.Message}\n{ex.StackTrace}");
+                    if (_stoppingCts.Token.IsCancellationRequested)
+                    {
+                        // If we're stopping, swallow exceptions to allow graceful shutdown.
+                        break;
+                    }
+                }
 
                 // After exiting listening, check if we are stopping, and reconnect if not
                 if (_stoppingCts.Token.IsCancellationRequested)
