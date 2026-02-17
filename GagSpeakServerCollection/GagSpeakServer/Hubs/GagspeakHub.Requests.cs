@@ -1,5 +1,4 @@
-﻿using GagspeakAPI.Data;
-using GagspeakAPI.Enums;
+﻿using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakServer.Utils;
@@ -26,7 +25,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt<KinksterRequest>(GagSpeakApiEc.InvalidRecipient);
 
         // Prevent sending to a user not registered in Sundouleia.
-        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid).ConfigureAwait(false) is not { } target)
+        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false) is not { } target)
         {
             await Clients.Caller.Callback_ServerMessage(MessageSeverity.Warning, $"Cannot send Request to {dto.User.UID}, they don't exist").ConfigureAwait(false);
             return HubResponseBuilder.AwDangIt<KinksterRequest>(GagSpeakApiEc.InvalidRecipient);
@@ -86,7 +85,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Prevent sending to a user not registered in Sundouleia.
-        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid).ConfigureAwait(false) is not { } target)
+        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false) is not { } target)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
         // Ensure that the request does not already exist in the database.
@@ -96,11 +95,11 @@ public partial class GagspeakHub
         // Can cancel the request:
         var callerUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         // Create the dummy callback for removal.
-        var callbackDto = PermissionsEx.ToApiRemoval(new(UserUID), new(uid));
+        var callbackDto = PermissionsEx.ToApiRemoval(new(UserUID), new(target.UID));
 
         // send off to the other user if they are online.
-        if (await GetUserIdent(uid).ConfigureAwait(false) is { } otherIdent)
-            await Clients.User(uid).Callback_RemovePairRequest(callbackDto).ConfigureAwait(false);
+        if (await GetUserIdent(target.UID).ConfigureAwait(false) is { } otherIdent)
+            await Clients.User(target.UID).Callback_RemovePairRequest(callbackDto).ConfigureAwait(false);
 
         // remove request from db and return.
         DbContext.PairRequests.Remove(request);
@@ -126,7 +125,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt<AddedKinksterPair>(GagSpeakApiEc.CannotInteractWithSelf);
 
         // Prevent sending to a user not registered in Sundouleia.
-        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid).ConfigureAwait(false) is not { } target)
+        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == uid || u.Alias == uid).ConfigureAwait(false) is not { } target)
             return HubResponseBuilder.AwDangIt<AddedKinksterPair>(GagSpeakApiEc.NullData);
 
         // Ensure that the request does not already exist in the database.
@@ -232,9 +231,9 @@ public partial class GagspeakHub
                 otherAccess.ToApi(),
                 existingData.PairInitAt
             );
-            await Clients.User(uid).Callback_RemovePairRequest(PermissionsEx.ToApiRemoval(new(uid), new(UserUID))).ConfigureAwait(false);
-            await Clients.User(uid).Callback_AddClientPair(requesterRetDto).ConfigureAwait(false);
-            await Clients.User(uid).Callback_KinksterOnline(new(callerUser.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
+            await Clients.User(target.UID).Callback_RemovePairRequest(PermissionsEx.ToApiRemoval(target.ToUserData(), new(UserUID))).ConfigureAwait(false);
+            await Clients.User(target.UID).Callback_AddClientPair(requesterRetDto).ConfigureAwait(false);
+            await Clients.User(target.UID).Callback_KinksterOnline(new(callerUser.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
         }
 
         // Inc the metrics and then return result.
@@ -257,15 +256,19 @@ public partial class GagspeakHub
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var requesterUid = dto.User.UID.Trim();
 
+        // Ensure this user exists, if we did this by alias
+        if (await DbContext.Users.SingleOrDefaultAsync(u => u.UID == requesterUid || u.Alias == requesterUid).ConfigureAwait(false) is not { } requester)
+            return HubResponseBuilder.AwDangIt<AddedKinksterPair>(GagSpeakApiEc.NullData);
+
         // Prevent rejecting requests that do not exist.
-        if (await DbContext.PairRequests.AsNoTracking().SingleOrDefaultAsync(r => r.UserUID == requesterUid && r.OtherUserUID == UserUID).ConfigureAwait(false) is not { } request)
+        if (await DbContext.PairRequests.AsNoTracking().SingleOrDefaultAsync(r => r.UserUID == requester.UID && r.OtherUserUID == UserUID).ConfigureAwait(false) is not { } request)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.KinksterRequestNotFound);
 
         // See if we need to return the rejection request to the requester if they are online.
-        if (await GetUserIdent(dto.User.UID).ConfigureAwait(false) is not null)
+        if (await GetUserIdent(requester.UID).ConfigureAwait(false) is not null)
         {
             KinksterRequest rejectedRequest = request.ToApi();
-            await Clients.User(dto.User.UID).Callback_RemovePairRequest(rejectedRequest).ConfigureAwait(false);
+            await Clients.User(requester.UID).Callback_RemovePairRequest(rejectedRequest).ConfigureAwait(false);
         }
 
         // Remove from DB and save changes.
