@@ -51,10 +51,11 @@ public partial class AccountWizard
 
         // grab the database context
         using var db = await GetDbContext().ConfigureAwait(false);
+        // If for whatever reason this exists we should 
         // if we enter this menu at all, for whatever reason, we should remove the user from the claimauth table, and the initial key mapping.
-        var entry = await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false);
-        if (entry != null)
-            db.AccountClaimAuth.Remove(entry);
+        if (await db.AccountClaimAuth.SingleOrDefaultAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false) is { } existing)
+            db.AccountClaimAuth.Remove(existing);
+
         _botServices.DiscordInitialKeyMapping.TryRemove(Context.User.Id, out _);
         _botServices.DiscordVerifiedUsers.TryRemove(Context.User.Id, out _);
 
@@ -275,14 +276,14 @@ public partial class AccountWizard
         _logger.LogInformation("Grabbing supporter roles from both discords for personalized update..");
         var ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
         // Grab the context discord user from sundouleia.
-        var sundouleiaUser = await _botServices.KinkporiumGuildCached.GetUserAsync(Context.User.Id).ConfigureAwait(false);
+        var gsUser = await _botServices.KinkporiumGuildCached.GetUserAsync(Context.User.Id).ConfigureAwait(false);
         // Now we should check their roles in sundouleia, and assign the highest role they have.
-        if (sundouleiaUser.RoleIds.Any(ckRoles.ContainsKey))
+        if (gsUser.RoleIds.Any(ckRoles.ContainsKey))
         {
             // fetch the roles they have, and output them.
-            _logger.LogInformation($"User {authClaim!.User!.UID} has roles: {string.Join(", ", sundouleiaUser.RoleIds)}");
+            _logger.LogInformation($"User {authClaim!.User!.UID} has roles: {string.Join(", ", gsUser.RoleIds)}");
             // Determine the highest priority role
-            CkSupporterTier highestRole = sundouleiaUser.RoleIds
+            CkSupporterTier highestRole = gsUser.RoleIds
                 .Where(ckRoles.ContainsKey)
                 .Select(id => DiscordBot.RoleToVanityTier[ckRoles[id]])
                 .OrderByDescending(tier => tier)

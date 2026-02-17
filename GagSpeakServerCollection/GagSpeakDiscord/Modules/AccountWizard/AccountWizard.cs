@@ -248,6 +248,7 @@ public partial class AccountWizard : InteractionModuleBase
     private async Task<string> GenerateAccountClaimAuth(ulong discordId, string initialGeneratedKey, GagspeakDbContext dbContext)
     {
         string verificationCode = StringUtils.GenerateRandomString(32);
+
         // Create the AccountClaimAuth object
         AccountClaimAuth accountClaimAuthToAdd = new AccountClaimAuth()
         {
@@ -260,7 +261,6 @@ public partial class AccountWizard : InteractionModuleBase
         // Add the new accountclaimauth object to the database context and save the changes, then return the auth string as the secret key we have generated.
         await dbContext.AddAsync(accountClaimAuthToAdd).ConfigureAwait(false);
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
-
         _logger.LogInformation("Created a new account generation for the AccountClaimAuth");
         return verificationCode;
     }
