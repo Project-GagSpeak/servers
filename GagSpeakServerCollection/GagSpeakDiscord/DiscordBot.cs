@@ -326,7 +326,7 @@ internal partial class DiscordBot : IHostedService
         // Get all users in the database who have been verified by the bot but have no supporter role.
         HashSet<string> perklessUserUids = await db.AccountReputation.Include(r => r.User)
             .AsNoTracking()
-            .Where(r => r.IsVerified && r.User.Tier == CkSupporterTier.NoRole)
+            .Where(r => r.IsVerified) // maybe they supported a higher tier so we should check.
             .Select(r => r.User.UID)
             .ToHashSetAsync()
             .ConfigureAwait(false);
@@ -360,13 +360,16 @@ internal partial class DiscordBot : IHostedService
                         if (!ckUser.RoleIds.Any(ckRoles.ContainsKey))
                             continue;
 
-                        _logger.LogDebug($"[AddVanityPerks] User {authClaim.User!.UID} has discord roles: {string.Join(", ", ckUser.RoleIds)}");
                         // Determine highest supporter tier
                         var highestRole = ckUser.RoleIds
                             .Where(ckRoles.ContainsKey)
                             .Select(id => RoleToVanityTier[ckRoles[id]])
                             .OrderByDescending(tier => tier)
                             .First();
+
+                        if (authClaim.User!.Tier == highestRole)
+                            continue;
+                        _logger.LogDebug($"[AddVanityPerks] User {authClaim.User.UID} has discord roles: {string.Join(", ", ckUser.RoleIds)}");
 
                         _logger.LogInformation($"[AddVanityPerks] User {authClaim.User.UID} assigned to tier {highestRole}");
                         authClaim.User.Tier = highestRole;
