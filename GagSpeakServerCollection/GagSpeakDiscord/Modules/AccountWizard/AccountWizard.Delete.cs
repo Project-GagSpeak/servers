@@ -15,7 +15,7 @@ public partial class AccountWizard
 
         using var gagspeakDb = await GetDbContext().ConfigureAwait(false);
         EmbedBuilder eb = new();
-        eb.WithTitle("Delete Account");
+        eb.WithTitle("Delete Profile");
         eb.WithDescription("You can delete your primary or secondary UIDs here." + Environment.NewLine + Environment.NewLine
             + "__Note: deleting your primary UID will delete all associated secondary UIDs as well.__" + Environment.NewLine + Environment.NewLine
             + "- 1️⃣ is your primary account/UID" + Environment.NewLine
@@ -89,7 +89,7 @@ public partial class AccountWizard
                 await SharedDbFunctions.DeleteUserProfile(user, _logger, db).ConfigureAwait(false);
 
                 EmbedBuilder eb = new();
-                eb.WithTitle($"Account {uid} successfully deleted");
+                eb.WithTitle($"Profile {uid} successfully deleted");
                 eb.WithColor(Color.Green);
                 ComponentBuilder cb = new();
                 AddHome(cb);

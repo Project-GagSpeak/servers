@@ -145,7 +145,8 @@ public partial class AccountWizard
                 + $"**Save this secret key, as if you lose it, all sub-profiles will also be lost.**"
                 + Environment.NewLine + Environment.NewLine
                 + $"**Your UID is:** {uid}" + Environment.NewLine
-                + $"**Your Secret Key is:** {key}");
+                + $"**Your Secret Key is:** {key}" + Environment.NewLine + Environment.NewLine
+                + $"YOU NEED TO RECONNECT TO SEE CHANGES");
             AddHome(cb);
         }
         else

@@ -152,7 +152,7 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<HardcoreState>().HasKey(c => c.UserUID);
         modelBuilder.Entity<HardcoreState>().HasIndex(c => c.UserUID);
         modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
-        modelBuilder.Entity<UserProfileData>().HasOne(c => c.CollarData).WithOne().HasForeignKey<UserProfileData>(c => c.UserUID).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<UserProfileData>().HasOne(c => c.CollarData).WithOne().HasForeignKey<UserProfileData>(c => c.UserUID).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);
         modelBuilder.Entity<UserProfileData>().HasIndex(c => c.UserUID);
         modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");

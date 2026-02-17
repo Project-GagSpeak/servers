@@ -20,7 +20,7 @@ public static class SharedDbFunctions
     {
         logger.LogInformation("Purging user account: {uid}", user.UID);
         // grab all profiles of the account.
-        var altProfiles = await dbContext.Auth.AsNoTracking().Include(u => u.User).Where(u => u.PrimaryUserUID == user.UID).Select(c => c.User).ToListAsync().ConfigureAwait(false);
+        var altProfiles = await dbContext.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == user.UID).Select(c => c.User).ToListAsync().ConfigureAwait(false);
         foreach (var userProfile in altProfiles)
         {
             logger.LogDebug($"Located Alt Profile: {userProfile.UID} (Alias: {userProfile.Alias}), Purging them first.");
@@ -38,22 +38,24 @@ public static class SharedDbFunctions
     {
         var retDict = new Dictionary<string, List<string>>(StringComparer.Ordinal);
         // Obtain the caller's Auth entry, which contains the User entry inside.
-        if (await dbContext.Auth.AsNoTracking().Include(a => a.User).SingleOrDefaultAsync(a => a.UserUID == user.UID).ConfigureAwait(false) is not { } callerAuth)
+        if (await dbContext.Auth.Include(a => a.User).SingleOrDefaultAsync(a => a.UserUID == user.UID).ConfigureAwait(false) is not { } callerAuth)
             return retDict;
 
         // If PrimaryUserUID is null or empty, it is the primary profile, and we should remove all alt profiles.
-        if (string.IsNullOrEmpty(callerAuth.PrimaryUserUID))
+        if (callerAuth.PrimaryUserUID.Equals(callerAuth.UserUID))
         {
-            var altProfiles = await dbContext.Auth.AsNoTracking().Include(u => u.User).Where(u => u.PrimaryUserUID == user.UID).Select(c => c.User).ToListAsync().ConfigureAwait(false);
+            var altProfiles = await dbContext.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == user.UID).Select(c => c.User).ToListAsync().ConfigureAwait(false);
             foreach (var altProfile in altProfiles)
             {
-                var pairedUids = await DeleteProfileInternal(callerAuth.User, logger, dbContext, metrics).ConfigureAwait(false);
-                retDict.Add(callerAuth.User.UID, pairedUids);
+                var altUid = altProfile.UID;
+                var pairedUids = await DeleteProfileInternal(altProfile, logger, dbContext, metrics).ConfigureAwait(false);
+                retDict.Add(altUid, pairedUids);
             }
         }
-        // Remove the primary profile.
+        // Remove the profile.
+        var mainUid = callerAuth.User.UID;
         var pairedMainUids = await DeleteProfileInternal(callerAuth.User, logger, dbContext, metrics).ConfigureAwait(false);
-        retDict.Add(callerAuth.User.UID, pairedMainUids);
+        retDict.Add(mainUid, pairedMainUids);
 
         // return the dictionary of removed profiles and their paired UID's.
         return retDict;
@@ -62,31 +64,31 @@ public static class SharedDbFunctions
     private static async Task<List<string>> DeleteProfileInternal(User user, ILogger logger, GagspeakDbContext dbContext, GagspeakMetrics? metrics = null)
     {
         // Account Data. (if auth fails to fetch, this should deservedly throw an exception!.
-        var auth = dbContext.Auth.SingleAsync(a => a.UserUID == user.UID).ConfigureAwait(false);
-        var accountClaim = dbContext.AccountClaimAuth.AsNoTracking().SingleOrDefault(a => a.User != null && a.User.UID == user.UID);
+        var auth = dbContext.Auth.Single(a => a.UserUID == user.UID);
+        var accountClaim = dbContext.AccountClaimAuth.SingleOrDefault(a => a.User != null && a.User.UID == user.UID);
         // Pair Data
-        var ownPairData = await dbContext.ClientPairs.AsNoTracking().Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
-        var otherPairData = await dbContext.ClientPairs.AsNoTracking().Where(u => u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var pairPerms = await dbContext.PairPermissions.AsNoTracking().Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var pairAccess = await dbContext.PairAccess.AsNoTracking().Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var ownPairData = await dbContext.ClientPairs.Where(u => u.User.UID == user.UID).ToListAsync().ConfigureAwait(false);
+        var otherPairData = await dbContext.ClientPairs.Where(u => u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var pairPerms = await dbContext.PairPermissions.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var pairAccess = await dbContext.PairAccess.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         // Requests
-        var pairRequests = await dbContext.PairRequests.AsNoTracking().Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var collarRequests = await dbContext.CollarRequests.AsNoTracking().Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var pairRequests = await dbContext.PairRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var collarRequests = await dbContext.CollarRequests.Where(u => u.UserUID == user.UID || u.OtherUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         // Globals & State Data
-        var globals = await dbContext.GlobalPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var hcState = await dbContext.HardcoreState.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var gags = await dbContext.ActiveGagData.AsNoTracking().Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var restrictions = await dbContext.ActiveRestrictionData.AsNoTracking().Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var restraint = await dbContext.ActiveRestraintData.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var collar = await dbContext.ActiveCollarData.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var globals = await dbContext.GlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var hcState = await dbContext.HardcoreState.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var gags = await dbContext.ActiveGagData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var restrictions = await dbContext.ActiveRestrictionData.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var restraint = await dbContext.ActiveRestraintData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var collar = await dbContext.ActiveCollarData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         // Collar Owners.
-        var collarLinks = await dbContext.CollarOwners.AsNoTracking().Where(u => u.OwnerUID == user.UID || u.CollaredUserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var collarLinks = await dbContext.CollarOwners.Where(u => u.OwnerUID == user.UID || u.CollaredUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         // ShareHub
-        var likesPatterns = await dbContext.LikesPatterns.AsNoTracking().Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var likesMoodles = await dbContext.LikesMoodles.AsNoTracking().Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var likesPatterns = await dbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var likesMoodles = await dbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         // Profile-Related
-        var achievementData = await dbContext.AchievementData.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var userProfileData = await dbContext.ProfileData.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var achievementData = await dbContext.AchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var userProfileData = await dbContext.ProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
 
         // Get Kinkster Pair List to output.
         var pairedUids = otherPairData.Select(p => p.UserUID);
@@ -111,9 +113,12 @@ public static class SharedDbFunctions
         if (achievementData is not null) dbContext.Remove(achievementData);
         if (userProfileData is not null) dbContext.Remove(userProfileData);
 
+        await dbContext.SaveChangesAsync().ConfigureAwait(false);
+
         // now that everything is finally gone, remove the auth & user.
         dbContext.Remove(auth);
         dbContext.Remove(user);
+
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
 
         if (metrics is not null) metrics.IncCounter(MetricsAPI.CounterUsersRegisteredDeleted);

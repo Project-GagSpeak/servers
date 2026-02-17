@@ -202,13 +202,11 @@ public partial class AccountWizard : InteractionModuleBase
     /// </summary>
     private async Task AddUserSelection(GagspeakDbContext gagspeakDb, ComponentBuilder cb, string customId)
     {
-        ulong discordId = Context.User.Id;                                                // Get the Discord ID of the current user
-
-        AccountClaimAuth existingAuth = await gagspeakDb.AccountClaimAuth.Include(u => u.User)       // then fetch the existing auth for the primary user
-            .SingleOrDefaultAsync(e => e.DiscordId == discordId).ConfigureAwait(false); // where accountClaimAuth's discord ID matches interacting discord user ID
+        ulong discordId = Context.User.Id;
+        var primaryUID = (await gagspeakDb.AccountClaimAuth.Include(u => u.User).SingleAsync(u => u.DiscordId == Context.User.Id).ConfigureAwait(false)).User?.UID;
 
         // If there is an existing authorization, we have found a primary user to generate secondary users for.
-        if (existingAuth != null)
+        if (primaryUID is not null)
         {
             // create a menu builder below the embedded window that allows the user to select their UID.
             SelectMenuBuilder sb = new();
@@ -218,21 +216,22 @@ public partial class AccountWizard : InteractionModuleBase
 
             // now fetch a List of Auth objects which satisfies:
             List<Auth> existingUids = await gagspeakDb.Auth
-                .Include(u => u.User)                             // the Auth object contains a user (they are associated)                           
-                .Where(u => u.UserUID == existingAuth.User.UID    // where the user's UID in the Auth is the same as the primary user ID in the AccountClaimAuth.
-                    || u.PrimaryUserUID == existingAuth.User.UID) // or where the primary user UID of the Auth object is the same as the user ID in the AccountClaimAuth.
-                .OrderByDescending(u => u.PrimaryUser == null)    // order these entrys by the primary user being null, so primary is at the top.
-                .ToListAsync().ConfigureAwait(false);             // put them into a list.
+                .Include(a => a.User)
+                .Where(a => a.PrimaryUserUID == primaryUID)
+                .OrderByDescending(a => a.PrimaryUserUID == a.UserUID)  // primary first
+                .ThenBy(a => a.User.CreatedAt)                          // stable ordering
+                .ToListAsync()
+                .ConfigureAwait(false);
 
             // for each of our profiles, we will display their UID's in the list.
             foreach (Auth entry in existingUids)
             {
                 // add the option to the menu, displaying the Alias over the UID if one exists.
                 sb.AddOption(
-                    string.IsNullOrEmpty(entry.User.Alias) ? entry.UserUID : entry.User.Alias, // set the label to the UserUID if alias is empty, or alias if it's present.
-                    entry.UserUID,                                                             // put the value of the option as the UserUID   (underlying value)                                                                 
-                    !string.IsNullOrEmpty(entry.User.Alias) ? entry.User.UID : null,           // if the alias is not empty, set the description to the UID, otherwise null.
-                    entry.PrimaryUserUID is null ? new Emoji("🌟") : new Emoji("⭐"));         // adds emoji to left of the dropdown, displays if UID is a primary or secondary profile.
+                    string.IsNullOrEmpty(entry.User.Alias) ? entry.UserUID : entry.User.Alias,      // set the label to the UserUID if alias is empty, or alias if it's present.
+                    entry.UserUID,                                                                  // put the value of the option as the UserUID   (underlying value)                                                                 
+                    !string.IsNullOrEmpty(entry.User.Alias) ? entry.User.UID : null,                // if the alias is not empty, set the description to the UID, otherwise null.
+                    entry.PrimaryUserUID.Equals(entry.UserUID) ? new Emoji("🌟") : new Emoji("⭐"));// adds emoji to left of the dropdown, displays if UID is a primary or secondary profile.
             }
 
             // Add the select menu to the component builder
