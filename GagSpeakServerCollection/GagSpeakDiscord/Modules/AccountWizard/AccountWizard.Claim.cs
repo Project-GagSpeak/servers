@@ -81,7 +81,7 @@ public partial class AccountWizard
         EmbedBuilder eb = new();
         eb.WithColor(Color.Magenta);
         // provide the registration modal and await the response, returns if the registration was successful or not, and the verification code.
-        bool success = HandleRegisterModalAsync(eb, initialKeyModal);
+        bool success = await HandleRegisterModalAsync(eb, initialKeyModal).ConfigureAwait(false);
         // while we handle the registration for the modal, construct the component builder allowing the user to cancel, verify, or try again.
         ComponentBuilder cb = new();
         cb.WithButton("Cancel", "wizard-claim", ButtonStyle.Secondary, emote: new Emoji("❌"));
@@ -169,11 +169,11 @@ public partial class AccountWizard
     /// <param name="embed"> the embed builder for the message </param>
     /// <param name="arg"> the initial key modal as an argument passed in. </param>
     /// <returns> if it was sucessful or not, and the verification code string. </returns>
-    private bool HandleRegisterModalAsync(EmbedBuilder embed, InitialKeyModal arg)
+    private async Task<bool> HandleRegisterModalAsync(EmbedBuilder embed, InitialKeyModal arg)
     {
         // at this point in time, remember that we have no accountClaimAuth object, only a user and auth object.
-        using var scope = _services.CreateScope();
-        using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
+        using var db = await GetDbContext().ConfigureAwait(false);
+
         // if it is empty, fail the handle.
         if (arg.InitialKeyStr is null)
         {
