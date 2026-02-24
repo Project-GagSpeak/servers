@@ -150,13 +150,36 @@ internal partial class DiscordBot : IHostedService
         // update the stored guild to our bot service.
         _botServices.UpdateGuild(ckGuild);
         // assign our created schedulars for the bot.
-        _ = UpdateVanityRoles(ckGuild, _updateStatusCts.Token);
-        _ = AddPerksToUsersWithVanityRole(ckGuild, _updateStatusCts.Token);
-        _ = RemovePerksFromUsersNotInVanityRole(_updateStatusCts.Token);
-        _ = ProcessReportsQueue(ckGuild); // Canceled by its own token.
+        _ = RunScheduledTask("SyncRolesDict", () => UpdateVanityRoles(ckGuild, _updateStatusCts.Token), TimeSpan.FromHours(12), _updateStatusCts.Token);
+        _ = RunScheduledTask("AddDonorPerks", () => AddPerksToVanityUsers(ckGuild, _updateStatusCts.Token), TimeSpan.FromHours(6), _updateStatusCts.Token);
+        _ = RunScheduledTask("RemoveDonorPerks", () => RemoveVanityPerks(_updateStatusCts.Token), TimeSpan.FromHours(6), _updateStatusCts.Token);
+        // Canceled by its own token, also has its own timer.
+        _ = ProcessReportsQueue(ckGuild);
     }
 
-    /// <summary> The primary function for creating / updating the account claim system </summary>
+    private async Task RunScheduledTask(string name, Func<Task> action, TimeSpan interval, CancellationToken cts)
+    {
+        while (!cts.IsCancellationRequested)
+        {
+            try
+            {
+                await action().ConfigureAwait(false);
+                await Task.Delay(interval, cts).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cts.IsCancellationRequested)
+            {
+                break; // Task canceled, exit gracefully
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error in repeating task {TaskName}", name);
+            }
+        }
+    }
+
+    /// <summary>
+    ///     The primary function for creating / updating the account claim system
+    /// </summary>
     private async Task CreateOrUpdateModal(RestGuild guild)
     {
         // log that we are creating the account management system channel
@@ -254,7 +277,9 @@ internal partial class DiscordBot : IHostedService
         return Task.CompletedTask;
     }
 
-    /// <summary> Processes the reports queue </summary>
+    /// <summary>
+    ///     Processes the reports queue (Should also make this manual requestable)
+    /// </summary>
     private async Task ProcessReportsQueue(RestGuild guild)
     {
         // reset the CTS
@@ -278,35 +303,20 @@ internal partial class DiscordBot : IHostedService
     /// </summary>
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
     {
-        // while the update status CTS is not requested
-        while (!token.IsCancellationRequested)
+        _logger.LogInformation("Updating Vanity Roles From Config File");
+        Dictionary<ulong, string> vanityRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
+        // if the vanity roles are not the same as the list fetched from the bot service,
+        if (vanityRoles.Keys.Count != _botServices.VanityRoles.Count)
         {
-            try
+            // clear the roles in the bot service, and create a new list
+            _botServices.VanityRoles.Clear();
+            // for each role in the list of roles
+            foreach (KeyValuePair<ulong, string> role in vanityRoles)
             {
-                // begin to update the vanity roles. 
-                _logger.LogInformation("Updating Vanity Roles From Config File");
-                // fetch the roles from the configuration list.
-                Dictionary<ulong, string> vanityRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
-                // if the vanity roles are not the same as the list fetched from the bot service,
-                if (vanityRoles.Keys.Count != _botServices.VanityRoles.Count)
-                {
-                    // clear the roles in the bot service, and create a new list
-                    _botServices.VanityRoles.Clear();
-                    // for each role in the list of roles
-                    foreach (KeyValuePair<ulong, string> role in vanityRoles)
-                    {
-                        _logger.LogDebug("Adding Role: {id} => {desc}", role.Key, role.Value);
-                        // add the ID and the name of the role to the bot service.
-                        RestRole restrole = guild.GetRole(role.Key);
-                        if (restrole != null) _botServices.VanityRoles.Add(restrole, role.Value);
-                    }
-                }
-                // could shorten this if you want, but i perfer to avoid spam.
-                await Task.Delay(TimeSpan.FromHours(6), _updateStatusCts.Token).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Error during UpdateVanityRoles");
+                _logger.LogDebug($"Adding Role: {role.Key} => {role.Value}");
+                // add the ID and the name of the role to the bot service.
+                RestRole restrole = guild.GetRole(role.Key);
+                if (restrole != null) _botServices.VanityRoles.Add(restrole, role.Value);
             }
         }
     }
@@ -314,7 +324,7 @@ internal partial class DiscordBot : IHostedService
     /// <summary>
     /// Helps assign vanity perks to any users with an appropriate vanity role, and assigns them the perks.
     /// </summary>
-    private async Task AddPerksToUsersWithVanityRole(RestGuild ckGuild, CancellationToken token)
+    private async Task AddPerksToVanityUsers(RestGuild ckGuild, CancellationToken token)
     {
         // try and clean up the vanity UID's from people no longer Supporting CK
         _logger.LogInformation("[AddVanityPerks] Adding VanityRoles to Active Supporters of CK");
@@ -324,17 +334,17 @@ internal partial class DiscordBot : IHostedService
         using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
 
         // Get all users in the database who have been verified by the bot but have no supporter role.
-        HashSet<string> perklessUserUids = await db.AccountReputation.Include(r => r.User)
+        HashSet<string> verifiedUserUids = await db.AccountReputation.Include(r => r.User)
             .AsNoTracking()
             .Where(r => r.IsVerified) // maybe they supported a higher tier so we should check.
             .Select(r => r.User.UID)
             .ToHashSetAsync()
             .ConfigureAwait(false);
 
-        _logger.LogDebug($"[AddVanityPerks] Found {perklessUserUids.Count} verified users without perks.");
+        _logger.LogDebug($"[AddVanityPerks] Found {verifiedUserUids.Count} verified users without perks.");
 
         var claimsToCheck = await db.AccountClaimAuth.Include(a => a.User)
-            .Where(a => a.User != null && perklessUserUids.Contains(a.User.UID))
+            .Where(a => a.User != null && verifiedUserUids.Contains(a.User.UID))
             .ToListAsync()
             .ConfigureAwait(false);
 
@@ -369,7 +379,8 @@ internal partial class DiscordBot : IHostedService
 
                         if (authClaim.User!.Tier == highestRole)
                             continue;
-                        _logger.LogDebug($"[AddVanityPerks] User {authClaim.User.UID} has discord roles: {string.Join(", ", ckUser.RoleIds)}");
+
+                        _logger.LogDebug($"[AddVanityPerks] User {ckUser.GlobalName} ({authClaim.User.UID}) has discord roles: {string.Join(", ", ckUser.RoleIds)}");
 
                         _logger.LogInformation($"[AddVanityPerks] User {authClaim.User.UID} assigned to tier {highestRole}");
                         authClaim.User.Tier = highestRole;
@@ -402,7 +413,7 @@ internal partial class DiscordBot : IHostedService
     /// <summary> 
     ///     Removes the VanityPerks from users who are no longer supporting CK 
     /// </summary>
-    private async Task RemovePerksFromUsersNotInVanityRole(CancellationToken token)
+    private async Task RemoveVanityPerks(CancellationToken token)
     {
         // set the guild to the guild ID of Cordy's Kinkporium
         RestGuild ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
@@ -449,14 +460,14 @@ internal partial class DiscordBot : IHostedService
                     if (!ckUser.RoleIds.Any(ckRoles.Keys.Contains))
                     {
                         _logger.LogInformation($"[VanityCleanup] {ckUser.DisplayName} ({ckUser.Id}) is no longer a supporting CK. Cleaning up account profile alias and roles.");
-                        authClaim.User!.Alias = string.Empty;
+                        authClaim.User!.Alias = null;
                         authClaim.User.Tier = CkSupporterTier.NoRole;
                         // Clear out the vanity perks from their alts.
-                        var secondaryUsers = await db.Auth.Include(u => u.User).AsNoTracking().Where(u => u.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
+                        var secondaryUsers = await db.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
                         foreach (var secondaryUser in secondaryUsers)
                         {
                             _logger.LogDebug($"Secondary User {secondaryUser!.User!.UID} not in allowed roles, deleting alias & resetting supporter tier");
-                            secondaryUser.User.Alias = string.Empty;
+                            secondaryUser.User.Alias = null;
                             secondaryUser.User.Tier = CkSupporterTier.NoRole;
                         }
                         // await for the database to save changes
