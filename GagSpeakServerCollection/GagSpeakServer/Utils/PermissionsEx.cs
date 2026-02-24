@@ -105,6 +105,7 @@ public static class PermissionsEx
         apiPerms.ChatGarblerActive = dbState.ChatGarblerActive;
         apiPerms.ChatGarblerLocked = dbState.ChatGarblerLocked;
         apiPerms.GaggedNameplate = dbState.GaggedNameplate;
+        apiPerms.GlobalArousal = dbState.GlobalArousal;
 
         apiPerms.WardrobeEnabled = dbState.WardrobeEnabled;
         apiPerms.GagVisuals = dbState.GagVisuals;
@@ -131,39 +132,40 @@ public static class PermissionsEx
         return apiPerms;
     }
 
-    public static GlobalPermissions ToModel(this GlobalPerms apiPerms, GlobalPermissions current)
+    public static GlobalPermissions ToModel(this GlobalPerms apiPerms, GlobalPermissions dbState)
     {
         if (apiPerms is null)
-            return current;
+            return dbState;
 
-        current.AllowedGarblerChannels = apiPerms.AllowedGarblerChannels;
-        current.ChatGarblerActive = apiPerms.ChatGarblerActive;
-        current.ChatGarblerLocked = apiPerms.ChatGarblerLocked;
-        current.GaggedNameplate = apiPerms.GaggedNameplate;
+        dbState.AllowedGarblerChannels = apiPerms.AllowedGarblerChannels;
+        dbState.ChatGarblerActive = apiPerms.ChatGarblerActive;
+        dbState.ChatGarblerLocked = apiPerms.ChatGarblerLocked;
+        dbState.GaggedNameplate = apiPerms.GaggedNameplate;
+        dbState.GlobalArousal = apiPerms.GlobalArousal;
 
-        current.WardrobeEnabled = apiPerms.WardrobeEnabled;
-        current.GagVisuals = apiPerms.GagVisuals;
-        current.RestrictionVisuals = apiPerms.RestrictionVisuals;
-        current.RestraintSetVisuals = apiPerms.RestraintSetVisuals;
+        dbState.WardrobeEnabled = apiPerms.WardrobeEnabled;
+        dbState.GagVisuals = apiPerms.GagVisuals;
+        dbState.RestrictionVisuals = apiPerms.RestrictionVisuals;
+        dbState.RestraintSetVisuals = apiPerms.RestraintSetVisuals;
 
-        current.PuppeteerEnabled = apiPerms.PuppeteerEnabled;
-        current.TriggerPhrase = apiPerms.TriggerPhrase;
-        current.PuppetPerms = apiPerms.PuppetPerms;
+        dbState.PuppeteerEnabled = apiPerms.PuppeteerEnabled;
+        dbState.TriggerPhrase = apiPerms.TriggerPhrase;
+        dbState.PuppetPerms = apiPerms.PuppetPerms;
 
-        current.ToyboxEnabled = apiPerms.ToyboxEnabled;
-        current.ToysAreInteractable = apiPerms.ToysAreInteractable;
-        current.InVibeRoom = apiPerms.InVibeRoom;
-        current.SpatialAudio = apiPerms.SpatialAudio;
+        dbState.ToyboxEnabled = apiPerms.ToyboxEnabled;
+        dbState.ToysAreInteractable = apiPerms.ToysAreInteractable;
+        dbState.InVibeRoom = apiPerms.InVibeRoom;
+        dbState.SpatialAudio = apiPerms.SpatialAudio;
 
-        current.GlobalShockShareCode = apiPerms.GlobalShockShareCode;
-        current.AllowShocks = apiPerms.AllowShocks;
-        current.AllowVibrations = apiPerms.AllowVibrations;
-        current.AllowBeeps = apiPerms.AllowBeeps;
-        current.MaxIntensity = apiPerms.MaxIntensity;
-        current.MaxDuration = apiPerms.MaxDuration;
-        current.ShockVibrateDuration = apiPerms.ShockVibrateDuration;
+        dbState.GlobalShockShareCode = apiPerms.GlobalShockShareCode;
+        dbState.AllowShocks = apiPerms.AllowShocks;
+        dbState.AllowVibrations = apiPerms.AllowVibrations;
+        dbState.AllowBeeps = apiPerms.AllowBeeps;
+        dbState.MaxIntensity = apiPerms.MaxIntensity;
+        dbState.MaxDuration = apiPerms.MaxDuration;
+        dbState.ShockVibrateDuration = apiPerms.ShockVibrateDuration;
 
-        return current;
+        return dbState;
     }
 
     public static HardcoreStatus ToApi(this HardcoreState? dbState)
@@ -261,18 +263,21 @@ public static class PermissionsEx
         apiPerms.PermanentLocks = dbState.PermanentLocks;
         apiPerms.OwnerLocks = dbState.OwnerLocks;
         apiPerms.DevotionalLocks = dbState.DevotionalLocks;
+        apiPerms.ArousalManipulation = dbState.ArousalManipulation;
 
         apiPerms.ApplyGags = dbState.ApplyGags;
         apiPerms.LockGags = dbState.LockGags;
         apiPerms.MaxGagTime = dbState.MaxGagTime;
         apiPerms.UnlockGags = dbState.UnlockGags;
         apiPerms.RemoveGags = dbState.RemoveGags;
+        apiPerms.GagTraits = dbState.GagTraits;
 
         apiPerms.ApplyRestrictions = dbState.ApplyRestrictions;
         apiPerms.LockRestrictions = dbState.LockRestrictions;
         apiPerms.MaxRestrictionTime = dbState.MaxRestrictionTime;
         apiPerms.UnlockRestrictions = dbState.UnlockRestrictions;
         apiPerms.RemoveRestrictions = dbState.RemoveRestrictions;
+        apiPerms.RestrictionTraits = dbState.RestrictionTraits;
 
         apiPerms.ApplyRestraintSets = dbState.ApplyRestraintSets;
         apiPerms.ApplyLayers = dbState.ApplyLayers;
@@ -283,6 +288,7 @@ public static class PermissionsEx
         apiPerms.RemoveLayers = dbState.RemoveLayers;
         apiPerms.RemoveLayersWhileLocked = dbState.RemoveLayersWhileLocked;
         apiPerms.RemoveRestraintSets = dbState.RemoveRestraintSets;
+        apiPerms.RestraintTraits = dbState.RestraintTraits;
 
         apiPerms.TriggerPhrase = dbState.TriggerPhrase;
         apiPerms.IgnoreTriggerCase = dbState.IgnoreTriggerCase;
@@ -333,18 +339,21 @@ public static class PermissionsEx
         dbState.PermanentLocks = apiPerms.PermanentLocks;
         dbState.OwnerLocks = apiPerms.OwnerLocks;
         dbState.DevotionalLocks = apiPerms.DevotionalLocks;
+        dbState.ArousalManipulation = apiPerms.ArousalManipulation;
 
         dbState.ApplyGags = apiPerms.ApplyGags;
         dbState.LockGags = apiPerms.LockGags;
         dbState.MaxGagTime = apiPerms.MaxGagTime;
         dbState.UnlockGags = apiPerms.UnlockGags;
         dbState.RemoveGags = apiPerms.RemoveGags;
+        dbState.GagTraits = apiPerms.GagTraits;
 
         dbState.ApplyRestrictions = apiPerms.ApplyRestrictions;
         dbState.LockRestrictions = apiPerms.LockRestrictions;
         dbState.MaxRestrictionTime = apiPerms.MaxRestrictionTime;
         dbState.UnlockRestrictions = apiPerms.UnlockRestrictions;
         dbState.RemoveRestrictions = apiPerms.RemoveRestrictions;
+        dbState.RestrictionTraits = apiPerms.RestrictionTraits;
 
         dbState.ApplyRestraintSets = apiPerms.ApplyRestraintSets;
         dbState.ApplyLayers = apiPerms.ApplyLayers;
@@ -355,6 +364,7 @@ public static class PermissionsEx
         dbState.RemoveLayers = apiPerms.RemoveLayers;
         dbState.RemoveLayersWhileLocked = apiPerms.RemoveLayersWhileLocked;
         dbState.RemoveRestraintSets = apiPerms.RemoveRestraintSets;
+        dbState.RestraintTraits = apiPerms.RestraintTraits;
 
         dbState.TriggerPhrase = apiPerms.TriggerPhrase;
         dbState.IgnoreTriggerCase = apiPerms.IgnoreTriggerCase;

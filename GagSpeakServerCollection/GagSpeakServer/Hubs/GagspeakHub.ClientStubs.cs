@@ -46,13 +46,12 @@ public partial class GagspeakHub
 	public Task Callback_KinksterUpdateActiveRestriction(KinksterUpdateActiveRestriction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateActiveRestraint(KinksterUpdateActiveRestraint dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterUpdateActiveCollar(KinksterUpdateActiveCollar dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_KinksterUpdateActiveCursedLoot(KinksterUpdateActiveCursedLoot dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterUpdateAliasState(KinksterUpdateAliasState dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterUpdateActiveAliases(KinksterUpdateActiveAliases dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterUpdateValidToys(KinksterUpdateValidToys dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_KinksterUpdateActivePattern(KinksterUpdateActivePattern dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterUpdateActiveAlarms(KinksterUpdateActiveAlarms dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterUpdateActiveTriggers(KinksterUpdateActiveTriggers dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterChangeEnabledItem(KinksterChangeEnabledItem dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterChangeEnabledGag(KinksterChangeEnabledGag dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterChangeEnabledToy(KinksterChangeEnabledToy dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterChangeEnabledItems(KinksterChangeEnabledItems dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterChangeEnabledGags(KinksterChangeEnabledGags dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_KinksterChangeEnabledToys(KinksterChangeEnabledToys dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ListenerName(SendNameAction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_ShockInstruction(ShockCollarAction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_HypnoticEffect(HypnoticAction dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
@@ -66,7 +65,6 @@ public partial class GagspeakHub
     public Task Callback_KinksterNewPatternData(KinksterNewPatternData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterNewAlarmData(KinksterNewAlarmData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterNewTriggerData(KinksterNewTriggerData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_KinksterNewAllowances(KinksterNewAllowances dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 
     public Task Callback_ChatMessageGlobal(ChatMessageGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_KinksterOffline(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

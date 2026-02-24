@@ -487,7 +487,9 @@ internal partial class DiscordBot : IHostedService
         _logger.LogInformation("[VanityCleanup] Finished Cleaning up users no longer supporting CK");
     }
 
-    /// <summary> Updates the status of the bot at the interval </summary>
+    /// <summary>
+    ///     Updates the status of the bot at the interval
+    /// </summary>
     private async Task UpdateStatusAsync(CancellationToken token)
     {
         while (!token.IsCancellationRequested)

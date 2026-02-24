@@ -414,67 +414,62 @@ public partial class GagspeakHub
         }
 
         // Push CursedLoot update to all recipients.
-        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveCursedLoot(new(new(UserUID), dto.ActiveItems, dto.ChangeItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterChangeEnabledItem(new(new(UserUID), new(UserUID), GSModule.CursedLoot, dto.ChangeItem, true)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferLoot);
         return HubResponseBuilder.Yippee(returnItem);
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushAliasState(PushClientAliasState dto)
+    public async Task<HubResponse> UserPushItemEnabledState(PushItemEnabledState dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterUpdateAliasState(new(new(UserUID), dto.AliasId, dto.NewState)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterChangeEnabledItem(new(new(UserUID), new(UserUID), dto.Module, dto.ItemId, dto.NewState)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveAliases(PushClientActiveAliases dto)
+    public async Task<HubResponse> UserPushGagEnabledState(PushGagEnabledState dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        var recipientUids = dto.Recipients.Select(r => r.UID); 
-        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveAliases(new(new(UserUID), dto.ActiveItems)).ConfigureAwait(false);
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_KinksterChangeEnabledGag(new(new(UserUID), dto.Gag, dto.NewState)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushValidToys(PushClientValidToys dto)
+    public async Task<HubResponse> UserPushToyEnabledState(PushToyEnabledState dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterUpdateValidToys(new(new(UserUID), dto.ValidToys)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterStateTransferToys);
+        await Clients.Users(recipientUids).Callback_KinksterChangeEnabledToy(new(new(UserUID), dto.Toy, dto.NewState)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActivePattern(PushClientActivePattern dto)
+    public async Task<HubResponse> UserPushItemEnabledStates(PushItemEnabledStates dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterUpdateActivePattern(new(new(UserUID), new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterStateTransferPattern);
+        await Clients.Users(recipientUids).Callback_KinksterChangeEnabledItems(new(new(UserUID), new(UserUID), dto.Module, dto.ActiveItems, dto.NewState)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveAlarms(PushClientActiveAlarms dto)
+    public async Task<HubResponse> UserPushGagEnabledStates(PushGagEnabledStates dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        // convert the recipient UID list from the recipient list of the dto
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveAlarms(new(new(UserUID), new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterStateTransferAlarms);
+        await Clients.Users(recipientUids).Callback_KinksterChangeEnabledGags(new(new(UserUID), dto.ActiveGags, dto.NewState)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushActiveTriggers(PushClientActiveTriggers dto)
+    public async Task<HubResponse> UserPushToyEnabledStates(PushToyEnabledStates dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterUpdateActiveTriggers(new(new(UserUID), new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterStateTransferTriggers);
+        await Clients.Users(recipientUids).Callback_KinksterChangeEnabledToys(new(new(UserUID), dto.ActiveToys, dto.NewState)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
@@ -485,7 +480,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewGagData(new(new(UserUID), dto.GagType, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewGagData(new(new(UserUID), dto.GagType, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateGags);
         return HubResponseBuilder.Yippee();
     }
@@ -495,7 +490,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewRestrictionData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewRestrictionData(new(new(UserUID), dto.ItemId, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateRestrictions);
         return HubResponseBuilder.Yippee();
     }
@@ -505,7 +500,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewRestraintData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewRestraintData(new(new(UserUID), dto.ItemId, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateRestraint);
         return HubResponseBuilder.Yippee();
     }
@@ -515,7 +510,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewCollarData(new(new(UserUID), dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewCollarData(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateCollar);
         return HubResponseBuilder.Yippee();
     }
@@ -525,7 +520,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewLootData(new(new(UserUID), dto.Id, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewLootData(new(new(UserUID), dto.ItemId, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateLoot);
         return HubResponseBuilder.Yippee();
     }
@@ -535,7 +530,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewAliasData(new(new(UserUID), dto.AliasId, dto.NewData)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewAliasData(new(new(UserUID), dto.ItemId, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateAlarms);
         return HubResponseBuilder.Yippee();
     }
@@ -545,7 +540,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewPatternData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewPatternData(new(new(UserUID), dto.ItemId, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdatePattern);
         return HubResponseBuilder.Yippee();
     }
@@ -555,7 +550,7 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewAlarmData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewAlarmData(new(new(UserUID), dto.ItemId, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateAlarms);
         return HubResponseBuilder.Yippee();
     }
@@ -565,18 +560,8 @@ public partial class GagspeakHub
     {
         //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewTriggerData(new(new(UserUID), dto.ItemId, dto.LightItem)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_KinksterNewTriggerData(new(new(UserUID), dto.ItemId, dto.NewData)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterDataUpdateTriggers);
-        return HubResponseBuilder.Yippee();
-    }
-
-    [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserPushNewAllowances(PushClientAllowances dto)
-    {
-        //_logger.LogCallInfo(GagspeakHubLogger.Args(dto));
-        var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_KinksterNewAllowances(new(new(UserUID), dto.Module, dto.AllowedUids)).ConfigureAwait(false);
-        _metrics.IncCounter(MetricsAPI.CounterDataUpdateAllowances);
         return HubResponseBuilder.Yippee();
     }
 

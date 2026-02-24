@@ -536,7 +536,7 @@ public partial class GagspeakHub
 
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserChangeKinksterActivePattern(PushKinksterActivePattern dto)
+    public async Task<HubResponse> UserChangeKinksterPatternState(PushKinksterEnabledState dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Cannot be self-targeted.
@@ -547,45 +547,33 @@ public partial class GagspeakHub
         if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
-        // Validate change based on DataUpdateType.
-        switch (dto.Type)
-        {
-            case DataUpdateType.PatternSwitched:
-            case DataUpdateType.PatternExecuted:
-                if (!pairPerms.ExecutePatterns)
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-                break;
+        // Must have perms to enable, if enabling.
+        if (dto.NewState && !pairPerms.ExecutePatterns)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-            case DataUpdateType.PatternStopped:
-                if (!pairPerms.StopPatterns)
-                    return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-                break;
-
-            default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
-        }
+        // Must have perms to disable, if disabling.
+        if (!dto.NewState && !pairPerms.StopPatterns)
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
         // Grabs all Pairs of the affected pair
         var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
-        IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
+        List<string> onlinePairUids = onlinePairsOfTarget.Keys.ToList();
+        // remove client
+        onlinePairUids.Remove(UserUID);
 
-        await Clients.Users([ ..onlinePairUids, dto.Target.UID]).Callback_KinksterUpdateActivePattern(new(dto.Target, new(UserUID), dto.ActivePattern, dto.Type)).ConfigureAwait(false);
+        await Clients.Users([ ..onlinePairUids, dto.Target.UID]).Callback_KinksterChangeEnabledItem(new(dto.Target, new(UserUID), GSModule.Pattern, dto.ItemId, dto.NewState)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferPattern);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserChangeKinksterActiveAlarms(PushKinksterActiveAlarms dto)
+    public async Task<HubResponse> UserChangeKinksterAlarmState(PushKinksterEnabledState dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Cannot be self-targeted.
         if (string.Equals(dto.Target.UID, UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-
-        // Must be correct update type.
-        if (dto.Type is not DataUpdateType.AlarmToggled)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
 
         // Must be paired.
         if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
@@ -597,24 +585,21 @@ public partial class GagspeakHub
 
         var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
-        IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
+        List<string> onlinePairUids = onlinePairsOfTarget.Keys.ToList();
+        onlinePairUids.Remove(UserUID);
 
-        await Clients.Users([ ..onlinePairUids, dto.Target.UID ]).Callback_KinksterUpdateActiveAlarms(new(dto.Target, new(UserUID), dto.ActiveAlarms, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        await Clients.Users([ ..onlinePairUids, dto.Target.UID ]).Callback_KinksterChangeEnabledItem(new(dto.Target, new(UserUID), GSModule.Alarm, dto.ItemId, dto.NewState)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferAlarms);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserChangeKinksterActiveTriggers(PushKinksterActiveTriggers dto)
+    public async Task<HubResponse> UserChangeKinksterTriggerState(PushKinksterEnabledState dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Cannot be self-targeted.
         if (string.Equals(dto.Target.UID, UserUID, StringComparison.Ordinal))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
-
-        // Must be correct update type.
-        if (dto.Type is not DataUpdateType.TriggerToggled)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind);
 
         // Must be paired.
         if (await DbContext.PairPermissions.FirstOrDefaultAsync(p => p.UserUID == dto.Target.UID && string.Equals(p.OtherUserUID, UserUID)).ConfigureAwait(false) is not { } pairPerms)
@@ -626,9 +611,10 @@ public partial class GagspeakHub
 
         var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
-        IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
+        List<string> onlinePairUids = onlinePairsOfTarget.Keys.ToList();
+        onlinePairUids.Remove(UserUID);
 
-        await Clients.Users([..onlinePairUids, dto.Target.UID]).Callback_KinksterUpdateActiveTriggers(new(dto.Target, new(UserUID), dto.ActiveTriggers, dto.ChangedItem, dto.Type)).ConfigureAwait(false);
+        await Clients.Users([.. onlinePairUids, dto.Target.UID]).Callback_KinksterChangeEnabledItem(new(dto.Target, new(UserUID), GSModule.Trigger, dto.ItemId, dto.NewState)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterStateTransferTriggers);
         return HubResponseBuilder.Yippee();
     }

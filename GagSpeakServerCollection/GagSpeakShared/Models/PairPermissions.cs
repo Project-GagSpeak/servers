@@ -23,6 +23,7 @@ public class PairPermissions
     public bool         PermanentLocks              { get; set; } = false; // if the client pair can apply permanent gags to you.
     public bool         OwnerLocks                  { get; set; } = false; // if the pair can use OwnerPadlocks & Timer variants. Only the others with this permission can remove them.
     public bool         DevotionalLocks             { get; set; } = false; // if the pair can use Devotional Padlocks & Timer variants. Only the assigner of these locks can remove them.
+    public bool         ArousalManipulation         { get; set; } = false;
 
     // Gag Permissions
     public bool         ApplyGags                   { get; set; } = false;
@@ -30,6 +31,7 @@ public class PairPermissions
     public TimeSpan     MaxGagTime                  { get; set; } = TimeSpan.Zero;
     public bool         UnlockGags                  { get; set; } = false;
     public bool         RemoveGags                  { get; set; } = false;
+    public bool         GagTraits                   { get; set; } = false;
 
     // Restriction Permissions
     public bool         ApplyRestrictions           { get; set; } = false;
@@ -37,6 +39,7 @@ public class PairPermissions
     public TimeSpan     MaxRestrictionTime          { get; set; } = TimeSpan.Zero;
     public bool         UnlockRestrictions          { get; set; } = false;
     public bool         RemoveRestrictions          { get; set; } = false;
+    public bool         RestrictionTraits           { get; set; } = false;
 
     // unique permissions for the wardrobe
     public bool         ApplyRestraintSets          { get; set; } = false;
@@ -48,6 +51,7 @@ public class PairPermissions
     public bool         RemoveLayers                { get; set; } = false;
     public bool         RemoveLayersWhileLocked     { get; set; } = false;
     public bool         RemoveRestraintSets         { get; set; } = false;
+    public bool         RestraintTraits             { get; set; } = false;
 
     // unique permissions for the puppeteer
     public string       TriggerPhrase               { get; set; } = "";
