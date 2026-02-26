@@ -155,13 +155,13 @@ public class DiscordBotServices
             {
                 Logger.LogInformation("Checking for Profile Reports");
                 var dbContext = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
-                if (!dbContext.ReportEntries.Any()) {
+                if (!dbContext.ReportedProfiles.Any()) {
                     Logger.LogInformation("No Profile Reports Found");
                     return;
                 }
 
                 // collect the list of profile reports otherwise and get the report channel
-                var reports = await dbContext.ReportEntries.ToListAsync().ConfigureAwait(false);
+                var reports = await dbContext.ReportedProfiles.ToListAsync().ConfigureAwait(false);
                 Logger.LogInformation("Found {count} Reports", reports.Count);
 
                 // for each report, generate an embed and send it to the report channel

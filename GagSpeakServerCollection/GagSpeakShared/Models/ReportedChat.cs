@@ -5,9 +5,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace GagspeakShared.Models;
 
 /// <summary>
-///     Stores information for moderation review on reports regarding a users profile.
+///     A report for a users unapproved chat activity.
 /// </summary>
-public class ReportEntry
+public class ReportedChat
 {
     // create a generated key on initialization
     [Key]
@@ -17,8 +17,7 @@ public class ReportEntry
     // Some Required Information to be in a report.
     [Required] public ReportKind Type { get; set; }
     [Required] public DateTime ReportTime { get; set; }
-    [Required] public string SnapshotImage { get; set; } // Migrated (ReportedBase64Picture -> SnapshotImage)
-    [Required] public string SnapshotDescription { get; set; } // Migrated (ReportedDescription -> SnapshotDescription)
+    [Required] public string CompressedChatHistory { get; set; }
 
     // Player who made the report.
     [ForeignKey(nameof(ReportingUser))]
@@ -29,9 +28,6 @@ public class ReportEntry
     [ForeignKey(nameof(ReportedUser))]
     public string ReportedUserUID { get; set; }
     public User ReportedUser { get; set; }
-
-    // If a chat report, store the recent chatlog in base64.
-    public string ChatLogHistoryBase64 { get; set; } = string.Empty;
 
     // Store the reason for the report.
     public string ReportReason { get; set; } = string.Empty;

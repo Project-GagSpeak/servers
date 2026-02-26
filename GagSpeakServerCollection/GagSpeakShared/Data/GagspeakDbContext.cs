@@ -57,8 +57,8 @@ public class GagspeakDbContext : DbContext
     public DbSet<LikesMoodles> LikesMoodles { get; set; } // tracks the moodles a user has liked.
 
     // Reporting
-    public DbSet<ReportEntry> ReportEntries { get; set; } // Holds info about reported profiles for assistants to overview.
-
+    public DbSet<ReportedProfile> ReportedProfiles { get; set; } // Holds info about reported profiles for assistants to overview.
+    public DbSet<ReportedChat> ReportedChats { get; set; }
     // User Information
     public DbSet<User> Users { get; set; }
     public DbSet<GlobalPermissions> GlobalPermissions { get; set; }
@@ -158,7 +158,8 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<UserAchievementData>().ToTable("user_achievement_data");
         modelBuilder.Entity<UserAchievementData>().HasIndex(c => c.UserUID);
 
-        modelBuilder.Entity<ReportEntry>().ToTable("report_entries");
+        modelBuilder.Entity<ReportedProfile>().ToTable("reported_profiles");
+        modelBuilder.Entity<ReportedChat>().ToTable("reported_chats");
 
         modelBuilder.Entity<UserGagData>().ToTable("user_gag_data");
         modelBuilder.Entity<UserGagData>().HasKey(u => new { u.UserUID, u.Layer });

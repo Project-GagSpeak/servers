@@ -30,17 +30,10 @@ public class UserProfileData
     /// </summary>
     public bool FlaggedForReport { get; set; } = false;
 
-    /// <summary>
-    ///     Disabled Profiles can still show decoration and titles, but 
-    ///     the images and descriptions will no longer be modifiable.
-    /// </summary>
+    // REMOVE THIS LATER..
     public bool ProfileDisabled { get; set; } = false;
 
-    /// <summary>
-    ///     The number of warnings that this profile has received. <para />
-    ///     Warnings inc whenever a profile is reported. But we should 
-    ///     migrate this to account reputation later.
-    /// </summary>
+    // REMOVE THIS LATER..
     public int WarningStrikeCount { get; set; } = 0;
 
     public string Base64ProfilePic      { get; set; } = string.Empty;   // empty is no image provided.
@@ -76,29 +69,4 @@ public class UserProfileData
 
     public KinkPlateBorder  BlockedSlotBorder   { get; set; } = KinkPlateBorder.Default;
     public KinkPlateOverlay BlockedSlotOverlay  { get; set; } = KinkPlateOverlay.Default;
-
-    //public KinkPlateBG PlateBackground { get; set; } = KinkPlateBG.Default;
-    //public KinkPlateBorder PlateBorder { get; set; } = KinkPlateBorder.Default;
-
-    //public KinkPlateBorder ProfilePictureBorder { get; set; } = KinkPlateBorder.Default;
-    //public KinkPlateOverlay ProfilePictureOverlay { get; set; } = KinkPlateOverlay.Default;
-
-    //public KinkPlateBG DescriptionBackground { get; set; } = KinkPlateBG.Default;
-    //public KinkPlateBorder DescriptionBorder { get; set; } = KinkPlateBorder.Default;
-    //public KinkPlateOverlay DescriptionOverlay { get; set; } = KinkPlateOverlay.Default;
-
-    //public KinkPlateBG GagSlotBackground { get; set; } = KinkPlateBG.Default;
-    //public KinkPlateBorder GagSlotBorder { get; set; } = KinkPlateBorder.Default;
-    //public KinkPlateOverlay GagSlotOverlay { get; set; } = KinkPlateOverlay.Default;
-
-    //public KinkPlateBG PadlockBackground { get; set; } = KinkPlateBG.Default;
-    //public KinkPlateBorder PadlockBorder { get; set; } = KinkPlateBorder.Default;
-    //public KinkPlateOverlay PadlockOverlay { get; set; } = KinkPlateOverlay.Default;
-
-    //public KinkPlateBG BlockedSlotsBackground { get; set; } = KinkPlateBG.Default;
-    //public KinkPlateBorder BlockedSlotsBorder { get; set; } = KinkPlateBorder.Default;
-    //public KinkPlateOverlay BlockedSlotsOverlay { get; set; } = KinkPlateOverlay.Default;
-
-    //public KinkPlateBorder BlockedSlotBorder { get; set; } = KinkPlateBorder.Default;
-    //public KinkPlateOverlay BlockedSlotOverlay { get; set; } = KinkPlateOverlay.Default;
 }

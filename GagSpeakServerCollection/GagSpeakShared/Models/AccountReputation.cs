@@ -49,4 +49,7 @@ public class AccountReputation
     public bool ChatUsage { get; set; } = true;
     public DateTime ChatTimeout { get; set; } = DateTime.MinValue;
     public int ChatStrikes { get; set; } = 0;
+
+    // When a bad report is made.
+    public int FalseReportStrikes { get; set; } = 0;
 }

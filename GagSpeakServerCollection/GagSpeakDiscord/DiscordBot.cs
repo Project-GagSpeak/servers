@@ -16,6 +16,8 @@ using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System;
 using System.Diagnostics;
+using System.Globalization;
+using System.Security.Principal;
 using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 namespace GagspeakDiscord;
@@ -94,7 +96,7 @@ internal partial class DiscordBot : IHostedService
 
             // subscribe to the ready event from the discord client
             _discordClient.Ready += DiscordClient_Ready;
-            _discordClient.ButtonExecuted += ButtonExecutedHandler;
+            // _discordClient.ButtonExecuted += ButtonExecutedHandler;
             // subscribe to the interaction created event from the discord client
             // (occurs when player interacts with its posted events.)
             _discordClient.InteractionCreated += async (x) =>
@@ -220,7 +222,9 @@ internal partial class DiscordBot : IHostedService
         await GenerateOrUpdateWizardMessage(socketchannel, message).ConfigureAwait(false);
     }
 
-    /// <summary> The primary account management wizard for the discord. Nessisary for claiming accounts </summary>
+    /// <summary>
+    ///     The primary account management wizard for the discord. Nessisary for claiming accounts
+    /// </summary>
     private async Task GenerateOrUpdateWizardMessage(SocketTextChannel channel, IUserMessage? prevMessage)
     {
         // construct the embed builder
@@ -260,21 +264,53 @@ internal partial class DiscordBot : IHostedService
         // once the button is pressed, it should display the main menu to the user.
     }
 
-    /// <summary> Translate discords log messages into our logger format </summary>
-    private Task Log(LogMessage msg)
+    /// <summary> 
+    ///     Wizard used for analyzing reports on discord.
+    /// </summary>
+    [ComponentInteraction("reportwizard-home")]
+    private async Task AddOrUpdateReportWizard(SocketTextChannel channel, IUserMessage? prevMessage)
     {
-        switch (msg.Severity)
-        {
-            case LogSeverity.Critical:
-            case LogSeverity.Error:
-                _logger.LogError(msg.Exception, msg.Message); break;
-            case LogSeverity.Warning:
-                _logger.LogWarning(msg.Exception, msg.Message); break;
-            default:
-                _logger.LogInformation(msg.Message); break;
-        }
+        // construct the embed builder
+        EmbedBuilder eb = new EmbedBuilder();
+        eb.WithTitle("GagSpeak Report Wizard");
+        eb.WithDescription("View and decide an outcome for reported chat and profiles. Select an option below:");
+        eb.WithThumbnailUrl("https://raw.githubusercontent.com/CordeliaMist/GagSpeak-Client/main/images/iconUI.png");
 
-        return Task.CompletedTask;
+        // construct the buttons
+        ComponentBuilder cb = new ComponentBuilder();
+        // Get the counts of reports active.
+        using var scope = _services.CreateAsyncScope();
+        using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
+        var totalProfileReports = await db.ReportedProfiles.CountAsync().ConfigureAwait(false);
+        var totalChatReports = await db.ReportedChats.CountAsync().ConfigureAwait(false);
+        eb.AddField("Current Profile Reports ", totalProfileReports);
+        eb.AddField("Current Chat Reports ", totalChatReports);
+
+        // Draw out the buttons to select which report option to view.
+        cb.WithButton("Profile Reports", style: ButtonStyle.Primary, customId: "reportwizard-profiles", emote: Emoji.Parse("🖼️"));
+        cb.WithButton("Chat Reports", style: ButtonStyle.Primary, customId: "reportwizard-chats", emote: Emoji.Parse("💬"));
+        // if the previous message is null
+        if (prevMessage is null)
+        {
+            // send the message to the channel
+            RestUserMessage msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+            try
+            {
+                await msg.PinAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // swallow
+            }
+        }
+        else // if message is already generated, just modify it.
+        {
+            await prevMessage.ModifyAsync(p =>
+            {
+                p.Embed = eb.Build();
+                p.Components = cb.Build();
+            }).ConfigureAwait(false);
+        }
     }
 
     /// <summary>
@@ -502,6 +538,23 @@ internal partial class DiscordBot : IHostedService
             await _discordClient.SetActivityAsync(new Game($"with {onlineUsers} Kinksters")).ConfigureAwait(false);
             await Task.Delay(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
         }
+    }
+
+    /// <summary> Translate discords log messages into our logger format </summary>
+    private Task Log(LogMessage msg)
+    {
+        switch (msg.Severity)
+        {
+            case LogSeverity.Critical:
+            case LogSeverity.Error:
+                _logger.LogError(msg.Exception, msg.Message); break;
+            case LogSeverity.Warning:
+                _logger.LogWarning(msg.Exception, msg.Message); break;
+            default:
+                _logger.LogInformation(msg.Message); break;
+        }
+
+        return Task.CompletedTask;
     }
 }
 #nullable disable

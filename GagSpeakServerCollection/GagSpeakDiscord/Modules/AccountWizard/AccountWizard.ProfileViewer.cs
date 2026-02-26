@@ -57,7 +57,7 @@ public partial class AccountWizard
         var dbUser = await db.Users.SingleOrDefaultAsync(u => u.UID == uid).ConfigureAwait(false);
         var dbUserAuth = await db.Auth.SingleOrDefaultAsync(u => u.UserUID == uid).ConfigureAwait(false);
 
-        var identity = await _connectionMultiplexer.GetDatabase().StringGetAsync("GagspeakHub:UID:" + dbUser.UID).ConfigureAwait(false);
+        var identity = await _multiplexer.GetDatabase().StringGetAsync("GagspeakHub:UID:" + dbUser.UID).ConfigureAwait(false);
 
         // display the user's set Alias if they have one
         eb.AddField("Vanity UID", dbUser?.Alias ?? "No Vanity UID Set");

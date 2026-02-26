@@ -8,6 +8,7 @@ using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
+using ServerDiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -16,23 +17,21 @@ public partial class AccountWizard : InteractionModuleBase
     private ILogger<AccountWizard> _logger;
     private IServiceProvider _services;
     private DiscordBotServices _botServices;
-    private IConfigurationService<ServerConfiguration> _gagspeakConfigService;
-    private IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> _discordConfig;
-    private IConnectionMultiplexer _connectionMultiplexer;
+    private IConfigurationService<ServerConfiguration> _gsConfigService;
+    private IConfigurationService<ServerDiscordConfig> _discordConfig;
+    private IConnectionMultiplexer _multiplexer;
     private IDbContextFactory<GagspeakDbContext> _dbContextFactory;
-    private Random random = new();
 
     public AccountWizard(ILogger<AccountWizard> logger, IServiceProvider services, DiscordBotServices botServices,
-        IConfigurationService<ServerConfiguration> gagspeakConfigService,
-        IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> discordConfigService, IConnectionMultiplexer connectionMultiplexer,
-        IDbContextFactory<GagspeakDbContext> dbContextFactory)
+        IConfigurationService<ServerConfiguration> gsConfig, IConfigurationService<ServerDiscordConfig> discordConfigService,
+        IConnectionMultiplexer multiplexer, IDbContextFactory<GagspeakDbContext> dbContextFactory)
     {
         _logger = logger;
         _services = services;
         _botServices = botServices;
-        _gagspeakConfigService = gagspeakConfigService;
+        _gsConfigService = gsConfig;
         _discordConfig = discordConfigService;
-        _connectionMultiplexer = connectionMultiplexer;
+        _multiplexer = multiplexer;
         _dbContextFactory = dbContextFactory;
     }
 

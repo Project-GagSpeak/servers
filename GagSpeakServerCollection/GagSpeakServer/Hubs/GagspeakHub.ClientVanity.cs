@@ -191,56 +191,93 @@ public partial class GagspeakHub
 
 
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserReportKinkPlate(KinkPlateReport dto)
+    public async Task<HubResponse> UserReportProfile(ProfileReport dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
 
-        // if the client caller has already reported this profile, inform them and return.
-        ReportEntry report = await DbContext.ReportEntries.SingleOrDefaultAsync(u => u.ReportedUserUID == dto.User.UID && u.ReportingUserUID == UserUID).ConfigureAwait(false);
-        if (report is not null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "You already reported this profile and it's pending validation").ConfigureAwait(false);
+        // Prevent self-reporting.
+        if (string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.CannotInteractWithSelf);
+
+        // Prevent duplicate reports.
+        if (await DbContext.ReportedProfiles.AsNoTracking().AnyAsync(r => r.ReportedUserUID == dto.User.UID && r.ReportingUserUID == UserUID).ConfigureAwait(false))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.AlreadyReported);
-        }
 
-        // grab the profile of the user being reported. If it doesn't exist, inform the client caller and return.
-        UserProfileData profile = await DbContext.ProfileData.SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false);
-        if (profile is null)
-        {
-            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "This user has no profile").ConfigureAwait(false);
+        // Prevent reporting a profile that no longer exists.
+        if (await DbContext.ProfileData.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID).ConfigureAwait(false) is not { } profile)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.KinkPlateNotFound);
-        }
 
-        // Reporting if valid, so construct new report object, at the current time as a snapshot, to avoid tempering by the reported user post-report.
-        ReportEntry reportToAdd = new()
+        // Report is valid, so construct the report to send off.
+        var reportToAdd = new ReportedProfile()
         {
             ReportTime = DateTime.UtcNow,
             SnapshotImage = profile.Base64ProfilePic,
             SnapshotDescription = profile.Description,
+
             ReportingUserUID = UserUID,
-            ReportReason = dto.ReportReason,
             ReportedUserUID = dto.User.UID,
+            ReportReason = dto.ReportReason,
         };
+        await DbContext.ReportedProfiles.AddAsync(reportToAdd).ConfigureAwait(false);
 
-        // mark the profile as flagged for report (possibly remove this as i dont see much purpose)
+        // Mark the profile as flagged and update that as well.
         profile.FlaggedForReport = true;
-
-        // add it to the table of reports in the database & save changes.
-        await DbContext.ReportEntries.AddAsync(reportToAdd).ConfigureAwait(false);
+        DbContext.ProfileData.Update(profile);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        // DO NOT INFORM CLIENT THEIR PROFILE HAS BEEN REPORTED. THIS IS TO MAINTAIN CONFIDENTIALITY OF REPORTS.
-        // if we did, people who got reported would go on a witch hunt for the people they have added. This is not ok to have.
-        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Your Report has been made successfully, and is now pending validation from CK").ConfigureAwait(false);
+        // Inform the reporter that the report was successful.
+        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Your Report was processed, and now pending validation from CK").ConfigureAwait(false);
 
-        // Notify other user pairs to update their profiles, so they obtain the latest information, including the profile, now being flagged.
-        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
-        IEnumerable<string> pairedUsers = pairs.Keys;
-        await Clients.Users(pairedUsers).Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
-        await Clients.Caller.Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
-        
+        // Push a profile update to all users besides the reported user.
+        var pairsOfReportedUser = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        var onlinePairs = await GetOnlineUsers(pairsOfReportedUser).ConfigureAwait(false);
+        IEnumerable<string> onlineUids = onlinePairs.Keys;
+
+        if (!onlineUids.Contains(UserUID, StringComparer.Ordinal))
+            await Clients.Caller.Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
+        await Clients.Users(onlineUids).Callback_ProfileUpdated(new(dto.User)).ConfigureAwait(false);
+
         _metrics.IncCounter(MetricsAPI.CounterKinkPlateReportsCreated);
+        return HubResponseBuilder.Yippee();
+    }
+
+    /// <summary>
+    ///     Whenever a user is reported for misconduct in a radar chat.
+    /// </summary>
+    [Authorize(Policy = "Identified")]
+    public async Task<HubResponse> UserReportChat(ChatReport dto)
+    {
+        _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
+
+        // Prevent reporting non-existent users.
+        if (await DbContext.Auth.Include(a => a.AccountRep).AsNoTracking().SingleOrDefaultAsync(a => a.UserUID == dto.User.UID).ConfigureAwait(false) is not { } auth)
+        {
+            await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "The user you are reporting does not exist.").ConfigureAwait(false);
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
+        }
+
+        // Report is valid, so construct the report to send off.
+        var reportToAdd = new ReportedChat()
+        {
+            Type = ReportKind.Chat,
+            ReportTime = DateTime.UtcNow,
+            CompressedChatHistory = dto.ChatCompressed,
+
+            ReportingUserUID = UserUID,
+            ReportedUserUID = dto.User.UID,
+
+            ReportReason = dto.ReportReason,
+        };
+        await DbContext.ReportedChats.AddAsync(reportToAdd).ConfigureAwait(false);
+        // Inform the reporter that the report was successful.
+        await Clients.Caller.Callback_ServerMessage(MessageSeverity.Information, "Your Report was processed, and now pending validation from CK").ConfigureAwait(false);
+
+        // Disable chat for the reported user until it is resolved.
+        auth.AccountRep.ChatUsage = false;
+        DbContext.Auth.Update(auth);
+        await DbContext.SaveChangesAsync().ConfigureAwait(false);
+
+        _metrics.IncCounter(MetricsAPI.CounterChatReportsCreated);
         return HubResponseBuilder.Yippee();
     }
 }

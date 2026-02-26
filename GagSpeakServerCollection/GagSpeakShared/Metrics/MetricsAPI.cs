@@ -34,6 +34,7 @@ public class MetricsAPI
     public const string CounterGlobalChatMessages = "gagspeak_global_chat_messages";
     public const string CounterKinkPlateUpdates = "gagspeak_kinkplate_updates";
     public const string CounterKinkPlateReportsCreated = "gagspeak_kinkplate_reports_created";
+    public const string CounterChatReportsCreated = "gagspeak_chat_reports_created";
 
     // IPC
     public const string CounterSentAppearanceFull = "gagspeak_sent_appearance_full";
