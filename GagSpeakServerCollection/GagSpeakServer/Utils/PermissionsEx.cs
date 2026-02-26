@@ -83,13 +83,20 @@ public static class PermissionsEx
         {
             IsVerified = dbState.IsVerified,
             IsBanned = dbState.IsBanned,
-            WarningStrikes = dbState.WarningStrikes,
+            
             ProfileViewing = dbState.ProfileViewing,
+            ProfileViewTimeout = dbState.ProfileViewTimeout,
             ProfileViewStrikes = dbState.ProfileViewStrikes,
+
             ProfileEditing = dbState.ProfileEditing,
+            ProfileEditTimeout = dbState.ProfileEditTimeout,
             ProfileEditStrikes = dbState.ProfileEditStrikes,
+
             ChatUsage = dbState.ChatUsage,
-            ChatStrikes = dbState.ChatStrikes
+            ChatTimeout = dbState.ChatTimeout,
+            ChatStrikes = dbState.ChatStrikes,
+
+            FalseReportStrikes = dbState.FalseReportStrikes
         };
 
     #endregion CacheDataMigrations
