@@ -173,30 +173,6 @@ public class GagspeakCommands : InteractionModuleBase
         }
     }
 
-
-    // admin only process reports poll queue.
-    [SlashCommand("fetchreports", "Manually process the reports queue and reset the timer.")]
-    [RequireUserPermission(GuildPermission.Administrator)]
-    public async Task ProcessReports()
-    {
-        try
-        {
-            _logger.LogInformation("Processing Reports Queue! " + Context.Guild.Name);
-            // Create a new CTS for the manual process
-            using (CancellationTokenSource manualCts = new CancellationTokenSource())
-            {
-                // Call the process reports queue with the manual token
-                await _botServices.ProcessReports(Context.User, manualCts.Token);
-            }
-            await RespondAsync("Reports queue processed and timer reset.", ephemeral: true);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to process reports queue");
-            await RespondAsync("Failed to process reports queue: " + ex.ToString(), ephemeral: true);
-        }
-    }
-
     // admin only command for sending a message to clients connected to the gagspeak service.
     [SlashCommand("message", "ADMIN ONLY: sends a message to clients")]
     [RequireUserPermission(GuildPermission.Administrator)]
@@ -506,7 +482,6 @@ public class GagspeakCommands : InteractionModuleBase
         if (await db.ProfileData.SingleAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false) is { } profile)
         {
             profile.FlaggedForReport = false;
-            profile.ProfileDisabled = false;
             profile.Description = string.Empty;
         }
 

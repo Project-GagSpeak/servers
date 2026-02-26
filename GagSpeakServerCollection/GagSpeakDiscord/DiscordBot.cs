@@ -9,16 +9,11 @@ using GagspeakDiscord.Modules.AccountWizard;
 using GagspeakDiscord.Modules.KinkDispenser;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
-using GagspeakShared.Models;
 using GagspeakShared.Services;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
-using System;
-using System.Diagnostics;
-using System.Globalization;
-using System.Security.Principal;
-using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
+using ServerDiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 namespace GagspeakDiscord;
 #nullable enable
@@ -26,7 +21,7 @@ namespace GagspeakDiscord;
 internal partial class DiscordBot : IHostedService
 {
     private readonly DiscordBotServices _botServices;
-    private readonly IConfigurationService<DiscordConfig> _discordConfig;
+    private readonly IConfigurationService<ServerDiscordConfig> _discordConfig;
     private readonly IConnectionMultiplexer _connectionMultiplexer;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<DiscordBot> _logger;
@@ -34,12 +29,11 @@ internal partial class DiscordBot : IHostedService
     private readonly IHubContext<GagspeakHub> _gagspeakHubContext;
     private readonly IServiceProvider _services;
     private InteractionService _interactionModule;
-    private CancellationTokenSource _processReportQueueCts = new();
     private CancellationTokenSource _updateStatusCts = new();
 
-    public DiscordBot(DiscordBotServices botServices, IServiceProvider services, IConfigurationService<GagspeakShared.Utils.Configuration.DiscordConfig> config,
-        IDbContextFactory<GagspeakDbContext> dbContext, IHubContext<GagspeakHub> hubContext, ILogger<DiscordBot> logger, 
-        IConnectionMultiplexer connectionMultiplexer)
+    public DiscordBot(DiscordBotServices botServices, IServiceProvider services,
+        IConfigurationService<ServerDiscordConfig> config, IDbContextFactory<GagspeakDbContext> dbContext, 
+        IHubContext<GagspeakHub> hubContext, ILogger<DiscordBot> logger,  IConnectionMultiplexer multiplexer)
     {
         _botServices = botServices;
         _services = services;
@@ -47,7 +41,7 @@ internal partial class DiscordBot : IHostedService
         _dbContextFactory = dbContext;
         _gagspeakHubContext = hubContext;
         _logger = logger;
-        _connectionMultiplexer = connectionMultiplexer;
+        _connectionMultiplexer = multiplexer;
         // Create a new discord client with the default retry mode
         _discordClient = new(new DiscordSocketConfig()
         {
@@ -73,7 +67,7 @@ internal partial class DiscordBot : IHostedService
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         // get the discord bot token from the configuration
-        string token = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.DiscordBotToken), string.Empty);
+        string token = _discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.DiscordBotToken), string.Empty);
         // if the token is not empty
         if (!string.IsNullOrEmpty(token))
         {
@@ -88,6 +82,7 @@ internal partial class DiscordBot : IHostedService
             // Append our modules to the interaction Module
             await _interactionModule.AddModuleAsync(typeof(GagspeakCommands), _services).ConfigureAwait(false);
             await _interactionModule.AddModuleAsync(typeof(AccountWizard), _services).ConfigureAwait(false);
+            await _interactionModule.AddModuleAsync(typeof(ReportWizard), _services).ConfigureAwait(false);
             await _interactionModule.AddModuleAsync(typeof(KinkDispenser), _services).ConfigureAwait(false);
 
             // log the bot into to the discord client with the token
@@ -115,11 +110,10 @@ internal partial class DiscordBot : IHostedService
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         // if the discord bot token is not empty
-        if (!string.IsNullOrEmpty(_discordConfig.GetValueOrDefault(nameof(DiscordConfig.DiscordBotToken), string.Empty)))
+        if (!string.IsNullOrEmpty(_discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.DiscordBotToken), string.Empty)))
         {
             // await for all bot services to stop
             await _botServices.Stop().ConfigureAwait(false);
-            _processReportQueueCts?.Cancel();
             _updateStatusCts?.Cancel();
 
             await _discordClient.LogoutAsync().ConfigureAwait(false);
@@ -148,15 +142,14 @@ internal partial class DiscordBot : IHostedService
         _ = UpdateStatusAsync(_updateStatusCts.Token);
 
         // create our updated modal for the account management system
-        await CreateOrUpdateModal(ckGuild).ConfigureAwait(false);
+        await CreateOrUpdateAccountWizard(ckGuild).ConfigureAwait(false);
         // update the stored guild to our bot service.
         _botServices.UpdateGuild(ckGuild);
         // assign our created schedulars for the bot.
+        _ = RunScheduledTask("ProcessReports", () => CreateOrUpdateReportWizard(ckGuild), TimeSpan.FromMinutes(30), _updateStatusCts.Token);
         _ = RunScheduledTask("SyncRolesDict", () => UpdateVanityRoles(ckGuild, _updateStatusCts.Token), TimeSpan.FromHours(12), _updateStatusCts.Token);
         _ = RunScheduledTask("AddDonorPerks", () => AddPerksToVanityUsers(ckGuild, _updateStatusCts.Token), TimeSpan.FromHours(6), _updateStatusCts.Token);
         _ = RunScheduledTask("RemoveDonorPerks", () => RemoveVanityPerks(_updateStatusCts.Token), TimeSpan.FromHours(6), _updateStatusCts.Token);
-        // Canceled by its own token, also has its own timer.
-        _ = ProcessReportsQueue(ckGuild);
     }
 
     private async Task RunScheduledTask(string name, Func<Task> action, TimeSpan interval, CancellationToken cts)
@@ -182,13 +175,11 @@ internal partial class DiscordBot : IHostedService
     /// <summary>
     ///     The primary function for creating / updating the account claim system
     /// </summary>
-    private async Task CreateOrUpdateModal(RestGuild guild)
+    private async Task CreateOrUpdateAccountWizard(RestGuild guild)
     {
-        // log that we are creating the account management system channel
         _logger.LogDebug("Account Management Wizard: Getting Channel");
-
         // fetch the channel for the account management system message
-        ulong? discordChannelForCommands = _discordConfig.GetValue<ulong?>(nameof(DiscordConfig.DiscordChannelForCommands));
+        ulong? discordChannelForCommands = _discordConfig.GetValue<ulong?>(nameof(ServerDiscordConfig.DiscordChannelForCommands));
         if (discordChannelForCommands is null)
         {
             _logger.LogWarning("Account Management Wizard: No channel configured");
@@ -197,7 +188,7 @@ internal partial class DiscordBot : IHostedService
 
         // create the message
         IUserMessage? message = null;
-        SocketTextChannel socketchannel = await _discordClient.GetChannelAsync(discordChannelForCommands.Value).ConfigureAwait(false) as SocketTextChannel 
+        var socketchannel = await _discordClient.GetChannelAsync(discordChannelForCommands.Value).ConfigureAwait(false) as SocketTextChannel 
             ?? throw new Exception("Channel not found");
 
         IReadOnlyCollection<RestMessage> pinnedMessages = await socketchannel.GetPinnedMessagesAsync().ConfigureAwait(false);
@@ -205,132 +196,127 @@ internal partial class DiscordBot : IHostedService
         // check if the message is already pinned
         foreach (RestMessage msg in pinnedMessages)
         {
-            _logger.LogDebug("Account Management Wizard: Checking message id {id}, author is: {author}, hasEmbeds: {embeds}", msg.Id, msg.Author.Id, msg.Embeds.Any());
+            _logger.LogDebug($"Account Wizard: Checking message {msg.Id} | Author: {msg.Author.Id} | HasEmbeds: {msg.Embeds.Any()}");
             // if the author of the post is the bot, and the message has embeds
             if (msg.Author.Id == _discordClient.CurrentUser.Id && msg.Embeds.Any())
             {
-                // then get the message 
                 message = await socketchannel.GetMessageAsync(msg.Id).ConfigureAwait(false) as IUserMessage;
                 break;
             }
         }
 
-        // and log it.
         _logger.LogInformation("Account Management Wizard: Found message id: {id}", message?.Id ?? 0);
-
-        // then generate our accountWizard message in the channel we just inspected
-        await GenerateOrUpdateWizardMessage(socketchannel, message).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    ///     The primary account management wizard for the discord. Nessisary for claiming accounts
-    /// </summary>
-    private async Task GenerateOrUpdateWizardMessage(SocketTextChannel channel, IUserMessage? prevMessage)
-    {
-        // construct the embed builder
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.WithTitle("Official CK GagSpeak Bot Service");
-        eb.WithDescription("Press \"Start\" to interact with me!" + Environment.NewLine + Environment.NewLine
-            + "You can handle all of your GagSpeak account needs in this server.\nJust follow the instructions!");
-        eb.WithThumbnailUrl("https://raw.githubusercontent.com/CordeliaMist/GagSpeak-Client/main/images/iconUI.png");
+        var eb = new EmbedBuilder()
+            .WithTitle("Official CK GagSpeak Bot Service")
+            .WithDescription("Press \"Start\" to interact with me!" + Environment.NewLine + Environment.NewLine
+                + "You can handle all of your GagSpeak account needs in this server.\nJust follow the instructions!")
+            .WithThumbnailUrl("https://raw.githubusercontent.com/CordeliaMist/GagSpeak-Client/main/images/iconUI.png");
         // construct the buttons
-        ComponentBuilder cb = new ComponentBuilder();
-        // this claim your account button will trigger the customid of wizard-home:true, letting the bot deliever a personalized reply
-        // that will display the account information.
-        cb.WithButton("Start GagSpeak Account Management", style: ButtonStyle.Primary, customId: "wizard-home:true", emote: Emoji.Parse("🎀"));
+        var cb = new ComponentBuilder()
+            .WithButton("Start GagSpeak Account Management", style: ButtonStyle.Primary, customId: "wizard-home:true", emote: Emoji.Parse("🎀"));
         // if the previous message is null
-        if (prevMessage is null)
+        if (message is null)
         {
-            // send the message to the channel
-            RestUserMessage msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+            var msg = await socketchannel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
             try
             {
-                // pin the message
                 await msg.PinAsync().ConfigureAwait(false);
             }
             catch (Exception)
-            {
-                // swallow
-            }
+            { }
         }
         else // if message is already generated, just modify it.
         {
-            await prevMessage.ModifyAsync(p =>
+            await message.ModifyAsync(p =>
             {
                 p.Embed = eb.Build();
                 p.Components = cb.Build();
             }).ConfigureAwait(false);
         }
-        // once the button is pressed, it should display the main menu to the user.
     }
 
-    /// <summary> 
-    ///     Wizard used for analyzing reports on discord.
+    /// <summary>
+    ///     The primary function for creating / updating the report system
     /// </summary>
-    [ComponentInteraction("reportwizard-home")]
-    private async Task AddOrUpdateReportWizard(SocketTextChannel channel, IUserMessage? prevMessage)
+    private async Task CreateOrUpdateReportWizard(RestGuild guild)
     {
-        // construct the embed builder
-        EmbedBuilder eb = new EmbedBuilder();
-        eb.WithTitle("GagSpeak Report Wizard");
-        eb.WithDescription("View and decide an outcome for reported chat and profiles. Select an option below:");
-        eb.WithThumbnailUrl("https://raw.githubusercontent.com/CordeliaMist/GagSpeak-Client/main/images/iconUI.png");
+        _logger.LogDebug("Report Wizard: Getting Channel");
 
-        // construct the buttons
-        ComponentBuilder cb = new ComponentBuilder();
-        // Get the counts of reports active.
+        ulong? reportsChannel = _discordConfig.GetValue<ulong?>(nameof(ServerDiscordConfig.DiscordChannelForReports));
+        if (reportsChannel is null)
+        {
+            _logger.LogWarning("Report Wizard: No channel configured");
+            return;
+        }
+
+        var channel = await _discordClient.GetChannelAsync(reportsChannel.Value).ConfigureAwait(false) as SocketTextChannel
+            ?? throw new Exception("Channel not found");
+
+        IUserMessage? message = null;
+        var pinnedMessages = await channel.GetPinnedMessagesAsync().ConfigureAwait(false);
+        foreach (var msg in pinnedMessages)
+        {
+            if (msg.Author.Id == _discordClient.CurrentUser.Id && msg.Embeds.Any())
+            {
+                message = await channel.GetMessageAsync(msg.Id).ConfigureAwait(false) as IUserMessage;
+                break;
+            }
+        }
+
+        // Clean up the messages in the channel that are not pinned messages.
+        var toCleanup = await channel.GetMessagesAsync(100).FlattenAsync().ConfigureAwait(false);
+        var deletable = toCleanup
+            .Where(m => m.Id != message?.Id && (DateTimeOffset.UtcNow - m.Timestamp).TotalDays < 14)
+            .ToList();
+        // Attempt cleanup.
+        try
+        {
+            if (deletable.Count == 1)
+                await deletable[0].DeleteAsync().ConfigureAwait(false);
+            else
+                await channel.DeleteMessagesAsync(deletable).ConfigureAwait(false);
+        }
+        catch
+        { }
+
+        _logger.LogInformation($"Report Wizard: Found message id: {message?.Id ?? 0}");
         using var scope = _services.CreateAsyncScope();
         using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
+
         var totalProfileReports = await db.ReportedProfiles.CountAsync().ConfigureAwait(false);
         var totalChatReports = await db.ReportedChats.CountAsync().ConfigureAwait(false);
-        eb.AddField("Current Profile Reports ", totalProfileReports);
-        eb.AddField("Current Chat Reports ", totalChatReports);
 
-        // Draw out the buttons to select which report option to view.
-        cb.WithButton("Profile Reports", style: ButtonStyle.Primary, customId: "reportwizard-profiles", emote: Emoji.Parse("🖼️"));
-        cb.WithButton("Chat Reports", style: ButtonStyle.Primary, customId: "reportwizard-chats", emote: Emoji.Parse("💬"));
+        var eb = new EmbedBuilder()
+            .WithTitle("GagSpeak Report Wizard")
+            .WithDescription("View and decide an outcome for reported chat and profiles. Select an option below:")
+            .WithThumbnailUrl("https://raw.githubusercontent.com/CordeliaMist/GagSpeak-Client/main/images/iconUI.png")
+            .AddField("Current Profile Reports", totalProfileReports, true)
+            .AddField("Current Chat Reports", totalChatReports, true)
+            .WithColor(Color.Orange);
+        // construct the buttons
+        var cb = new ComponentBuilder()
+            .WithButton("Profile Reports", "reports-profile-home:true", ButtonStyle.Primary, Emoji.Parse("🖼️"))
+            .WithButton("Chat Reports", "reports-chat-home:true", ButtonStyle.Primary, Emoji.Parse("💬"))
+            .WithButton("🔄 Refresh", "reports-refresh", ButtonStyle.Secondary);
+
         // if the previous message is null
-        if (prevMessage is null)
+        if (message is null)
         {
-            // send the message to the channel
-            RestUserMessage msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
+            var msg = await channel.SendMessageAsync(embed: eb.Build(), components: cb.Build()).ConfigureAwait(false);
             try
             {
                 await msg.PinAsync().ConfigureAwait(false);
             }
             catch (Exception)
-            {
-                // swallow
-            }
+            { }
         }
-        else // if message is already generated, just modify it.
+        else
         {
-            await prevMessage.ModifyAsync(p =>
+            await message.ModifyAsync(p =>
             {
                 p.Embed = eb.Build();
                 p.Components = cb.Build();
             }).ConfigureAwait(false);
-        }
-    }
-
-    /// <summary>
-    ///     Processes the reports queue (Should also make this manual requestable)
-    /// </summary>
-    private async Task ProcessReportsQueue(RestGuild guild)
-    {
-        // reset the CTS
-        _processReportQueueCts?.Cancel();
-        _processReportQueueCts?.Dispose();
-        _processReportQueueCts = new();
-        CancellationToken reportsToken = _processReportQueueCts.Token;
-
-        // while the token is not cancelled,
-        while (!reportsToken.IsCancellationRequested)
-        {
-            await _botServices.ProcessReports(_discordClient.CurrentUser, reportsToken).ConfigureAwait(false);
-            // wait 30minutes before next execution.
-            _logger.LogInformation("Waiting 60 minutes before next report processing");
-            await Task.Delay(TimeSpan.FromMinutes(60), reportsToken).ConfigureAwait(false);
         }
     }
 
@@ -340,7 +326,7 @@ internal partial class DiscordBot : IHostedService
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
     {
         _logger.LogInformation("Updating Vanity Roles From Config File");
-        Dictionary<ulong, string> vanityRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
+        var vanityRoles = _discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.VanityRoles), new Dictionary<ulong, string>());
         // if the vanity roles are not the same as the list fetched from the bot service,
         if (vanityRoles.Keys.Count != _botServices.VanityRoles.Count)
         {
@@ -364,7 +350,7 @@ internal partial class DiscordBot : IHostedService
     {
         // try and clean up the vanity UID's from people no longer Supporting CK
         _logger.LogInformation("[AddVanityPerks] Adding VanityRoles to Active Supporters of CK");
-        Dictionary<ulong, string> ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
+        var ckRoles = _discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.VanityRoles), new Dictionary<ulong, string>());
 
         using var scope = _services.CreateAsyncScope();
         using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
@@ -456,7 +442,7 @@ internal partial class DiscordBot : IHostedService
         var appId = await _discordClient.GetApplicationInfoAsync().ConfigureAwait(false);
 
         _logger.LogInformation($"[VanityCleanup] Cleaning up Vanity UIDs from guild {ckGuild.Name}");
-        Dictionary<ulong, string> ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
+        var ckRoles = _discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.VanityRoles), new Dictionary<ulong, string>());
 
         using var scope = _services.CreateAsyncScope();
         using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();

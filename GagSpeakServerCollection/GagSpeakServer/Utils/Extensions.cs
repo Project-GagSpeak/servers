@@ -93,7 +93,6 @@ public static class Extensions
         {
             IsPublic = data.ProfileIsPublic,
             Flagged = data.FlaggedForReport,
-            Disabled = data.ProfileDisabled,
             Description = data.Description,
             CompletedTotal = data.AchievementsEarned,
             ChosenTitleId = data.ChosenTitleId,

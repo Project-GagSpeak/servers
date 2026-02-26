@@ -31,7 +31,7 @@ public partial class ReportWizard
 
     private async Task<ReportedProfileInfo> GetProfileReport(GagspeakDbContext db, int reportId)
     {
-        var query = from report in db.ReportedProfiles
+        var query = from report in db.ReportedProfiles.AsNoTracking()
                     where report.ReportID == reportId
                     join reportedProfile in db.ProfileData
                         on report.ReportedUserUID equals reportedProfile.UserUID
@@ -55,7 +55,7 @@ public partial class ReportWizard
 
     private async Task<Dictionary<int, ReportedChatInfo>> GetChatReports(GagspeakDbContext db)
     {
-        var query = from report in db.ReportedChats
+        var query = from report in db.ReportedChats.AsNoTracking()
                         // Reported user's profile
                     join reportedProfile in db.ProfileData
                         on report.ReportedUserUID equals reportedProfile.UserUID
@@ -85,8 +85,12 @@ public partial class ReportWizard
     /// <summary>
     ///     Adds a home button to return to the report selection menu.
     /// </summary>
-    private void AddHome(ComponentBuilder cb)
-        => cb.WithButton("Back to Home", "reportwizard-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
+    private void AddProfileHome(ComponentBuilder cb)
+        => cb.WithButton("Go Back", "reports-profile-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
+
+    private void AddChatHome(ComponentBuilder cb)
+        => cb.WithButton("Go Back", "reports-chat-home:false", ButtonStyle.Secondary, new Emoji("🏠"));
+
 
     /// <summary>
     ///     Vlidates the interaction being made with the discord bot
@@ -118,10 +122,11 @@ public partial class ReportWizard
     ///     Modifies the interaction with embed and component builder. <br />
     ///     Because this is a regular interaction, we will check against the IComponentInteraction type.
     /// </summary>
-    private async Task ModifyInteraction(EmbedBuilder eb, ComponentBuilder cb)
+    private async Task ModifyInteraction(EmbedBuilder eb, ComponentBuilder cb, List<FileAttachment> attachments = null)
     {
         await ((Context.Interaction) as IComponentInteraction).UpdateAsync(m =>
         {
+            m.Attachments = attachments;
             m.Embed = eb.Build();
             m.Components = cb.Build();
         }).ConfigureAwait(false);

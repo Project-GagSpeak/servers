@@ -30,12 +30,6 @@ public class UserProfileData
     /// </summary>
     public bool FlaggedForReport { get; set; } = false;
 
-    // REMOVE THIS LATER..
-    public bool ProfileDisabled { get; set; } = false;
-
-    // REMOVE THIS LATER..
-    public int WarningStrikeCount { get; set; } = 0;
-
     public string Base64ProfilePic      { get; set; } = string.Empty;   // empty is no image provided.
     public string Description           { get; set; } = string.Empty;   // Description of the user.
     public int    AchievementsEarned    { get; set; } = 0;              // Total number of achievements completed.

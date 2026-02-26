@@ -93,10 +93,6 @@ public partial class GagspeakHub
                 return new KinkPlateFull(user.User, content with { Description = "Profile Pic is hidden as they have not allowed public plates!" }, string.Empty);
         }
 
-        // If the profile is disabled by moderation, return a disabled profile.
-        if (data.ProfileDisabled)
-            return new KinkPlateFull(user.User, content with { Description = "This profile is disabled" }, string.Empty);
-
         if (data.FlaggedForReport)
             return new KinkPlateFull(user.User, content with { Description = "Profile is pending review from CK after being reported" }, string.Empty);
 

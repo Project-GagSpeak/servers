@@ -47,42 +47,51 @@ public partial class ReportWizard : InteractionModuleBase
         _dbContextFactory = dbContextFactory;
     }
 
-    // The main menu display for the Sundouleia Account Management Wizard.
-    // Initially called upon by the bot's pinned message, and the * is true, meaning it is to be initialized
-    [ComponentInteraction("reportwizard-profiles")]
-    public async Task ReportWizardProfilesHome(bool init = false)
+    [ComponentInteraction("reports-refresh")]
+    public async Task RefreshReportWizard()
     {
-        if (!(await ValidateInteraction().ConfigureAwait(false))) return;
+        if (Context.Interaction is not SocketMessageComponent component || component.Channel is not SocketTextChannel channel)
+            return;
 
-        _logger.LogInformation("{method}:{userId}", nameof(ReportWizardProfilesHome), Context.Interaction.User.Id);
+        IUserMessage message = component.Message;
 
-        // grab the database context
+        // Run the same CreateOrUpdateReportWizard, but pass the message to update in-place
+        await _botServices.CreateOrUpdateReportWizardWithExistingMessage(channel, message).ConfigureAwait(false);
+
+        // Acknowledge the button to prevent "interaction failed"
+        await component.DeferAsync().ConfigureAwait(false);
+    }
+
+    // Launcher for the Report Wizard
+    [ComponentInteraction("reports-profile-home:*")]
+    public async Task ProfileReportWizardHome(bool init = false)
+    {
+        // if the interaction was not valid, then return.
+        if (!init && !(await ValidateInteraction().ConfigureAwait(false))) return;
+
+        // Interaction was successful, so log it. 
+        _logger.LogInformation("{method}:{userId}", nameof(ProfileReportWizardHome), Context.Interaction.User.Id);
+
+        // fetch the database context to see if they already have a claimed account.
         using var db = await GetDbContext().ConfigureAwait(false);
-
         var reports = db.ReportedProfiles.ToList();
-
         var eb = new EmbedBuilder()
-            .WithTitle("⚠️Profile Reports")
+            .WithTitle("Profile Reports")
             .WithColor(Color.DarkRed)
-            .WithDescription(reports.Count is 0 ? "No active reports." : "📖 Select a report to review.");
+            .WithDescription(reports.Count is 0 ? "⚠️ No active reports." : "📖 Select a report to review.");
 
         var cb = new ComponentBuilder();
+        if (reports.Count > 0)
+        {
+            var select = new SelectMenuBuilder()
+                .WithCustomId("reports-profile-selector")
+                .WithPlaceholder("Select a report");
 
-        // Profile Report Selection.
-        var select = new SelectMenuBuilder()
-            .WithCustomId("wizard-reports-select")
-            .WithPlaceholder("Select a report");
+            foreach (var report in reports.Take(25))
+                select.AddOption(label: report.ReportedUserUID, value: $"{report.ReportID}", description: $"Reported by {report.ReportingUserUID}");
 
-        // The reportable profiles.
-        foreach (var report in reports)
-            select.AddOption(
-                label: report.ReportedUserUID,
-                value: $"{report.ReportID}",
-                description: $"Reported by {report.ReportingUserUID}");
-
-        // Add the selection menu and the home button.
-        AddHome(cb); 
-        cb.WithSelectMenu(select);
+            cb.WithSelectMenu(select); // only add if >0 options
+        }
 
         // if this message is being generated in response to the user pressing "Start" on the initial message,
         // send the message as an ephemeral message, meaning a reply personalized so only the user can see it.
@@ -90,18 +99,17 @@ public partial class ReportWizard : InteractionModuleBase
         {
             await RespondAsync(embed: eb.Build(), components: cb.Build(), ephemeral: true).ConfigureAwait(false);
             IUserMessage resp = await GetOriginalResponseAsync().ConfigureAwait(false);
-            // store the content message of the original response with the user's ID as the key in the concurrent dictionary of valid interactions.
+            // Validate the interaction for this user as their current ephemeral interaction.
             _botServices.ValidInteractions[Context.User.Id] = resp.Id;
-            _logger.LogInformation($"Init Msg: {resp.Id}");
+            _logger.LogInformation($"Emphemeral Interaction Started: {resp.Id}");
         }
-        // otherwise, if we are revisiting the homepage but the embed was already made, simply modify the interaction.
         else
         {
             await ModifyInteraction(eb, cb).ConfigureAwait(false);
         }
     }
 
-    [ComponentInteraction("reportwizard-profiles-select")]
+    [ComponentInteraction("reports-profile-selector")]
     public async Task SelectionProfileReport(string id)
     {
         if (!await ValidateInteraction().ConfigureAwait(false))
@@ -128,9 +136,9 @@ public partial class ReportWizard : InteractionModuleBase
             await RenderProfileReport(eb, reportData, attachments, streamsToDispose).ConfigureAwait(false);
 
             AddProfileReportActionSelector(cb, reportId);
-            AddHome(cb);
+            AddProfileHome(cb);
 
-            await ModifyInteraction(eb, cb).ConfigureAwait(false);
+            await ModifyInteraction(eb, cb, attachments).ConfigureAwait(false);
         }
         finally
         {
@@ -173,6 +181,8 @@ public partial class ReportWizard : InteractionModuleBase
         // Conditionally add the reported snapshot image
         if (!string.IsNullOrEmpty(data.Report.SnapshotImage))
         {
+            eb.AddField("Snapshotted Image", "ProfilePic at the time of the report." +
+                "\nTop-Right Image is how it's displayed now.");
             var reportedImgName = $"{data.Report.ReportedUserUID}_profile_reported_{Guid.NewGuid().ToString("N")}.png";
 
             var reportedImageStream = new MemoryStream(Convert.FromBase64String(data.Report.SnapshotImage));
@@ -197,19 +207,19 @@ public partial class ReportWizard : InteractionModuleBase
     // Helper to add action buttons to the report
     private void AddProfileReportActionSelector(ComponentBuilder cb, int reportId)
     {
-        cb.WithButton("Dismiss Report", customId: $"report-profile-action-dismiss-{reportId}", style: ButtonStyle.Primary);
-        cb.WithButton("Strike Profile Viewing", customId: $"report-profile-action-strike-viewing-{reportId}", style: ButtonStyle.Secondary);
-        cb.WithButton("Strike Profile Editing", customId: $"report-profile-action-strike-editing-{reportId}", style: ButtonStyle.Secondary);
-        cb.WithButton("Ban Profile Viewing", customId: $"report-profile-action-ban-viewing-{reportId}", style: ButtonStyle.Danger);
-        cb.WithButton("Ban Profile Viewing", customId: $"report-profile-action-ban-editing-{reportId}", style: ButtonStyle.Danger);
+        cb.WithButton("Dismiss", customId: $"report-profile-action-dismiss-{reportId}", style: ButtonStyle.Primary);
+        cb.WithButton("Strike Viewing", customId: $"report-profile-action-strike-viewing-{reportId}", style: ButtonStyle.Secondary);
+        cb.WithButton("Strike Editing", customId: $"report-profile-action-strike-editing-{reportId}", style: ButtonStyle.Secondary);
+        cb.WithButton("Ban Viewing", customId: $"report-profile-action-ban-viewing-{reportId}", style: ButtonStyle.Danger);
+        cb.WithButton("Ban Editing", customId: $"report-profile-action-ban-editing-{reportId}", style: ButtonStyle.Danger);
         cb.WithButton("Flag Reporter", customId: $"report-profile-action-flag-reporter-{reportId}", style: ButtonStyle.Danger);
     }
 
     private void AddChatReportActionSelector(ComponentBuilder cb, int reportId)
     {
-        cb.WithButton("Dismiss Report", customId: $"report-chat-action-dismiss-{reportId}", style: ButtonStyle.Primary);
-        cb.WithButton("Strike Chat Usage", customId: $"report-chat-action-strike-{reportId}", style: ButtonStyle.Secondary);
-        cb.WithButton("Ban Chat Usage", customId: $"report-chat-action-ban-{reportId}", style: ButtonStyle.Danger);
+        cb.WithButton("Dismiss", customId: $"report-chat-action-dismiss-{reportId}", style: ButtonStyle.Primary);
+        cb.WithButton("Strike Usage", customId: $"report-chat-action-strike-{reportId}", style: ButtonStyle.Secondary);
+        cb.WithButton("Ban Usage", customId: $"report-chat-action-ban-{reportId}", style: ButtonStyle.Danger);
         cb.WithButton("Flag Reporter", customId: $"report-chat-action-flag-reporter-{reportId}", style: ButtonStyle.Danger);
     }
 
@@ -233,6 +243,10 @@ public partial class ReportWizard : InteractionModuleBase
             await RespondAsync("Report not found.", ephemeral: true).ConfigureAwait(false);
             return;
         }
+
+        // Clear the profile flag
+        if (await db.ProfileData.SingleOrDefaultAsync(p => p.UserUID == report.ReportedUserUID).ConfigureAwait(false) is { } profile)
+            profile.FlaggedForReport = false;
 
         // Remove the report from the database without taking any actions.
         db.Remove(report);
@@ -306,7 +320,6 @@ public partial class ReportWizard : InteractionModuleBase
         {
             profile.Base64ProfilePic = string.Empty;
             profile.Description = string.Empty;
-            profile.ProfileDisabled = true;
             profile.FlaggedForReport = false;
         }
 
