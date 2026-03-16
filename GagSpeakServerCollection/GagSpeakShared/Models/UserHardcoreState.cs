@@ -1,10 +1,9 @@
-using GagspeakAPI.Data.Permissions;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 
-public class HardcoreState : IReadOnlyHardcoreState
+public class UserHardcoreState
 {
     [Key]
     public string UserUID { get; set; }

@@ -391,7 +391,7 @@ public class Startup
             MetricsAPI.GaugeShareHubPatterns,
             MetricsAPI.GaugeShareHubMoodles,
             MetricsAPI.GaugePatternLikes,
-            MetricsAPI.GaugeMoodleLikes,
+            MetricsAPI.GaugeLociLikes,
 
             MetricsAPI.GaugePendingKinksterRequests,
             MetricsAPI.GaugePendingCollarRequests,

@@ -53,10 +53,10 @@ public class Program
 
             metrics.SetGaugeTo(MetricsAPI.GaugeUsersRegistered, context.Users.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugePairs, context.ClientPairs.AsNoTracking().Count());
-            metrics.SetGaugeTo(MetricsAPI.GaugePatternLikes, context.LikesPatterns.AsNoTracking().Count());
-            metrics.SetGaugeTo(MetricsAPI.GaugeMoodleLikes, context.LikesMoodles.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugePatternLikes, context.PatternLikes.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugeLociLikes, context.LociStatusLikes.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugeShareHubPatterns, context.Patterns.AsNoTracking().Count());
-            metrics.SetGaugeTo(MetricsAPI.GaugeShareHubMoodles, context.Moodles.AsNoTracking().Count());
+            metrics.SetGaugeTo(MetricsAPI.GaugeShareHubMoodles, context.LociStatuses.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugePendingKinksterRequests, context.PairRequests.AsNoTracking().Count());
             metrics.SetGaugeTo(MetricsAPI.GaugePendingCollarRequests, context.CollarRequests.AsNoTracking().Count());
         }

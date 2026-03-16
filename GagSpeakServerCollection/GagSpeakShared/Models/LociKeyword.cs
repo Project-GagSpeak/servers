@@ -6,13 +6,13 @@ namespace GagspeakShared.Models;
 /// <summary>
 /// Associates the Stores relationships between patterns and keywords
 /// </summary>
-public class MoodleKeyword
+public class LociKeyword
 {
     [Key]
     [Required]  // Foreign key is required
     public Guid MoodleStatusId { get; set; }
     [ForeignKey(nameof(MoodleStatusId))]
-    public MoodleStatus MoodleStatus { get; set; } = null!;
+    public LociStatus MoodleStatus { get; set; } = null!;
 
     [Required]
     [MaxLength(30)]

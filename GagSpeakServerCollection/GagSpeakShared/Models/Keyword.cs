@@ -13,6 +13,6 @@ public class Keyword
     public string Word { get; set; }
 
     // Relationships
-    public ICollection<MoodleKeyword> MoodleKeywords { get; set; } = new List<MoodleKeyword>();
+    public ICollection<LociKeyword> MoodleKeywords { get; set; } = new List<LociKeyword>();
     public ICollection<PatternKeyword> PatternKeywords { get; set; } = new List<PatternKeyword>();
 }

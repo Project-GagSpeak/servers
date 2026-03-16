@@ -84,8 +84,8 @@ public static class SharedDbFunctions
         // Collar Owners.
         var collarLinks = await dbContext.CollarOwners.Where(u => u.OwnerUID == user.UID || u.CollaredUserUID == user.UID).ToListAsync().ConfigureAwait(false);
         // ShareHub
-        var likesPatterns = await dbContext.LikesPatterns.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
-        var likesMoodles = await dbContext.LikesMoodles.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var likesPatterns = await dbContext.PatternLikes.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
+        var likesMoodles = await dbContext.LociStatusLikes.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         // Profile-Related
         var achievementData = await dbContext.AchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
         var userProfileData = await dbContext.ProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
@@ -140,7 +140,7 @@ public static class SharedDbFunctions
 
         // Create all other necessary tables for the user now that it is added successfully.
         await dbContext.GlobalPermissions.AddAsync(new GlobalPermissions { UserUID = user.UID }).ConfigureAwait(false);
-        await dbContext.HardcoreState.AddAsync(new HardcoreState { UserUID = user.UID }).ConfigureAwait(false);
+        await dbContext.HardcoreState.AddAsync(new UserHardcoreState { UserUID = user.UID }).ConfigureAwait(false);
 
         // Add UserGagData (3 layers: 0, 1, 2)
         for (byte layer = 0; layer < 3; layer++)
@@ -177,7 +177,7 @@ public static class SharedDbFunctions
 
         // Create all other necessary tables for the user now that it is added successfully.
         await dbContext.GlobalPermissions.AddAsync(new GlobalPermissions { UserUID = user.UID }).ConfigureAwait(false);
-        await dbContext.HardcoreState.AddAsync(new HardcoreState { UserUID = user.UID }).ConfigureAwait(false);
+        await dbContext.HardcoreState.AddAsync(new UserHardcoreState { UserUID = user.UID }).ConfigureAwait(false);
 
         // Add UserGagData (3 layers: 0, 1, 2)
         for (byte layer = 0; layer < 3; layer++)

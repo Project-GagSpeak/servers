@@ -59,10 +59,10 @@ public class PairPermissionAccess
     public bool PuppeteerEnabledAllowed             { get; set; } = false; // Global
     public PuppetPerms PuppetPermsAllowed           { get; set; } = PuppetPerms.None;
 
-    // Moodles
-    public bool MoodlesEnabledAllowed               { get; set; } = false; // Global
-    public MoodleAccess MoodleAccessAllowed         { get; set; } = MoodleAccess.None;
-    public bool MaxMoodleTimeAllowed                { get; set; } = false; 
+    // Loci
+    public bool LociEnabledAllowed                  { get; set; } = false; // Global
+    public LociAccess LociAccessAllowed             { get; set; } = LociAccess.None;
+    public bool MaxLociTimeAllowed                  { get; set; } = false;
 
     // Misc.
     public bool HypnosisMaxTimeAllowed              { get; set; } = false;

@@ -48,21 +48,22 @@ public class UserCleanupService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken ct)
     {
         // Do once only.
-        using (GagspeakDbContext dbContext = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
+        using (GagspeakDbContext db = await _dbContextFactory.CreateDbContextAsync(ct).ConfigureAwait(false))
         {
-            var legacyStatuses = await dbContext.Moodles.Where(m => m.Version == 0).ToListAsync().ConfigureAwait(false);
-            if (legacyStatuses.Count == 0)
+            // Update all statuses from v2 to v3, if they exist. This ports them to LociStatusInfo
+            var outdatedStatuses = await db.LociStatuses.Where(m => m.Version < 3).ToListAsync().ConfigureAwait(false);
+            if (outdatedStatuses.Count == 0)
                 return;
 
             // Migrate.
-            foreach (var legacy in legacyStatuses)
+            foreach (var legacy in outdatedStatuses)
             {
-                legacy.Version = 2;
-                if (legacy.Dispelable) legacy.Modifiers |= GagspeakAPI.Modifiers.CanDispel;
-                if (legacy.StackOnReapply) legacy.Modifiers |= GagspeakAPI.Modifiers.StacksIncrease;
+                legacy.Version = 3;
+                legacy.StackToChain = 1;
+                legacy.ChainType = 0;
             }
-            await dbContext.SaveChangesAsync().ConfigureAwait(false);
-            _logger.LogInformation($"Migrated {legacyStatuses.Count} legacy moodles.");
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            _logger.LogWarning($"Migrated {outdatedStatuses.Count} legacy Moodle formats to LociStatus format.");
         }
 
         while (!ct.IsCancellationRequested)

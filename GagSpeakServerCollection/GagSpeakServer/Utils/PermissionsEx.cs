@@ -1,4 +1,5 @@
-﻿using GagspeakAPI.Attributes;
+﻿using GagspeakAPI;
+using GagspeakAPI.Attributes;
 using GagspeakAPI.Data;
 using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Network;
@@ -60,7 +61,7 @@ public static class PermissionsEx
             Visuals = data.Visuals,
             Dye1 = data.Dye1,
             Dye2 = data.Dye2,
-            Moodle = MoodleConverter.FromValues(data.MoodleId, data.MoodleIconId, data.MoodleTitle, data.MoodleDescription, data.MoodleType, data.MoodleVFXPath),
+            StatusInfo = LociConverter.FromValues(data.LociStatusId, data.LociIconId, data.LociTitle, data.LociDescription, data.LociDataType, data.LociVFXPath),
             Writing = data.Writing
         };
     }
@@ -175,9 +176,9 @@ public static class PermissionsEx
         return dbState;
     }
 
-    public static HardcoreStatus ToApi(this HardcoreState? dbState)
+    public static HardcoreState ToApi(this UserHardcoreState? dbState)
     {
-        var apiState = new HardcoreStatus();
+        var apiState = new HardcoreState();
         if (dbState is null)
             return apiState;
 
@@ -218,7 +219,7 @@ public static class PermissionsEx
         return apiState;
     }
 
-    public static HardcoreState ToModel(this HardcoreStatus apiState, HardcoreState current)
+    public static UserHardcoreState ToModel(this HardcoreState apiState, UserHardcoreState current)
     {
         if (apiState is null)
             return current;
@@ -259,6 +260,39 @@ public static class PermissionsEx
         current.HypnoticEffect = apiState.HypnoticEffect;
         current.HypnoticEffectTimer = apiState.HypnoticEffectTimer;
         return current;
+    }
+
+    // Idk just leave this here for now until weget something figured out.
+    public static bool IsEnabled(this UserHardcoreState hs, HcAttribute attribute)
+        => attribute switch
+        {
+            HcAttribute.Follow => !string.IsNullOrEmpty(hs.LockedFollowing),
+            HcAttribute.EmoteState => !string.IsNullOrEmpty(hs.LockedEmoteState),
+            HcAttribute.Confinement => !string.IsNullOrEmpty(hs.IndoorConfinement),
+            HcAttribute.Imprisonment => !string.IsNullOrEmpty(hs.Imprisonment),
+            HcAttribute.HiddenChatBox => !string.IsNullOrEmpty(hs.ChatBoxesHidden),
+            HcAttribute.HiddenChatInput => !string.IsNullOrEmpty(hs.ChatInputHidden),
+            HcAttribute.BlockedChatInput => !string.IsNullOrEmpty(hs.ChatInputBlocked),
+            HcAttribute.HypnoticEffect => !string.IsNullOrEmpty(hs.HypnoticEffect),
+            _ => true,
+        };
+
+    // Just comply until we rework hardcore... if it works it works, for now...
+    public static bool CanChange(this UserHardcoreState hs, HcAttribute attribute, string kinksterUid)
+    {
+        var curState = attribute switch
+        {
+            HcAttribute.Follow => hs.LockedFollowing,
+            HcAttribute.EmoteState => hs.LockedEmoteState,
+            HcAttribute.Confinement => hs.IndoorConfinement,
+            HcAttribute.Imprisonment => hs.Imprisonment,
+            HcAttribute.HiddenChatBox => hs.ChatBoxesHidden,
+            HcAttribute.HiddenChatInput => hs.ChatInputHidden,
+            HcAttribute.BlockedChatInput => hs.ChatInputBlocked,
+            HcAttribute.HypnoticEffect => hs.HypnoticEffect,
+            _ => throw new NotImplementedException(),
+        };
+        return curState.EndsWith(Constants.DevotedString, StringComparison.Ordinal) ? curState.Split('|')[0].Equals(kinksterUid) : true;
     }
 
     public static PairPerms ToApi(this PairPermissions? dbState)
@@ -303,8 +337,8 @@ public static class PermissionsEx
         apiPerms.EndChar = dbState.EndChar;
         apiPerms.PuppetPerms = dbState.PuppetPerms;
 
-        apiPerms.MoodleAccess = dbState.MoodleAccess;
-        apiPerms.MaxMoodleTime = dbState.MaxMoodleTime;
+        apiPerms.LociAccess = dbState.LociAccess;
+        apiPerms.MaxLociTime = dbState.MaxLociTime;
 
         apiPerms.MaxHypnosisTime = dbState.MaxHypnosisTime;
         apiPerms.HypnoEffectSending = dbState.HypnoEffectSending;
@@ -379,8 +413,8 @@ public static class PermissionsEx
         dbState.EndChar = apiPerms.EndChar;
         dbState.PuppetPerms = apiPerms.PuppetPerms;
 
-        dbState.MoodleAccess = apiPerms.MoodleAccess;
-        dbState.MaxMoodleTime = apiPerms.MaxMoodleTime;
+        dbState.LociAccess = apiPerms.LociAccess;
+        dbState.MaxLociTime = apiPerms.MaxLociTime;
 
         dbState.MaxHypnosisTime = apiPerms.MaxHypnosisTime;
         dbState.HypnoEffectSending = apiPerms.HypnoEffectSending;
@@ -458,9 +492,9 @@ public static class PermissionsEx
         apiPerms.PuppeteerEnabledAllowed = dbState.PuppeteerEnabledAllowed;
         apiPerms.PuppetPermsAllowed = dbState.PuppetPermsAllowed;
 
-        apiPerms.MoodlesEnabledAllowed = dbState.MoodlesEnabledAllowed;
-        apiPerms.MoodleAccessAllowed = dbState.MoodleAccessAllowed;
-        apiPerms.MaxMoodleTimeAllowed = dbState.MaxMoodleTimeAllowed;
+        apiPerms.LociEnabledAllowed = dbState.LociEnabledAllowed;
+        apiPerms.LociAccessAllowed = dbState.LociAccessAllowed;
+        apiPerms.MaxLociTimeAllowed = dbState.MaxLociTimeAllowed;
 
         apiPerms.HypnosisMaxTimeAllowed = dbState.HypnosisMaxTimeAllowed;
         apiPerms.HypnosisSendingAllowed = dbState.HypnosisSendingAllowed;
@@ -518,9 +552,9 @@ public static class PermissionsEx
         dbState.PuppeteerEnabledAllowed = apiPerms.PuppeteerEnabledAllowed;
         dbState.PuppetPermsAllowed = apiPerms.PuppetPermsAllowed;
 
-        dbState.MoodlesEnabledAllowed = apiPerms.MoodlesEnabledAllowed;
-        dbState.MoodleAccessAllowed = apiPerms.MoodleAccessAllowed;
-        dbState.MaxMoodleTimeAllowed = apiPerms.MaxMoodleTimeAllowed;
+        dbState.LociEnabledAllowed = apiPerms.LociEnabledAllowed;
+        dbState.LociAccessAllowed = apiPerms.LociAccessAllowed;
+        dbState.MaxLociTimeAllowed = apiPerms.MaxLociTimeAllowed;
 
         dbState.HypnosisMaxTimeAllowed = apiPerms.HypnosisMaxTimeAllowed;
         dbState.HypnosisSendingAllowed = apiPerms.HypnosisSendingAllowed;

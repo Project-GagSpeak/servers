@@ -326,15 +326,15 @@ public partial class GagspeakHub
                 collar.Dye2 = dto.Dye2;
                 break;
 
-            case DataUpdateType.CollarMoodleChange:
-                if (!collar.EditAccess.HasAny(CollarAccess.Moodle))
+            case DataUpdateType.CollarLociDataChange:
+                if (!collar.EditAccess.HasAny(CollarAccess.LociData))
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new CharaActiveCollar());
-                collar.MoodleId = dto.Moodle.GUID;
-                collar.MoodleIconId = dto.Moodle.IconID;
-                collar.MoodleTitle = dto.Moodle.Title;
-                collar.MoodleDescription = dto.Moodle.Description;
-                collar.MoodleType = dto.Moodle.Type;
-                collar.MoodleVFXPath = dto.Moodle.CustomVFXPath;
+                collar.LociStatusId = dto.StatusInfo.GUID;
+                collar.LociIconId = dto.StatusInfo.IconID;
+                collar.LociTitle = dto.StatusInfo.Title;
+                collar.LociDescription = dto.StatusInfo.Description;
+                collar.LociDataType = dto.StatusInfo.Type;
+                collar.LociVFXPath = dto.StatusInfo.CustomVFXPath;
                 break;
 
             case DataUpdateType.CollarWritingChange:
@@ -349,12 +349,12 @@ public partial class GagspeakHub
                 collar.Visuals = true; // reset visuals to true.
                 collar.Dye1 = 0; // reset dye1 to default.
                 collar.Dye2 = 0; // reset dye2 to default.
-                collar.MoodleId = Guid.Empty; // reset moodle to default.
-                collar.MoodleIconId = 0; // reset moodle icon to default.
-                collar.MoodleTitle = string.Empty; // reset moodle title to default.
-                collar.MoodleDescription = string.Empty; // reset moodle description to default.
-                collar.MoodleType = StatusType.Positive; // reset moodle type to default.
-                collar.MoodleVFXPath = string.Empty; // reset moodle vfx path to default.
+                collar.LociStatusId = Guid.Empty;
+                collar.LociIconId = 0;
+                collar.LociTitle = string.Empty;
+                collar.LociDescription = string.Empty; 
+                collar.LociDataType = 0; 
+                collar.LociVFXPath = string.Empty;
                 collar.Writing = string.Empty; // reset writing to default.
                 collar.EditAccess = CollarAccess.None; // reset edit access to none.
                 collar.OwnerEditAccess = CollarAccess.None; // reset owner edit access to none.
@@ -570,19 +570,19 @@ public partial class GagspeakHub
     {
         // Cannot update anyone but self.
         if (!string.Equals(dto.User.UID, UserUID, StringComparison.Ordinal))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new ClientGlobals(new GlobalPerms(), new GagspeakAPI.Data.Permissions.HardcoreStatus()));
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient, new ClientGlobals(new(), new()));
 
         // Globals must exist
         if (await DbContext.GlobalPermissions.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } globals)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new GagspeakAPI.Data.Permissions.HardcoreStatus()));
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new(), new()));
 
         // HardcoreState must exist.
         if (await DbContext.HardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hardcoreState)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new GlobalPerms(), new GagspeakAPI.Data.Permissions.HardcoreStatus()));
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new ClientGlobals(new(), new()));
 
         // Update the permissions to the new values.
-        GlobalPermissions newGlobals = dto.NewPerms.ToModel(globals);
-        HardcoreState newHardcore = dto.NewState.ToModel(hardcoreState);
+        var newGlobals = dto.NewPerms.ToModel(globals);
+        var newHardcore = dto.NewState.ToModel(hardcoreState);
         DbContext.Update(newGlobals);
         DbContext.Update(newHardcore);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -615,8 +615,8 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);
 
         // Set, Update, & Save.
-        PairPermissions newPairPerms = dto.NewPerms.ToModel(pairPerms);
-        PairPermissionAccess newPairAccess = dto.NewAccess.ToModel(pairAccess);
+        var newPairPerms = dto.NewPerms.ToModel(pairPerms);
+        var newPairAccess = dto.NewAccess.ToModel(pairAccess);
         DbContext.Update(newPairPerms);
         DbContext.Update(newPairAccess);
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
@@ -708,20 +708,20 @@ public partial class GagspeakHub
     // hacky with it and break things client side, this can easily be embedded into
     // a cleanup task server-side, (but also, it is necessary for safeword maybe?)
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse<HardcoreStatus>> UserHardcoreAttributeExpired(HardcoreAttributeExpired dto)
+    public async Task<HubResponse<HardcoreState>> UserHardcoreAttributeExpired(HardcoreAttributeExpired dto)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(dto));
         // Hardcore State must exist.
         if (await DbContext.HardcoreState.SingleOrDefaultAsync(u => u.UserUID == UserUID).ConfigureAwait(false) is not { } hcState)
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new GagspeakAPI.Data.Permissions.HardcoreStatus());
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData, new HardcoreState());
 
         // Attribute MUST be enabled, because we should only disable.
         if (!hcState.IsEnabled(dto.Attribute))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState, new GagspeakAPI.Data.Permissions.HardcoreStatus());
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidDataState, new HardcoreState());
 
         // Must be able to change (we can fake this with auto-unlock-service so dont worry)
         if (!hcState.CanChange(dto.Attribute, dto.Enactor.UID))
-            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new GagspeakAPI.Data.Permissions.HardcoreStatus());
+            return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions, new HardcoreState());
 
         switch (dto.Attribute)
         {
@@ -773,7 +773,7 @@ public partial class GagspeakHub
                 break;
 
             default:
-                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new GagspeakAPI.Data.Permissions.HardcoreStatus());
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new HardcoreState());
 
         }
 

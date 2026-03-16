@@ -27,7 +27,7 @@ public class MetricsAPI
     public const string CounterUploadedMoodles = "gagspeak_uploaded_moodles";
     public const string CounterPatternDownloads = "gagspeak_pattern_downloads";
     public const string GaugePatternLikes = "gagspeak_pattern_likes";
-    public const string GaugeMoodleLikes = "gagspeak_moodle_likes";
+    public const string GaugeLociLikes = "gagspeak_moodle_likes";
     public const string CounterShareHubSearches = "gagspeak_sharehub_searches";
 
     // Chat & KinkPlates™.

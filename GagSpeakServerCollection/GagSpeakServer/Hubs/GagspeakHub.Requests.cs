@@ -43,7 +43,7 @@ public partial class GagspeakHub
         var callerUser = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // create a new KinksterPairRequest object, and add it to the database.
-        PairRequest newRequest = new PairRequest()
+        var newRequest = new PairRequest()
         {
             User = callerUser,
             OtherUser = target,
@@ -61,8 +61,8 @@ public partial class GagspeakHub
         var callbackDto = newRequest.ToApi();
 
         // If the target user's UID is in the redis DB, send them the pending request.
-        if (await GetUserIdent(uid).ConfigureAwait(false) is not null)
-            await Clients.User(uid).Callback_AddPairRequest(callbackDto).ConfigureAwait(false);
+        if (await GetUserIdent(target.UID).ConfigureAwait(false) is not null)
+            await Clients.User(target.UID).Callback_AddPairRequest(callbackDto).ConfigureAwait(false);
 
         _metrics.IncCounter(MetricsAPI.CounterKinksterRequestsCreated);
         _metrics.IncGauge(MetricsAPI.GaugePendingKinksterRequests);
@@ -342,7 +342,7 @@ public partial class GagspeakHub
         var caller = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // create new Collar Request, add to DB, then sync.
-        CollaringRequest request = new CollaringRequest()
+        var request = new CollaringRequest()
         {
             User = caller,
             OtherUser = otherUser,
@@ -385,7 +385,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.CollarRequestNotFound);
 
         // Get User of person requesting change.
-        User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
 
         // get the request to remove as a dto.
         var toRemove = PermissionsEx.CollarRequestRemoval(user.ToUserData(), otherUser.ToUserData());
@@ -425,7 +425,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.CollarRequestNotFound);
 
         // Get User of person requesting change.
-        User user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        var user = await DbContext.Users.SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
         var recipientCollar = await DbContext.ActiveCollarData.SingleOrDefaultAsync(c => c.UserUID == UserUID).ConfigureAwait(false);
         if (recipientCollar is null)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NullData);

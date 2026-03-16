@@ -17,38 +17,29 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub
 {
     [Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushMoodlesFull(PushMoodlesFull dto)
-	{
-		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_MoodleDataUpdated(new(new(UserUID), dto.NewData)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferFull);
+    public async Task<HubResponse> UserPushLociData(PushLociData dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_LociDataUpdated(new(new(UserUID), dto.Data)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterMoodleTransferFull);
 		return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushMoodlesSM(PushMoodlesSM dto)
-	{
-		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_MoodleSMUpdated(new(new(UserUID), dto.DataString, dto.DataInfo)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferSM);
+    public async Task<HubResponse> UserPushLociStatuses(PushLociStatuses dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_LociStatusesUpdate(new(new(UserUID), dto.Statuses)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterMoodleTransferStatus);
 		return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushMoodlesStatuses(PushMoodlesStatuses dto)
-	{
-		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_MoodleStatusesUpdate(new(new(UserUID), dto.Statuses)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferStatus);
-		return HubResponseBuilder.Yippee();
-	}
-
-	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserPushMoodlesPresets(PushMoodlesPresets dto)
-	{
-		var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_MoodlePresetsUpdate(new(new(UserUID), dto.Presets)).ConfigureAwait(false);
-		_metrics.IncCounter(MetricsAPI.CounterMoodleTransferPreset);
+    public async Task<HubResponse> UserPushLociPresets(PushLociPresets dto)
+    {
+        var recipientUids = dto.Recipients.Select(r => r.UID);
+        await Clients.Users(recipientUids).Callback_LociPresetsUpdate(new(new(UserUID), dto.Presets)).ConfigureAwait(false);
+        _metrics.IncCounter(MetricsAPI.CounterMoodleTransferPreset);
 		return HubResponseBuilder.Yippee();
 	}
 
@@ -56,7 +47,7 @@ public partial class GagspeakHub
     public async Task<HubResponse> UserPushStatusModified(PushStatusModified dto)
     {
         var recipientUids = dto.Recipients.Select(r => r.UID);
-        await Clients.Users(recipientUids).Callback_MoodleStatusModified(new(new(UserUID), dto.Status, dto.Deleted)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_LociStatusModified(new(new(UserUID), dto.Status, dto.Deleted)).ConfigureAwait(false);
         return HubResponseBuilder.Yippee();
     }
 
@@ -64,66 +55,63 @@ public partial class GagspeakHub
     public async Task<HubResponse> UserPushPresetModified(PushPresetModified dto)
     {
         var recipientUids = dto.Recipients.Select(r => r.UID);
-		await Clients.Users(recipientUids).Callback_MoodlePresetModified(new(new(UserUID), dto.Preset, dto.Deleted)).ConfigureAwait(false);
+        await Clients.Users(recipientUids).Callback_LociPresetModified(new(new(UserUID), dto.Preset, dto.Deleted)).ConfigureAwait(false);
         _metrics.IncCounter(MetricsAPI.CounterMoodleTransferPreset);
         return HubResponseBuilder.Yippee();
     }
 
     [Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserApplyMoodlesByGuid(ApplyMoodleId dto)
+	public async Task<HubResponse> UserApplyLociData(ApplyLociDataById dto)
 	{
 		// Must be paired.
 		if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } perms)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
 		// Must have permission.
-		if ((perms.MoodleAccess & MoodleAccess.AllowOwn) == MoodleAccess.None)
+		if ((perms.LociAccess & LociAccess.AllowOwn) == LociAccess.None)
 			return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
 		// Apply it to them.
-		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByGuid(new(new(UserUID), dto.Ids, dto.IsPresets, dto.LockIds)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Callback_LociApplyDataById(new(new(UserUID), dto.Ids, dto.IsPresets, dto.LockIds)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesAppliedId);
 		return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserApplyMoodlesByStatus(ApplyMoodleStatus dto)
+	public async Task<HubResponse> UserApplyLociStatusTuples(ApplyLociStatus dto)
 	{
         if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
         // Must have permission.
-        if (!pairPerms.MoodleAccess.HasAny(MoodleAccess.AllowOther))
+        if (!pairPerms.LociAccess.HasAny(LociAccess.AllowOther))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-		// If someone applies this via Moodles, Moodles does its own internal check before sending.
-		// If sent from GagSpeak, it also does it's own check.
-		// So there is no reason to check permissions, we can do one on the recieving client as a failsafe, but not much reason to do so here.
-		await Clients.User(dto.User.UID).Callback_ApplyMoodlesByStatus(new(new(UserUID), dto.Statuses, dto.LockIds)).ConfigureAwait(false);
+		await Clients.User(dto.User.UID).Callback_LociApplyStatus(new(new(UserUID), dto.Statuses, dto.LockIds)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesAppliedStatus);
         return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserRemoveMoodles(RemoveMoodleId dto)
+	public async Task<HubResponse> UserRemoveLociData(RemoveLociData dto)
 	{
         if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
 
-        await Clients.User(dto.User.UID).Callback_RemoveMoodles(new(new(UserUID), dto.Ids)).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_LociRemoveData(new(new(UserUID), dto.Ids)).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesRemoved);
         return HubResponseBuilder.Yippee();
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserClearMoodles(KinksterBase dto)
+	public async Task<HubResponse> UserClearLociData(KinksterBase dto)
 	{
         if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);
         // Must have permission.
-        if (!pairPerms.MoodleAccess.HasAny(MoodleAccess.Clearing))
+        if (!pairPerms.LociAccess.HasAny(LociAccess.Clearing))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-        await Clients.User(dto.User.UID).Callback_ClearMoodles(new(new(UserUID))).ConfigureAwait(false);
+        await Clients.User(dto.User.UID).Callback_LociClearData(new(new(UserUID))).ConfigureAwait(false);
 		_metrics.IncCounter(MetricsAPI.CounterMoodlesCleared);
         return HubResponseBuilder.Yippee();
 	}

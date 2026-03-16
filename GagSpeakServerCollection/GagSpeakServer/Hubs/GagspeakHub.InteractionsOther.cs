@@ -482,15 +482,15 @@ public partial class GagspeakHub
                 collar.Dye2 = dto.Dye2;
                 break;
 
-            case DataUpdateType.CollarMoodleChange:
-                if (!collar.OwnerEditAccess.HasAny(CollarAccess.Moodle))
+            case DataUpdateType.CollarLociDataChange:
+                if (!collar.OwnerEditAccess.HasAny(CollarAccess.LociData))
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
-                collar.MoodleId = dto.Moodle.GUID;
-                collar.MoodleIconId = dto.Moodle.IconID;
-                collar.MoodleTitle = dto.Moodle.Title;
-                collar.MoodleDescription = dto.Moodle.Description;
-                collar.MoodleType = dto.Moodle.Type;
-                collar.MoodleVFXPath = dto.Moodle.CustomVFXPath;
+                collar.LociStatusId = dto.LociStatus.GUID;
+                collar.LociIconId = dto.LociStatus.IconID;
+                collar.LociTitle = dto.LociStatus.Title;
+                collar.LociDescription = dto.LociStatus.Description;
+                collar.LociDataType = dto.LociStatus.Type;
+                collar.LociVFXPath = dto.LociStatus.CustomVFXPath;
                 break;
 
             case DataUpdateType.CollarWritingChange:
@@ -505,12 +505,12 @@ public partial class GagspeakHub
                 collar.Visuals = true; // reset visuals to true.
                 collar.Dye1 = 0; // reset dye1 to default.
                 collar.Dye2 = 0; // reset dye2 to default.
-                collar.MoodleId = Guid.Empty; // reset moodle to default.
-                collar.MoodleIconId = 0; // reset moodle icon to default.
-                collar.MoodleTitle = string.Empty; // reset moodle title to default.
-                collar.MoodleDescription = string.Empty; // reset moodle description to default.
-                collar.MoodleType = StatusType.Positive; // reset moodle type to default.
-                collar.MoodleVFXPath = string.Empty; // reset moodle vfx path to default.
+                collar.LociStatusId = Guid.Empty;
+                collar.LociIconId = 0;
+                collar.LociTitle = string.Empty;
+                collar.LociDescription = string.Empty;
+                collar.LociDataType = 0;
+                collar.LociVFXPath = string.Empty;
                 collar.Writing = string.Empty; // reset writing to default.
                 collar.EditAccess = CollarAccess.None; // reset edit access to none.
                 collar.OwnerEditAccess = CollarAccess.None; // reset owner edit access to none.
@@ -691,6 +691,7 @@ public partial class GagspeakHub
         return HubResponseBuilder.Yippee();
     }
 
+    // Definitely rework this better later... It has horrible structure right now.
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserChangeOtherHardcoreState(HardcoreStateChange dto)
     {

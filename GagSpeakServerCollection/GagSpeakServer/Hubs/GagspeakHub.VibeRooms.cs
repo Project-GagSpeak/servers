@@ -67,7 +67,7 @@ public partial class GagspeakHub
         }
 
         // 4. (Optional) Sort/filter as needed
-        if (dto.Order is HubDirection.Descending)
+        if (dto.Order is SortDirection.Descending)
             listings = listings.OrderByDescending(x => x.CurrentParticipants).ToList();
         else
             listings = listings.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToList();

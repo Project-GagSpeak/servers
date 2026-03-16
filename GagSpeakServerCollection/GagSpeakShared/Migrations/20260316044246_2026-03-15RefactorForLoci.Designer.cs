@@ -3,6 +3,7 @@ using System;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GagSpeakShared.Migrations
 {
     [DbContext(typeof(GagspeakDbContext))]
-    partial class GagspeakDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260316044246_2026-03-15RefactorForLoci")]
+    partial class _20260315RefactorForLoci
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -433,15 +436,15 @@ namespace GagSpeakShared.Migrations
                         .HasColumnName("loci_status_id");
 
                     b.HasKey("UserUID", "LociStatusId")
-                        .HasName("pk_likes_loci");
+                        .HasName("pk_likes_moodles");
 
                     b.HasIndex("LociStatusId")
-                        .HasDatabaseName("ix_likes_loci_loci_status_id");
+                        .HasDatabaseName("ix_likes_moodles_loci_status_id");
 
                     b.HasIndex("UserUID")
-                        .HasDatabaseName("ix_likes_loci_user_uid");
+                        .HasDatabaseName("ix_likes_moodles_user_uid");
 
-                    b.ToTable("likes_loci", (string)null);
+                    b.ToTable("likes_moodles", (string)null);
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.LikesPatterns", b =>
@@ -478,15 +481,15 @@ namespace GagSpeakShared.Migrations
                         .HasColumnName("keyword_word");
 
                     b.HasKey("MoodleStatusId", "KeywordWord")
-                        .HasName("pk_loci_keywords");
+                        .HasName("pk_moodle_keywords");
 
                     b.HasIndex("KeywordWord")
-                        .HasDatabaseName("ix_loci_keywords_keyword_word");
+                        .HasDatabaseName("ix_moodle_keywords_keyword_word");
 
                     b.HasIndex("MoodleStatusId")
-                        .HasDatabaseName("ix_loci_keywords_moodle_status_id");
+                        .HasDatabaseName("ix_moodle_keywords_moodle_status_id");
 
-                    b.ToTable("loci_keywords", (string)null);
+                    b.ToTable("moodle_keywords", (string)null);
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.LociStatus", b =>
@@ -582,15 +585,15 @@ namespace GagSpeakShared.Migrations
                         .HasColumnName("version");
 
                     b.HasKey("Identifier")
-                        .HasName("pk_loci_status");
+                        .HasName("pk_moodle_status");
 
                     b.HasIndex("Author")
-                        .HasDatabaseName("ix_loci_status_author");
+                        .HasDatabaseName("ix_moodle_status_author");
 
                     b.HasIndex("Title")
-                        .HasDatabaseName("ix_loci_status_title");
+                        .HasDatabaseName("ix_moodle_status_title");
 
-                    b.ToTable("loci_status", (string)null);
+                    b.ToTable("moodle_status", (string)null);
                 });
 
             modelBuilder.Entity("GagspeakShared.Models.PairPermissionAccess", b =>
@@ -1907,14 +1910,14 @@ namespace GagSpeakShared.Migrations
                         .HasForeignKey("LociStatusId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_likes_loci_loci_status_loci_status_id");
+                        .HasConstraintName("fk_likes_moodles_moodle_status_loci_status_id");
 
                     b.HasOne("GagspeakShared.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_likes_loci_users_user_uid");
+                        .HasConstraintName("fk_likes_moodles_users_user_uid");
 
                     b.Navigation("LociStatus");
 
@@ -1949,14 +1952,14 @@ namespace GagSpeakShared.Migrations
                         .HasForeignKey("KeywordWord")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_loci_keywords_keywords_keyword_word");
+                        .HasConstraintName("fk_moodle_keywords_keywords_keyword_word");
 
                     b.HasOne("GagspeakShared.Models.LociStatus", "MoodleStatus")
                         .WithMany("LociKeywords")
                         .HasForeignKey("MoodleStatusId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("fk_loci_keywords_loci_statuses_moodle_status_id");
+                        .HasConstraintName("fk_moodle_keywords_loci_statuses_moodle_status_id");
 
                     b.Navigation("Keyword");
 

@@ -48,13 +48,13 @@ public class GagspeakDbContext : DbContext
     public DbSet<CollaringRequest> CollarRequests { get; set; }
 
     // ShareHub related tables.
-    public DbSet<PatternEntry> Patterns { get; set; } // Toybox Pattern Sharing
-    public DbSet<MoodleStatus> Moodles { get; set; } // Moodle Sharing
+    public DbSet<PatternEntry> Patterns { get; set; } // Pattern Sharehub
+    public DbSet<LociStatus> LociStatuses { get; set; } // Loci Sharehub
     public DbSet<PatternKeyword> PatternKeywords { get; set; } // Linker between tags and Patterns.
-    public DbSet<MoodleKeyword> MoodleKeywords { get; set; } // Linker between tags and Moodles.
+    public DbSet<LociKeyword> LociKeywords { get; set; } // Linker between tags and LociData.
     public DbSet<Keyword> Keywords { get; set; } // the tags that can be associated with the patterns.
-    public DbSet<LikesPatterns> LikesPatterns { get; set; } // tracks the patterns a user has liked.
-    public DbSet<LikesMoodles> LikesMoodles { get; set; } // tracks the moodles a user has liked.
+    public DbSet<LikesPatterns> PatternLikes { get; set; } // tracks the patterns a user has liked.
+    public DbSet<LikesLoci> LociStatusLikes { get; set; } // tracks the locidata a user has liked.
 
     // Reporting
     public DbSet<ReportedProfile> ReportedProfiles { get; set; } // Holds info about reported profiles for assistants to overview.
@@ -62,7 +62,7 @@ public class GagspeakDbContext : DbContext
     // User Information
     public DbSet<User> Users { get; set; }
     public DbSet<GlobalPermissions> GlobalPermissions { get; set; }
-    public DbSet<HardcoreState> HardcoreState { get; set; }
+    public DbSet<UserHardcoreState> HardcoreState { get; set; }
     public DbSet<UserProfileData> ProfileData { get; set; }
     public DbSet<UserAchievementData> AchievementData { get; set; } // tracks the achievements a user has unlocked.
 
@@ -119,17 +119,17 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<PatternKeyword>().HasOne(pk => pk.Keyword).WithMany(k => k.PatternKeywords).HasForeignKey(pk => pk.KeywordWord);
         modelBuilder.Entity<PatternKeyword>().HasIndex(c => c.PatternEntryId);
         modelBuilder.Entity<PatternKeyword>().HasIndex(c => c.KeywordWord);
-        modelBuilder.Entity<MoodleKeyword>().ToTable("moodle_keywords");
-        modelBuilder.Entity<MoodleKeyword>().HasKey(mk => new { mk.MoodleStatusId, mk.KeywordWord });
-        modelBuilder.Entity<MoodleKeyword>().HasOne(mk => mk.MoodleStatus).WithMany(ms => ms.MoodleKeywords).HasForeignKey(mk => mk.MoodleStatusId);
-        modelBuilder.Entity<MoodleKeyword>().HasOne(mk => mk.Keyword).WithMany(k => k.MoodleKeywords).HasForeignKey(mk => mk.KeywordWord);
-        modelBuilder.Entity<MoodleKeyword>().HasIndex(c => c.MoodleStatusId);
-        modelBuilder.Entity<MoodleKeyword>().HasIndex(c => c.KeywordWord);
+        modelBuilder.Entity<LociKeyword>().ToTable("loci_keywords");
+        modelBuilder.Entity<LociKeyword>().HasKey(mk => new { mk.MoodleStatusId, mk.KeywordWord });
+        modelBuilder.Entity<LociKeyword>().HasOne(mk => mk.MoodleStatus).WithMany(ms => ms.LociKeywords).HasForeignKey(mk => mk.MoodleStatusId);
+        modelBuilder.Entity<LociKeyword>().HasOne(mk => mk.Keyword).WithMany(k => k.MoodleKeywords).HasForeignKey(mk => mk.KeywordWord);
+        modelBuilder.Entity<LociKeyword>().HasIndex(c => c.MoodleStatusId);
+        modelBuilder.Entity<LociKeyword>().HasIndex(c => c.KeywordWord);
 
-        modelBuilder.Entity<MoodleStatus>().ToTable("moodle_status");
-        modelBuilder.Entity<MoodleStatus>().HasKey(ms => ms.Identifier);
-        modelBuilder.Entity<MoodleStatus>().HasIndex(ms => ms.Title);
-        modelBuilder.Entity<MoodleStatus>().HasIndex(ms => ms.Author);
+        modelBuilder.Entity<LociStatus>().ToTable("loci_status");
+        modelBuilder.Entity<LociStatus>().HasKey(ms => ms.Identifier);
+        modelBuilder.Entity<LociStatus>().HasIndex(ms => ms.Title);
+        modelBuilder.Entity<LociStatus>().HasIndex(ms => ms.Author);
         modelBuilder.Entity<PatternEntry>().ToTable("pattern_entry");
         modelBuilder.Entity<PatternEntry>().HasKey(pe => pe.Identifier);
         modelBuilder.Entity<PatternEntry>().HasIndex(pe => pe.Name);
@@ -139,18 +139,18 @@ public class GagspeakDbContext : DbContext
         modelBuilder.Entity<LikesPatterns>().HasKey(upl => new { upl.UserUID, upl.PatternEntryId });
         modelBuilder.Entity<LikesPatterns>().HasIndex(upl => upl.UserUID);
         modelBuilder.Entity<LikesPatterns>().HasIndex(upl => upl.PatternEntryId);
-        modelBuilder.Entity<LikesMoodles>().ToTable("likes_moodles");
-        modelBuilder.Entity<LikesMoodles>().HasKey(uml => new { uml.UserUID, uml.MoodleStatusId });
-        modelBuilder.Entity<LikesMoodles>().HasIndex(uml => uml.UserUID);
-        modelBuilder.Entity<LikesMoodles>().HasIndex(uml => uml.MoodleStatusId);
+        modelBuilder.Entity<LikesLoci>().ToTable("likes_loci");
+        modelBuilder.Entity<LikesLoci>().HasKey(uml => new { uml.UserUID, uml.LociStatusId });
+        modelBuilder.Entity<LikesLoci>().HasIndex(uml => uml.UserUID);
+        modelBuilder.Entity<LikesLoci>().HasIndex(uml => uml.LociStatusId);
 
         modelBuilder.Entity<User>().ToTable("users");
         modelBuilder.Entity<GlobalPermissions>().ToTable("user_global_permissions");
         modelBuilder.Entity<GlobalPermissions>().HasKey(c => c.UserUID);
         modelBuilder.Entity<GlobalPermissions>().HasIndex(c => c.UserUID);
-        modelBuilder.Entity<HardcoreState>().ToTable("user_hardcore_state");
-        modelBuilder.Entity<HardcoreState>().HasKey(c => c.UserUID);
-        modelBuilder.Entity<HardcoreState>().HasIndex(c => c.UserUID);
+        modelBuilder.Entity<UserHardcoreState>().ToTable("user_hardcore_state");
+        modelBuilder.Entity<UserHardcoreState>().HasKey(c => c.UserUID);
+        modelBuilder.Entity<UserHardcoreState>().HasIndex(c => c.UserUID);
         modelBuilder.Entity<UserProfileData>().ToTable("user_profile_data");
         modelBuilder.Entity<UserProfileData>().HasOne(c => c.CollarData).WithOne().HasForeignKey<UserProfileData>(c => c.UserUID).OnDelete(DeleteBehavior.Cascade);
         modelBuilder.Entity<UserProfileData>().HasKey(c => c.UserUID);

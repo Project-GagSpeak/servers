@@ -380,8 +380,8 @@ public partial class GagspeakHub
 
     // Big record, much information of kinkster pairing.
     public record UserInfo(string Alias, CkSupporterTier Tier, DateTime Created,
-        GlobalPermissions OwnGlobals, HardcoreState OwnHcState, PairPermissions OwnPerms, PairPermissionAccess OwnAccess,
-        GlobalPermissions OtherGlobals, HardcoreState OtherHcState, PairPermissions OtherPerms, PairPermissionAccess OtherAccess,
+        GlobalPermissions OwnGlobals, UserHardcoreState OwnHcState, PairPermissions OwnPerms, PairPermissionAccess OwnAccess,
+        GlobalPermissions OtherGlobals, UserHardcoreState OtherHcState, PairPermissions OtherPerms, PairPermissionAccess OtherAccess,
         DateTime PairInitAt);
 }
 #pragma warning restore MA0016

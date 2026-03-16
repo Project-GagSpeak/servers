@@ -6,8 +6,8 @@ using GagspeakAPI.Network;
 namespace GagspeakServer.Hubs;
 
 /// <summary>
-///	The parts of the IGagspeakHub intended for the client-side, not the server side.
-///	If any of these are called on the server-side, they will throw a PlatformNotSupportedException.
+///	  The parts of the IGagspeakHub intended for the client-side, not the server side.
+///	  If any of these are called on the server-side, they will throw a PlatformNotSupportedException.
 /// </summary>
 public partial class GagspeakHub
 {
@@ -22,16 +22,15 @@ public partial class GagspeakHub
 	public Task Callback_AddCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_RemoveCollarRequest(CollarRequest dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 
-    public Task Callback_MoodleDataUpdated(MoodlesDataUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_MoodleSMUpdated(MoodlesSMUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_MoodleStatusesUpdate(MoodlesStatusesUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_MoodlePresetsUpdate(MoodlesPresetsUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_MoodleStatusModified(MoodlesStatusModified dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_MoodlePresetModified(MoodlesPresetModified dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-    public Task Callback_ApplyMoodlesByGuid(ApplyMoodleId dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_ApplyMoodlesByStatus(ApplyMoodleStatus dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_RemoveMoodles(RemoveMoodleId dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
-	public Task Callback_ClearMoodles(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_LociDataUpdated(LociDataUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_LociStatusesUpdate(LociStatusesUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_LociPresetsUpdate(LociPresetsUpdate dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_LociStatusModified(LociStatusModified dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_LociPresetModified(LociPresetModified dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_LociApplyDataById(ApplyLociDataById dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+    public Task Callback_LociApplyStatus(ApplyLociStatus dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_LociRemoveData(RemoveLociData dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
+	public Task Callback_LociClearData(KinksterBase dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 		
 	public Task Callback_BulkChangeGlobal(BulkChangeGlobal dto) => throw new PlatformNotSupportedException(UnsupportedMessage);
 	public Task Callback_BulkChangeUnique(BulkChangeUnique dto) => throw new PlatformNotSupportedException(UnsupportedMessage);

@@ -155,22 +155,22 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     /// <summary>
     ///     This only returns the data that is respective to the caller's UserUID
     /// </summary>
-    /// <returns> All the UserUID's published patterns, moodles and collective ShareHub tags for searches. </returns>
+    /// <returns> All the UserUID's published patterns, loci statuses, and collective ShareHub tags for searches. </returns>
     [Authorize(Policy = "Identified")]
     public async Task<LobbyAndHubInfoResponse> GetShareHubAndLobbyInfo()
     {
-        // Request these in 
-        List<PublishedPattern> patterns = (await DbContext.Patterns.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(p => p.ToPublishedPattern()).ToList();
-        List<PublishedMoodle> moodles = (await DbContext.Moodles.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(m => m.ToPublishedMoodle()).ToList();
-        List<string> tags = await DbContext.Keywords.AsNoTracking().Select(k => k.Word).ToListAsync().ConfigureAwait(false);
+        // Request these in
+        var callerPatternUploads = (await DbContext.Patterns.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(p => p.ToPublishedPattern()).ToList();
+        var callerLociUploads = (await DbContext.LociStatuses.AsNoTracking().Where(f => f.PublisherUID == UserUID).ToListAsync().ConfigureAwait(false)).Select(m => m.ToPublishedMoodle()).ToList();
+        var tags = await DbContext.Keywords.AsNoTracking().Select(k => k.Word).ToListAsync().ConfigureAwait(false);
 
         HashEntry[] entries = await _redis.Database.HashGetAllAsync(VibeRoomRedis.RoomInviteKey(UserUID)).ConfigureAwait(false);
-        List<RoomInvite> invites = entries.Select(e => new RoomInvite(new(UserUID), e.Name.ToString(), e.Value.ToString())).ToList();
+        var invites = entries.Select(e => new RoomInvite(new(UserUID), e.Name.ToString(), e.Value.ToString())).ToList();
 
         return new LobbyAndHubInfoResponse(tags)
         {
-            PublishedPatterns = patterns,
-            PublishedMoodles = moodles,
+            PublishedPatterns = callerPatternUploads,
+            PublishedLociData = callerLociUploads,
             RoomInvites = invites,
         };
     }

@@ -61,8 +61,8 @@ public class PairPermissions
     public PuppetPerms  PuppetPerms                 { get; set; } = PuppetPerms.None;
 
     // unique Moodles permissions
-    public MoodleAccess MoodleAccess                { get; set; } = MoodleAccess.None;
-    public TimeSpan     MaxMoodleTime               { get; set; } = TimeSpan.Zero;
+    public LociAccess   LociAccess                  { get; set; } = LociAccess.None;
+    public TimeSpan     MaxLociTime                 { get; set; } = TimeSpan.Zero;
 
     // unique permissions for the toybox
     public bool         ExecutePatterns             { get; set; } = false;

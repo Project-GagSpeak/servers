@@ -1,4 +1,3 @@
-using GagspeakAPI;
 using GagspeakAPI.Attributes;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -19,13 +18,13 @@ public class UserCollarData
     public byte Dye1 { get; set; } = 0;
     public byte Dye2 { get; set; } = 0;
 
-    // A collared moodle should only care about the title, description, vfx path, type. Stacks, modifiers, chaining, etc are irrelevant.
-    public Guid MoodleId { get; set; } = Guid.Empty;
-    public int MoodleIconId { get; set; } = 0;
-    public string MoodleTitle { get; set; } = string.Empty;
-    public string MoodleDescription { get; set; } = string.Empty;
-    public StatusType MoodleType { get; set; } = StatusType.Positive;
-    public string MoodleVFXPath { get; set; } = string.Empty;
+    // A collared StatusIcon should only care about the title, description, vfx path, type. Stacks, modifiers, chaining, etc are irrelevant.
+    public Guid LociStatusId { get; set; } = Guid.Empty;
+    public uint LociIconId { get; set; } = 0;
+    public string LociTitle { get; set; } = string.Empty;
+    public string LociDescription { get; set; } = string.Empty;
+    public byte LociDataType { get; set; } = 0;
+    public string LociVFXPath { get; set; } = string.Empty;
 
     public string Writing { get; set; } = string.Empty;
 
