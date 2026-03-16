@@ -1,8 +1,10 @@
 using Discord;
 using Discord.Interactions;
 using GagspeakAPI.Enums;
+using GagspeakAPI.Hub;
 using GagSpeakDiscord.Modules.Popups;
 using GagspeakShared.Data;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using DiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
@@ -87,9 +89,12 @@ public partial class AccountWizard
         cb.WithButton("Cancel", "wizard-claim", ButtonStyle.Secondary, emote: new Emoji("❌"));
 
         // if the modal returned successful, allow them to verify (pass in item2, the verification)
-        if (success) cb.WithButton("Send Verification Code to Client", "wizard-claim-verify-start:" + initialKeyModal.InitialKeyStr, ButtonStyle.Primary, emote: new Emoji("✅"));
+        if (success)
+            cb.WithButton("Send Verification Code to Client", "wizard-claim-verify-start:" + initialKeyModal.InitialKeyStr, ButtonStyle.Primary, emote: new Emoji("✅"));
         // otherwise, ask them to try again, stepping back to where we ask them for the initial key. Often we get here is the key is not correct.
-        else cb.WithButton("Try again", "wizard-claim-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
+        else
+            cb.WithButton("Try again", "wizard-claim-start", ButtonStyle.Primary, emote: new Emoji("🔁"));
+        
         await ModifyModalInteraction(eb, cb).ConfigureAwait(false);
     }
 
@@ -164,7 +169,7 @@ public partial class AccountWizard
     }
 
     /// <summary>
-    /// Called by the start of the registration when asking for the initial key.
+    ///     Called by the start of the registration when asking for the initial key.
     /// </summary>
     /// <param name="embed"> the embed builder for the message </param>
     /// <param name="arg"> the initial key modal as an argument passed in. </param>
@@ -181,12 +186,12 @@ public partial class AccountWizard
             return false;
         }
         // otherwise, if the initial key is not in our database, then someone is trying to forge it
-        else if (!db.Auth.Any(a => a.HashedKey == arg.InitialKeyStr))
+        else if (!db.Auth.AsNoTracking().Any(a => a.HashedKey == arg.InitialKeyStr))
         {
             embed.WithTitle("This secret key is not being used by any users, or you pasted it in wrong.");
             return false;
         }
-        else if (db.AccountClaimAuth.Any(a => a.InitialGeneratedKey == arg.InitialKeyStr))
+        else if (db.AccountClaimAuth.AsNoTracking().Any(a => a.InitialGeneratedKey == arg.InitialKeyStr))
         {
             embed.WithTitle("This secret key has already been claimed by another user.");
             return false;
@@ -273,7 +278,7 @@ public partial class AccountWizard
         await dbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // Do a personalized vanity role update check.
-        _logger.LogInformation("Grabbing supporter roles from both discords for personalized update..");
+        _logger.LogInformation("Grabbing supporter roles from discords for personalized update..");
         var ckRoles = _discordConfig.GetValueOrDefault(nameof(DiscordConfig.VanityRoles), new Dictionary<ulong, string>());
         // Grab the context discord user from sundouleia.
         var gsUser = await _botServices.KinkporiumGuildCached.GetUserAsync(Context.User.Id).ConfigureAwait(false);
@@ -304,6 +309,11 @@ public partial class AccountWizard
             }
             await dbContext.SaveChangesAsync().ConfigureAwait(false);
         }
+
+        // Process a forced hard reconnect for the target user
+        // Send back to this user they got a strike, along with a forced reconnection.
+        await _hubContext.Clients.User(user.UID).SendAsync(nameof(IGagspeakHub.Callback_HardReconnectMessage),
+            MessageSeverity.Information, "Reconnecting to refresh Vanity status update after account claim.", ServerState.ForcedReconnect).ConfigureAwait(false);
 
         // return success with the user's UID
         return (true, user.UID, initialKey);

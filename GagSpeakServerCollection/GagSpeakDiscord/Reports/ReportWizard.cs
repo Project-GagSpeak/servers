@@ -1,11 +1,9 @@
 ﻿
 using Discord;
 using Discord.Interactions;
-using Discord.Rest;
 using Discord.WebSocket;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
-using GagspeakAPI.Network;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
@@ -15,8 +13,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System.Globalization;
-using System.Text;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 using ServerDiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
 
 namespace GagspeakDiscord;

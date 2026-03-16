@@ -91,7 +91,7 @@ internal partial class DiscordBot : IHostedService
 
             // subscribe to the ready event from the discord client
             _discordClient.Ready += DiscordClient_Ready;
-            // _discordClient.ButtonExecuted += ButtonExecutedHandler;
+
             // subscribe to the interaction created event from the discord client
             // (occurs when player interacts with its posted events.)
             _discordClient.InteractionCreated += async (x) =>
@@ -321,7 +321,7 @@ internal partial class DiscordBot : IHostedService
     }
 
     /// <summary>
-    /// Updates the vanity roles in the concurrent dictionary for the bot services to reflect the list in the appsettings.json
+    ///     Updates the vanity roles in the concurrent dictionary for the bot services to reflect the list in the appsettings.json
     /// </summary>
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
     {
@@ -526,7 +526,9 @@ internal partial class DiscordBot : IHostedService
         }
     }
 
-    /// <summary> Translate discords log messages into our logger format </summary>
+    /// <summary>
+    ///     Translate discords log messages into our logger format
+    /// </summary>
     private Task Log(LogMessage msg)
     {
         switch (msg.Severity)

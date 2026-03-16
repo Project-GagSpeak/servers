@@ -1,11 +1,13 @@
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
 using GagspeakShared.Utils;
 using GagspeakShared.Utils.Configuration;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using ServerDiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;
@@ -19,18 +21,20 @@ public partial class AccountWizard : InteractionModuleBase
     private DiscordBotServices _botServices;
     private IConfigurationService<ServerConfiguration> _gsConfigService;
     private IConfigurationService<ServerDiscordConfig> _discordConfig;
+    private IHubContext<GagspeakHub> _hubContext;
     private IConnectionMultiplexer _multiplexer;
     private IDbContextFactory<GagspeakDbContext> _dbContextFactory;
 
     public AccountWizard(ILogger<AccountWizard> logger, IServiceProvider services, DiscordBotServices botServices,
         IConfigurationService<ServerConfiguration> gsConfig, IConfigurationService<ServerDiscordConfig> discordConfigService,
-        IConnectionMultiplexer multiplexer, IDbContextFactory<GagspeakDbContext> dbContextFactory)
+        IHubContext<GagspeakHub> hubContext, IConnectionMultiplexer multiplexer, IDbContextFactory<GagspeakDbContext> dbContextFactory)
     {
         _logger = logger;
         _services = services;
         _botServices = botServices;
         _gsConfigService = gsConfig;
         _discordConfig = discordConfigService;
+        _hubContext = hubContext;
         _multiplexer = multiplexer;
         _dbContextFactory = dbContextFactory;
     }
