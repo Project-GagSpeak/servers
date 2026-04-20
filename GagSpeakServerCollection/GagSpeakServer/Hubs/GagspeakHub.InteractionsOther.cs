@@ -359,7 +359,7 @@ public partial class GagspeakHub
                     return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
                 // do a final validation pass.
-                GagSpeakApiEc finalLockPass = curRestraintSetData.CanLock(dto, pairPerms.MaxRestrictionTime);
+                GagSpeakApiEc finalLockPass = curRestraintSetData.CanLock(dto, pairPerms.MaxRestraintTime);
                 if (finalLockPass is not GagSpeakApiEc.Success)
                     return HubResponseBuilder.AwDangIt(finalLockPass);
 
