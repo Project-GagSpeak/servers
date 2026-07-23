@@ -771,6 +771,11 @@ public partial class GagspeakHub
                 hcState.ChatInputBlocked = string.Empty;
                 hcState.ChatInputBlockedTimer = DateTimeOffset.MinValue;
                 break;
+            
+            case HcAttribute.HypnoticEffect:
+                hcState.HypnoticEffect = string.Empty;
+                hcState.HypnoticEffectTimer = DateTimeOffset.MinValue;
+                break;
 
             default:
                 return HubResponseBuilder.AwDangIt(GagSpeakApiEc.BadUpdateKind, new HardcoreState());
