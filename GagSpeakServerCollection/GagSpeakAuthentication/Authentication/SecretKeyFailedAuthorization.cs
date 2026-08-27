@@ -1,7 +1,7 @@
 ﻿namespace GagspeakAuthentication;
 
 /// <summary>
-///     Tracks failed attempts to authorize a secret key.
+///   Tracks failed attempts to authorize a secret key.
 /// </summary>
 internal record SecretKeyFailedAuthorization
 {

@@ -1,3 +1,4 @@
+using GagspeakAPI.Chat;
 using GagspeakAPI.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -5,30 +6,30 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace GagspeakShared.Models;
 
 /// <summary>
-///     A report for a users unapproved chat activity.
+///   Stores reports for global chat misconduct.
 /// </summary>
 public class ReportedChat
 {
-    // create a generated key on initialization
-    [Key]
+    [Key] // Ensure report uniqueness.
     [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
     public int ReportID { get; set; }
 
     // Some Required Information to be in a report.
-    [Required] public ReportKind Type { get; set; }
+    [Required] public GsChatKind Chat { get; set; } = GsChatKind.Global;
     [Required] public DateTime ReportTime { get; set; }
-    [Required] public string CompressedChatHistory { get; set; }
 
-    // Player who made the report.
-    [ForeignKey(nameof(ReportingUser))]
-    public string ReportingUserUID { get; set; }
-    public User ReportingUser { get; set; }
+    public string ChatLogId { get; set; } = string.Empty;
+    public string MessageId { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string ChatContextJson { get; set; } = string.Empty;
 
-    // Player being reported.
-    [ForeignKey(nameof(ReportedUser))]
-    public string ReportedUserUID { get; set; }
-    public User ReportedUser { get; set; }
+    public string ReportedUserUID { get; set; } = string.Empty;
 
-    // Store the reason for the report.
+    // Reporter.
+    public string ReporterUID { get; set; }
+    [ForeignKey(nameof(ReporterUID))]
+    public User Reporter { get; set; }
+
+    // Reason for report.
     public string ReportReason { get; set; } = string.Empty;
 }

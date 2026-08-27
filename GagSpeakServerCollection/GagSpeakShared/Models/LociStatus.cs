@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace GagspeakShared.Models;
 
 /// <summary>
-///     Stores an uploaded Loci Status entry
+///   Stores an uploaded Loci Status entry
 /// </summary>
 public class LociStatus
 {

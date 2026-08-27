@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace GagspeakShared.Models;
 
 /// <summary>
-///     Represents an owner of a user's collar.
+///   Represents an owner of a user's collar.
 /// </summary>
 public class CollarOwner
 {

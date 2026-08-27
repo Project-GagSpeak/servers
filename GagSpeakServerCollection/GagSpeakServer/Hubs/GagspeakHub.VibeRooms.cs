@@ -2,6 +2,7 @@ using GagspeakAPI.Dto.VibeRoom;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
+using GagspeakAPI.User;
 using GagspeakServer.Utils;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
@@ -150,7 +151,7 @@ public partial class GagspeakHub
     }
 
     /// <summary> Changes the password of an existing room. </summary>
-    public async Task<HubResponse> ChangeRoomHost(string roomName, KinksterBase newHost)
+    public async Task<HubResponse> ChangeRoomHost(string roomName, UserDto newHost)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(roomName, newHost));
 
@@ -323,7 +324,7 @@ public partial class GagspeakHub
     }
 
     /// <summary> Grants access to a user in the room. </summary>
-    public async Task<HubResponse> RoomGrantAccess(KinksterBase allowedUser)
+    public async Task<HubResponse> RoomGrantAccess(UserDto allowedUser)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(allowedUser));
 
@@ -359,7 +360,7 @@ public partial class GagspeakHub
     }
 
     /// <summary> Revokes access from a user in the room. </summary>
-    public async Task<HubResponse> RoomRevokeAccess(KinksterBase restrictedUser)
+    public async Task<HubResponse> RoomRevokeAccess(UserDto restrictedUser)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args(restrictedUser));
 

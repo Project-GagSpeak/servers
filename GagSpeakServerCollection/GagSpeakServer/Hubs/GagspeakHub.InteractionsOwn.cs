@@ -588,7 +588,7 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // grab the user pairs of the client caller
-        var pairsOfTarget = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers().ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
@@ -650,7 +650,7 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // grab the user pairs of the client caller
-        var pairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var pairsOfCaller = await GetAllPairedUsers().ConfigureAwait(false);
         var onlinePairsOfCaller = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfCaller.Keys;
 
@@ -787,7 +787,7 @@ public partial class GagspeakHub
 
         var newData = hcState.ToApi();
 
-        var pairsOfCaller = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
+        var pairsOfCaller = await GetAllPairedUsers().ConfigureAwait(false);
         var onlinePairsOfCaller = await GetOnlineUsers(pairsOfCaller).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfCaller.Keys;
 

@@ -1,8 +1,6 @@
 namespace GagspeakServer.Services;
 
-/// <summary>
-/// The Cache Service for handling all currently online synced pairs active on the server
-/// </summary>
+// TODO: Scrap this, i dont see a need for it anymore.
 public class OnlineSyncedPairCacheService
 {
     private readonly Dictionary<string, PairCache> _lastSeenCache = new(StringComparer.Ordinal);

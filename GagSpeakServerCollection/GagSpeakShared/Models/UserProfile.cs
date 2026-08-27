@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 
-public class UserProfileData
+public class UserProfile
 {
     [Key]
     public string UserUID { get; set; }
@@ -17,16 +17,10 @@ public class UserProfileData
     public virtual UserCollarData CollarData { get; set; }
 
     /// <summary>
-    ///     Defines if a profile is displayed to any user that is not a direct pair of them. <para />
-    ///     Keeping this false will hide the profile picture and description from any unpaired users.
-    /// </summary>
-    public bool ProfileIsPublic { get; set; } = false;
-
-    /// <summary>
-    ///     Determines if a user is currently flagged for report. <para />
-    ///     Others cannot see flagged Kinkster's profiles, but they will be able to. <para />
-    ///     This is done intentionally to prevent predators from watching when a 
-    ///     profile is reported to point the blame on someone.
+    ///   Determines if a user is currently flagged for report. <para />
+    ///   Others cannot see flagged Kinkster's profiles, but they will be able to. <para />
+    ///   This is done intentionally to prevent predators from watching when a 
+    ///   profile is reported to point the blame on someone.
     /// </summary>
     public bool FlaggedForReport { get; set; } = false;
 

@@ -4,7 +4,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 
-/// <summary> The special child. </summary>
+// Heavily rework this later, simplify it like profiles.
+// There is no reason most of this data needs to be here (unless its more efficient).
 public class UserCollarData
 {
     [Key]

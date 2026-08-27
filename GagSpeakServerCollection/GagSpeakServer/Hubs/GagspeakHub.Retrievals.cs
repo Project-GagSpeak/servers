@@ -1,5 +1,9 @@
-﻿using GagspeakAPI.Data;
+﻿using GagspeakAPI.Chat;
+using GagspeakAPI.Connection;
+using GagspeakAPI.Data;
 using GagspeakAPI.Network;
+using GagspeakAPI.Profiles;
+using GagspeakAPI.User;
 using GagspeakServer.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
@@ -8,64 +12,75 @@ namespace GagspeakServer.Hubs;
 public partial class GagspeakHub
 {
     [Authorize(Policy = "Identified")]
-    public async Task<List<OnlineKinkster>> UserGetOnlinePairs()
+    public async Task<List<OnlineKinkster>> GetOnlineKinksters()
     {
-        _logger.LogCallInfo();
-
-        List<string> allPairedUsers = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        Dictionary<string, string> pairs = await GetOnlineUsers(allPairedUsers).ConfigureAwait(false);
-        // send that you are online to all connected online pairs of the client caller.
-        await SendOnlineToAllPairedUsers().ConfigureAwait(false);
-        // then, return back to the client caller the list of all users that are online in their client pairs.
-        return pairs.Select(p => new OnlineKinkster(new(p.Key), p.Value)).ToList();
+        var allConnections = await SendOnlineToKinksterPairs().ConfigureAwait(false);
+        // filter for the online users.
+        var onlineIdents = await GetOnlineUsers(allConnections).ConfigureAwait(false);
+        var onlineUids = onlineIdents.Keys.ToList();
+        // Get the user entries for these onlineUsers.
+        var onlineUsers = await DbContext.Users.AsNoTracking().Where(u => onlineUids.Contains(u.UID)).ToListAsync().ConfigureAwait(false);
+        var onlineDto = onlineUsers.Select(u => new OnlineKinkster(u.ToUserData(), onlineIdents[u.UID])).ToList();
+        return onlineDto;
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<List<KinksterPair>> UserGetPairedClients()
+    public async Task<List<KinksterPair>> GetAllKinksterPairs()
     {
-        // fetch all the pair information of the client caller
-        Dictionary<string, UserInfo> pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
-
-        // return the list of UserPair DTO's containing the paired clients of the client caller
+        var pairs = await GetAllPairInfo(UserUID).ConfigureAwait(false);
+        // Convert the UserInfo objects returned into UserPair DTO's for transit.
         return pairs.Select(p =>
         {
-            KinksterPair pairList = new(new UserData(p.Key, p.Value.Alias, p.Value.Tier, p.Value.Created),
+            var pairDto = new KinksterPair(
+                p.Value.UserData,
                 p.Value.OwnPerms.ToApi(),
                 p.Value.OwnAccess.ToApi(),
                 p.Value.OtherGlobals.ToApi(),
                 p.Value.OtherHcState.ToApi(),
                 p.Value.OtherPerms.ToApi(),
                 p.Value.OtherAccess.ToApi(),
-                p.Value.PairInitAt);
-            return pairList;
+                p.Value.PairInitAt,
+                p.Value.PairTempAccepter);
+            return pairDto;
         }).ToList();
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<ActiveRequests> UserGetActiveRequests()
+    public async Task<ActiveRequests> GetRequests()
     {
         // fetch all the pair requests with the UserUid in either the UserUID or OtherUserUID
         List<KinksterRequest> pairRequests = await DbContext.PairRequests.AsNoTracking()
             .Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID)
             .Select(r => r.ToApi())
-            .ToListAsync()
-            .ConfigureAwait(false);
+            .ToListAsync().ConfigureAwait(false);
 
         List<CollarRequest> collarRequests = await DbContext.CollarRequests.AsNoTracking()
             .Where(k => k.UserUID == UserUID || k.OtherUserUID == UserUID)
             .Select(r => r.ToApiCollarRequest())
-            .ToListAsync()
-            .ConfigureAwait(false);
+            .ToListAsync().ConfigureAwait(false);
         return new ActiveRequests(pairRequests, collarRequests);
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<KinkPlateFull> UserGetKinkPlate(KinksterBase user)
+    public async Task<List<ChatlogMessage>> GetChatHistory(ChatHistoryRequest dto)
+    {
+        // If direct, fail if not involved.
+        if (dto.Id.Kind is GsChatKind.Direct && !dto.Id.ChatId.Contains(UserUID, StringComparison.Ordinal))
+            return [];
+        // Otherwise return the history.
+        return _chatService.GetPrivateChatHistory(dto.Id, dto.total).ToList();
+    }
+
+    [Authorize(Policy = "Identified")]
+    public async Task<KinkPlateFull> GetKinkplate(UserDto user)
     {
         // If requested profile matches the caller, return the full profile always.
         if (string.Equals(user.User.UID, UserUID, StringComparison.Ordinal))
         {
-            var ownProfile = await DbContext.ProfileData.AsNoTracking().SingleAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
+            var ownProfile = await DbContext.UserProfileData.AsNoTracking()
+                .Include(p => p.CollarData).ThenInclude(c => c.Owners)
+                .AsSplitQuery()
+                .SingleAsync(u => u.UserUID == UserUID).ConfigureAwait(false);
             return new KinkPlateFull(user.User, ownProfile.FromProfileData(), ownProfile.Base64ProfilePic);
         }
 
@@ -78,28 +93,70 @@ public partial class GagspeakHub
             return new KinkPlateFull(user.User, new KinkPlateContent() { Description = "Your Reputation prevents you from viewing KinkPlates." }, string.Empty);
 
         // Profile is valid so get the full profile data.
-        var data = await DbContext.ProfileData.AsNoTracking()
+        var data = await DbContext.UserProfileData.AsNoTracking()
             .Include(p => p.CollarData)
             .ThenInclude(c => c.Owners)
-            .SingleAsync(u => u.UserUID == user.User.UID)
+            .AsSplitQuery()
+            .SingleOrDefaultAsync(u => u.UserUID == user.User.UID)
             .ConfigureAwait(false);
         var content = data.FromProfileData();
-
-        // Get the pairs of the context caller for the IsPublic check.
-        if (!data.ProfileIsPublic)
-        {
-            var callerPairs = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-            if (!callerPairs.Contains(user.User.UID, StringComparer.Ordinal))
-                return new KinkPlateFull(user.User, content with { Description = "Profile Pic is hidden as they have not allowed public plates!" }, string.Empty);
-        }
 
         if (data.FlaggedForReport)
             return new KinkPlateFull(user.User, content with { Description = "Profile is pending review from CK after being reported" }, string.Empty);
 
-        // Otherwise return the complete profile. 
-        content.CollarWriting = data.CollarData.Writing;
-        content.CollarOwners = data.CollarData.Owners.Select(o => o.OwnerUID).ToList();
+        if (data is not null)
+        {
+            content.CollarWriting = data.CollarData.Writing;
+            content.CollarOwners = data.CollarData.Owners.Select(o => o.OwnerUID).ToList();
+        }
         return new KinkPlateFull(user.User, content, data.Base64ProfilePic);
+    }
+
+    /// <summary>
+    ///   Retrieves the Profile the requested users.
+    /// </summary>
+    [Authorize(Policy = "Identified")]
+    public async Task<List<KinkPlateFull>> GetKinkplates(UserListDto dto)
+    {
+        // Ensure we actually have requests to begin with.
+        if (dto.Users.Count is 0)
+            return [];
+        // Obtain the distinct users to get the profile information for.
+        var targets = dto.Users.Select(u => u.UID).Distinct(StringComparer.Ordinal).ToList();
+        // Obtain the auth to know if they are allowed to view the profile to begin with, and if the caller is legit.
+        if (await DbContext.Auth.Include(a => a.AccountRep).AsNoTracking().SingleOrDefaultAsync(a => a.UserUID == UserUID).ConfigureAwait(false) is not { } callerAuth)
+            return [];
+        // If they have a bad rep, then return empty profiles for all of them.
+        if (!callerAuth.AccountRep.ProfileViewing)
+            return [];
+
+        // Bulk-Fetch using AsSplitQuery to prevent Cartesian explosion with the Owners array
+        var fetchedProfiles = await DbContext.UserProfileData.AsNoTracking()
+            .Include(up => up.User).Include(up => up.CollarData).ThenInclude(c => c.Owners)
+            .AsSplitQuery()
+            .Where(u => targets.Contains(u.UserUID))
+            .ToListAsync().ConfigureAwait(false);
+        if (fetchedProfiles.Count is 0)
+            return [];
+        // Compose the list
+        var results = new List<KinkPlateFull>(fetchedProfiles.Count);
+        foreach (var retProfile in fetchedProfiles)
+        {
+            var content = retProfile.FromProfileData();
+            // Map the collar data safely
+            content.CollarWriting = retProfile.CollarData?.Writing ?? string.Empty;
+            content.CollarOwners = retProfile.CollarData?.Owners?.Select(o => o.OwnerUID).ToList() ?? [];
+            // Ret full profile for self.
+            if (string.Equals(retProfile.UserUID, UserUID, StringComparison.Ordinal))
+                results.Add(new KinkPlateFull(retProfile.User.ToUserData(), retProfile.FromProfileData(), retProfile.Base64ProfilePic));
+            else
+            {
+                var image = retProfile.FlaggedForReport ? string.Empty : retProfile.Base64ProfilePic;
+                var safeContent = retProfile.FlaggedForReport ? content with { Description = "Profile is pending review from CK after being reported" } : content;
+                results.Add(new KinkPlateFull(retProfile.User.ToUserData(), safeContent, image));
+            }
+        }
+        return results;
     }
 }
 

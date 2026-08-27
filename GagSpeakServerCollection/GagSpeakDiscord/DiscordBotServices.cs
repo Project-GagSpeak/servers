@@ -62,7 +62,7 @@ public class DiscordBotServices
     }
 
     /// <summary>
-    ///     Adds a verification task to the queue. (dont think this will have a purpose)
+    ///   Adds a verification task to the queue. (dont think this will have a purpose)
     /// </summary>
     private async Task ProcessVerificationQueue()
     {
@@ -101,8 +101,8 @@ public class DiscordBotServices
         using var scope = _services.CreateAsyncScope();
         using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
 
-        var totalProfileReports = await db.ReportedProfiles.CountAsync().ConfigureAwait(false);
-        var totalChatReports = await db.ReportedChats.CountAsync().ConfigureAwait(false);
+        var totalProfileReports = await db.ProfileReports.CountAsync().ConfigureAwait(false);
+        var totalChatReports = await db.ChatReports.CountAsync().ConfigureAwait(false);
 
         var eb = new EmbedBuilder()
             .WithTitle("GagSpeak Report Wizard")

@@ -1,7 +1,7 @@
 ﻿namespace GagspeakShared.Metrics;
 
 /// <summary> 
-///     *insert some funny joke about mega corps taking all your data here*
+///   *insert some funny joke about mega corps taking all your data here*
 /// </summary>
 public class MetricsAPI
 {

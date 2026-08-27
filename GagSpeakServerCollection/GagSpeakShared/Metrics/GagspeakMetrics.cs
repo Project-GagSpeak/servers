@@ -4,7 +4,7 @@ using Prometheus;
 namespace GagspeakShared.Metrics;
 
 /// <summary> 
-///     The metrics class for Gagspeak, used to track a number of interactions made across all users over the lifetime of GagSpeak.
+///   The metrics class for Gagspeak, used to track a number of interactions made across all users over the lifetime of GagSpeak.
 /// </summary>
 public class GagspeakMetrics
 {

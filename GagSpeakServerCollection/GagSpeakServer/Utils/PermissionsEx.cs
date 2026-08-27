@@ -3,6 +3,7 @@ using GagspeakAPI.Attributes;
 using GagspeakAPI.Data;
 using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Network;
+using GagspeakAPI.User;
 using GagspeakAPI.Util;
 using GagspeakShared.Models;
 
@@ -66,14 +67,14 @@ public static class PermissionsEx
         };
     }
 
-    public static KinksterRequest ToApi(this PairRequest req)
-        => new KinksterRequest(new(req.UserUID), new(req.OtherUserUID), new(false, req.PreferredNickname, req.AttachedMessage), req.CreationTime);
+    public static KinksterRequest ToApi(this PairingRequest req)
+        => new(new(req.UserUID), new(req.OtherUserUID), false, req.AttachedMessage, req.CreationTime);
 
     public static KinksterRequest ToApiRemoval(UserData user, UserData target)
-        => new KinksterRequest(user, target, new(false, string.Empty, string.Empty), DateTime.MinValue);
+        => new(user, target, false, string.Empty, DateTime.MinValue);
 
     public static CollarRequest ToApiCollarRequest(this CollaringRequest request)
-        => new CollarRequest(new(request.UserUID), new(request.OtherUserUID), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
+        => new(new(request.UserUID), new(request.OtherUserUID), request.InitialWriting, request.CreationTime, request.OtherUserAccess, request.OwnerAccess);
     
 
     public static CollarRequest CollarRequestRemoval(UserData user, UserData target) =>
@@ -84,7 +85,8 @@ public static class PermissionsEx
         {
             IsVerified = dbState.IsVerified,
             IsBanned = dbState.IsBanned,
-            
+            WarningStrikes = dbState.WarningStrikes,
+
             ProfileViewing = dbState.ProfileViewing,
             ProfileViewTimeout = dbState.ProfileViewTimeout,
             ProfileViewStrikes = dbState.ProfileViewStrikes,
@@ -93,11 +95,13 @@ public static class PermissionsEx
             ProfileEditTimeout = dbState.ProfileEditTimeout,
             ProfileEditStrikes = dbState.ProfileEditStrikes,
 
+            RadarUsage = dbState.RadarUsage,
+            RadarTimeout = dbState.RadarTimeout,
+            RadarStrikes = dbState.RadarStrikes,
+
             ChatUsage = dbState.ChatUsage,
             ChatTimeout = dbState.ChatTimeout,
             ChatStrikes = dbState.ChatStrikes,
-
-            FalseReportStrikes = dbState.FalseReportStrikes
         };
 
     #endregion CacheDataMigrations

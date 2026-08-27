@@ -1,8 +1,10 @@
 ﻿using GagspeakAPI.Data.Permissions;
 using GagspeakAPI.Enums;
+using GagspeakAPI.User;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 
 namespace GagspeakServer.Hubs;
 #pragma warning disable MA0016, CS8619
@@ -13,125 +15,67 @@ public partial class GagspeakHub
     public string UserUID => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, GagspeakClaimTypes.Uid, StringComparison.Ordinal))?.Value ?? throw new Exception("No UID in Claims");
     public string UserHasTempAccess => Context.User?.Claims?.SingleOrDefault(c => string.Equals(c.Type, GagspeakClaimTypes.AccessType, StringComparison.Ordinal))?.Value ?? throw new Exception("No TempAccess in Claims");
 
-    /// <summary>
-    ///     Gets all unpaused pairs of <paramref name="uid"/>
-    /// </summary>
-    private async Task<List<string>> GetAllPairedUnpausedUsers(string? uid = null)
+    private async Task<Dictionary<string, string>> GetOnlineUsers(IEnumerable<string> uids)
     {
-        // if no UID is provided, set it to the client caller context UserUID
-        uid ??= UserUID;
-        // return the list of UID's of all users that are paired with the provided UID
-        return (await GetUnpausedOnlinePairs(uid).ConfigureAwait(false));
+        var result = await _redis.GetAllAsync<string>(uids.Select(u => "UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
+        return uids.Where(u => result.TryGetValue("UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["UID:" + u], StringComparer.Ordinal);
     }
 
-    /// <summary> Helper to get the total number of users who are online currently from the list of passed in UID's.</summary>
-    private async Task<Dictionary<string, string>> GetOnlineUsers(List<string> uids)
-    {
-        var result = await _redis.GetAllAsync<string>(uids.Select(u => "GagspeakHub:UID:" + u).ToHashSet(StringComparer.Ordinal)).ConfigureAwait(false);
-        return uids.Where(u => result.TryGetValue("GagspeakHub:UID:" + u, out var ident) && !string.IsNullOrEmpty(ident)).ToDictionary(u => u, u => result["GagspeakHub:UID:" + u], StringComparer.Ordinal);
-    }
-
-    /// <summary> Helper function to get the user's identity from the redis by their UID </summary>
+    /// <summary> Aquire the RedisValueString from the corrisponding UID key, if present. </summary>
     private async Task<string?> GetUserIdent(string uid)
     {
         if (string.IsNullOrEmpty(uid)) return string.Empty;
-        return await _redis.GetAsync<string>("GagspeakHub:UID:" + uid).ConfigureAwait(false);
+        return await _redis.GetAsync<string>("UID:" + uid).ConfigureAwait(false);
     }
 
-    /// <summary> Helper function to remove a user from the redis by their UID</summary>
+    /// <summary> Removes a Users UID, and with it their HashedContentID, from the redis database. </summary>
     private async Task RemoveUserFromRedis()
-    {
-        await _redis.RemoveAsync("GagspeakHub:UID:" + UserUID, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
-    }
+        => await _redis.RemoveAsync("UID:" + UserUID, CommandFlags.FireAndForget).ConfigureAwait(false);
 
-    /// <summary> A helper function to update the user's identity on the redi's by their UID</summary>
+    /// <summary> Updates the caller Users HashedContentID on redis. </summary>
     private async Task UpdateUserOnRedis()
+        => await _redis.AddAsync("UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60), When.Always, CommandFlags.FireAndForget).ConfigureAwait(false);
+
+    /// <summary> Sends <see cref="Callback_KinksterOffline"/> containing the caller, to all online pairs of the caller. </summary>
+    private async Task<List<string>> SendOfflineToKinksterPairs()
     {
-        await _redis.AddAsync("GagspeakHub:UID:" + UserUID, UserCharaIdent, TimeSpan.FromSeconds(60),
-            StackExchange.Redis.When.Always, StackExchange.Redis.CommandFlags.FireAndForget).ConfigureAwait(false);
+        var pairedUids = await GetAllPairedUsers().ConfigureAwait(false);
+        await Clients.Users(pairedUids).Callback_KinksterOffline(new(new(UserUID))).ConfigureAwait(false);
+        return pairedUids;
     }
 
-    /// <summary> 
-    /// Called upon by a client whenever they logout from the servers / go offline.
-    /// This call then sends to all paired users of the client who are offline, a User DTO.
-    /// </summary>
-    /// <returns> 
-    /// A list of UID's of all users that are paired with the provided UID 
-    /// </returns>
-    private async Task<List<string>> SendOfflineToAllPairedUsers()
+    /// <summary> Sends <see cref="Callback_KinksterOnline"/> containing the caller, to all online pairs of the caller. </summary>
+    private async Task<List<string>> SendOnlineToKinksterPairs()
     {
-        // grab all paired unpaused users, our user object, and send our offlineIdentDTO to the list of unpaused paired users.
-        List<string> usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        User self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        await Clients.Users(usersToSendDataTo).Callback_KinksterOffline(new(self.ToUserData())).ConfigureAwait(false);
-        return usersToSendDataTo;
+        // This will become inaccurate once we start abstracting what a 'pair' even is.
+        var pairedUids = await GetAllPairedUsers().ConfigureAwait(false);
+        _logger.LogMessage($"{UserUID} Sending online to {pairedUids.Count} paired users.");
+        var self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
+        await Clients.Users(pairedUids).Callback_KinksterOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
+        return pairedUids;
     }
 
-    /// <summary> 
-    /// Called upon by a client whenever they login to the servers / go online.
-    /// This call then sends to all paired users of the client who are online, an OnlineUserIdent DTO.
-    /// </summary>
-    /// <returns> 
-    /// A list of UID's of all users that are paired with the provided UID 
-    /// </returns>
-    private async Task<List<string>> SendOnlineToAllPairedUsers()
-    {
-        // grab all paired unpaused users, our user object, and send our onlineIdentDTO to the list of unpaused paired users.
-        List<string> usersToSendDataTo = await GetAllPairedUnpausedUsers().ConfigureAwait(false);
-        User self = await DbContext.Users.AsNoTracking().SingleAsync(u => u.UID == UserUID).ConfigureAwait(false);
-        await Clients.Users(usersToSendDataTo).Callback_KinksterOnline(new(self.ToUserData(), UserCharaIdent)).ConfigureAwait(false);
-        // return the list of UID strings that we sent the online message to.
-        return usersToSendDataTo;
-    }
-
-    /// <summary> Helper function to display any added auth claims as popups to the clients user</summary>
-    public async Task DisplayVerificationCodesToOnlineUsers(List<AccountClaimAuth> newlyAddedAccountClaims)
+    /// <summary> Invoked by a DbListenerNotification when a new AccountClaimAuth entry is added. </summary>
+    /// <remarks> Displays the respective verification code to those logged in users, given they are connected. </remarks>
+    public async Task DisplayVerificationCodes(List<AccountClaimAuth> newClaimAuths)
     {
         _logger.LogMessage("Displaying verification codes to users");
-
-        // for each authentication that was newly added
-        foreach (AccountClaimAuth auth in newlyAddedAccountClaims)
+        foreach (var claimAuth in newClaimAuths)
         {
-            // locate the auth in the database with the matching hashed key
-            Auth matchingUserAuth = await DbContext.Auth.AsNoTracking().SingleAsync(u => u.HashedKey == auth.InitialGeneratedKey).ConfigureAwait(false);
-
-            // then locate the userUID of that auth object
-            string? userUID = matchingUserAuth.UserUID;
-
-            // see if that user UID is in the list of user connections
-            if (userUID is not null && _userConnections.ContainsKey(userUID))
-                await Clients.User(userUID).Callback_ShowVerification(new() { Code = auth.VerificationCode ?? "" }).ConfigureAwait(false);
+            // Identify the auth with the patching hashed key.
+            var auth = await DbContext.Auth.AsNoTracking().SingleAsync(u => u.HashedKey == claimAuth.InitialGeneratedKey).ConfigureAwait(false);
+            if (_userConnections.ContainsKey(auth.UserUID))
+                await Clients.User(auth.UserUID).Callback_ShowVerification(new() { Code = claimAuth.VerificationCode ?? "" }).ConfigureAwait(false);
         }
     }
 
-    /// <summary>
-    /// A helper function that fetches all bidirectional (synced) client pairs for a given user.
-    /// </summary>
-    public async Task<List<User>> GetSyncedPairs(string uid)
-    {
-        // Query to find bidirectional (synced) client pairs
-        IQueryable<User> syncedPairsQuery = from cp in DbContext.ClientPairs
-                               join cp2 in DbContext.ClientPairs
-                               on new { UserUID = cp.UserUID, OtherUserUID = cp.OtherUserUID }
-                               equals new { UserUID = cp2.OtherUserUID, OtherUserUID = cp2.UserUID }
-                               where cp.UserUID == uid
-                               select cp.OtherUser; // Select the OtherUser object directly
-
-        // Execute the query and return the list of User objects
-        List<User> syncedUsers = await syncedPairsQuery.Distinct().ToListAsync().ConfigureAwait(false);
-        return syncedUsers;
-    }
-
     /// <summary> 
-    ///     Retrieves the UserInfo record outlining essential information about the connection 
-    ///     of two paired individuals. (Does not care if paused or not) <para />
-    ///     It is a chonky database query.
+    ///   Retrieves the UserInfo record outlining essential information about the connection 
+    ///   of two paired individuals. (Does not care if paused or not), It's a chonky database query.
     /// </summary>
     /// <returns> the UserInfo record containing info of the connection between the two individuals. Null if not paired. </returns>
     private async Task<UserInfo?> GetPairInfo(string uid, string otheruid)
     {
-        /* I will do my best to logically explain this */
-
         // collect row(s) where userUID == uid && otherUserUID == otheruid (( should always be true since we added just prior ))
         var clientPairs = from cp in DbContext.ClientPairs.AsNoTracking().Where(u => u.UserUID == uid && u.OtherUserUID == otheruid)
                           // join the cp2 table which is defined by the collected row(s) where userUID == otheruid && otherUserUID == uid
@@ -146,6 +90,7 @@ public partial class GagspeakHub
                               UserUID = cp.UserUID,             // Select UserUID
                               OtherUserUID = cp.OtherUserUID,   // Select OtherUserUID
                               InitializedAt = cp.CreatedAt,     // When the pairing was created
+                              TempAccepter = cp.TempAccepterUID,// If temporary, who accepted it.
                           };
 
         if (!clientPairs.Any())
@@ -197,10 +142,13 @@ public partial class GagspeakHub
                             select new
                             {
                                 UserUID = user.UserUID,
-                                OtherUserUID = user.OtherUserUID,
-                                OtherUserAlias = u.Alias,
-                                OtherUserTier = u.Tier,
-                                OtherUserCreatedDate = u.CreatedAt,
+                                OtherUID = user.OtherUserUID,
+                                OtherAlias = u.Alias,
+                                OtherDispName = u.DisplayName,
+                                OtherColor = u.NameColor,
+                                OtherGlow = u.NameGlowColor,
+                                OtherTier = u.Tier,
+                                OtherCreatedDate = u.CreatedAt,
                                 OwnGlobalPerms = userGlobalPerm,
                                 OwnHardcoreState = userHardcore,
                                 OwnPermissions = ownperm,
@@ -209,35 +157,44 @@ public partial class GagspeakHub
                                 OtherHardcoreState = otherUserHcState,
                                 OtherPermissions = otherperm,
                                 OtherPermissionsAccess = otheraccess,
-                                InitializedAt = user.InitializedAt
+                                InitializedAt = user.InitializedAt,
+                                TempAccepter = user.TempAccepter,
                             };
 
         // Aquire the query result and form it into an established list
-        var resultList = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
-        if (resultList.Count == 0)
+        var res = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
+        if (res.Count == 0)
             return null;
+
+        var resUserDat = new UserData(
+            res[0].OtherUID,
+            res[0].OtherAlias,
+            res[0].OtherDispName,
+            res[0].OtherColor,
+            res[0].OtherGlow,
+            res[0].OtherTier,
+            res[0].OtherCreatedDate
+        );
 
         // return the proper object
         return new UserInfo(
-            resultList[0].OtherUserAlias,
-            resultList[0].OtherUserTier,
-            resultList[0].OtherUserCreatedDate,
-            resultList[0].OwnGlobalPerms,
-            resultList[0].OwnHardcoreState,
-            resultList[0].OwnPermissions,
-            resultList[0].OwnPermissionsAccess,
-            resultList[0].OtherGlobalPerms,
-            resultList[0].OtherHardcoreState,
-            resultList[0].OtherPermissions,
-            resultList[0].OtherPermissionsAccess,
-            resultList[0].InitializedAt
+            resUserDat,
+            res[0].OwnGlobalPerms,
+            res[0].OwnHardcoreState,
+            res[0].OwnPermissions,
+            res[0].OwnPermissionsAccess,
+            res[0].OtherGlobalPerms,
+            res[0].OtherHardcoreState,
+            res[0].OtherPermissions,
+            res[0].OtherPermissionsAccess,
+            res[0].InitializedAt,
+            res[0].TempAccepter
         );
     }
 
-
     /// <summary>
-    ///     Helper function to retrieve the UserInfo's for ALL pairs of a specific UID. <para />
-    ///     Does not care about pause status.
+    ///   Helper function to retrieve the UserInfo's for ALL pairs of a specific UID. <para />
+    ///   Does not care about pause status.
     /// </summary>
     private async Task<Dictionary<string, UserInfo>> GetAllPairInfo(string uid)
     {
@@ -260,7 +217,8 @@ public partial class GagspeakHub
                             {
                                 UserUID = cp.UserUID,
                                 OtherUserUID = cp.OtherUserUID,
-                                InitializedAt = cp.CreatedAt    // When pairing was created.
+                                InitializedAt = cp.CreatedAt,     // When the pairing was created
+                                TempAccepter = cp.TempAccepterUID,// If temporary, who accepted it.
                             };
 
         // Obtain the permission info for these pairs.
@@ -316,9 +274,12 @@ public partial class GagspeakHub
                             {
                                 UserUID = user.UserUID,
                                 OtherUserUID = user.OtherUserUID,
-                                OtherUserAlias = u.Alias,
-                                OtherUserSupporterTier = u.Tier,
-                                OtherUserCreatedDate = u.CreatedAt,
+                                OtherAlias = u.Alias,
+                                OtherDispName = u.DisplayName,
+                                OtherColor = u.NameColor,
+                                OtherGlow = u.NameGlowColor,
+                                OtherTier = u.Tier,
+                                OtherCreatedDate = u.CreatedAt,
                                 OwnGlobalPerms = userGlobalPerm,
                                 OwnHardcoreState = userHcState,
                                 OwnPermissions = ownperm,
@@ -327,62 +288,152 @@ public partial class GagspeakHub
                                 OtherHardcoreState = otherUserHcState,
                                 OtherPermissions = otherperm,
                                 OtherPermissionsAccess = otheraccess,
-                                InitializedAt = user.InitializedAt
+                                InitializedAt = user.InitializedAt,
+                                TempAccepter = user.TempAccepter,
                             };
 
         // obtain the query result and form it into an established list
-        var resultList = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
-
-        // Group results by OtherUserUID and convert to dictionary for return
-        return resultList.GroupBy(g => g.OtherUserUID, StringComparer.Ordinal).ToDictionary(g => g.Key, g =>
-        {
-            // for some unexplainable reason, putting a return where the var is makes this no longer work.
-            // Idk why, it just doesnt.
-            UserInfo userInfo = new UserInfo(
-                g.First().OtherUserAlias,
-                g.First().OtherUserSupporterTier,
-                g.First().OtherUserCreatedDate,
-                g.First().OwnGlobalPerms,
-                g.First().OwnHardcoreState,
-                g.First().OwnPermissions,
-                g.First().OwnPermissionsAccess,
-                g.First().OtherGlobalPerms,
-                g.First().OtherHardcoreState,
-                g.First().OtherPermissions,
-                g.First().OtherPermissionsAccess,
-                g.First().InitializedAt
-            );
-            return userInfo;
-        }, StringComparer.Ordinal);
+        var res = await resultingInfo.AsNoTracking().ToListAsync().ConfigureAwait(false);
+        return res
+            .GroupBy(g => g.OtherUserUID, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g =>
+            {
+                var first = g.First();
+                var userData = new UserData(
+                    first.OtherUserUID,
+                    first.OtherAlias,
+                    first.OtherDispName,
+                    first.OtherColor,
+                    first.OtherGlow,
+                    first.OtherTier,
+                    first.OtherCreatedDate
+                );
+                var userInfo = new UserInfo(
+                    userData,
+                    first.OwnGlobalPerms,
+                    first.OwnHardcoreState,
+                    first.OwnPermissions,
+                    first.OwnPermissionsAccess,
+                    first.OtherGlobalPerms,
+                    first.OtherHardcoreState,
+                    first.OtherPermissions,
+                    first.OtherPermissionsAccess,
+                    first.InitializedAt,
+                    first.TempAccepter
+                );
+                return userInfo;
+            }, StringComparer.Ordinal);
     }
 
+    public async Task<Dictionary<string, RequestInfo>> GetRespondingRequests(IEnumerable<string> uids)
+    {
+        var targets = uids.ToHashSet(StringComparer.Ordinal);
+        if (targets.Count == 0)
+            return new Dictionary<string, RequestInfo>(StringComparer.Ordinal);
+
+        var info = from r in DbContext.PairRequests.AsNoTracking().Where(r => r.OtherUserUID == UserUID && targets.Contains(r.UserUID))
+                   join sender in DbContext.Users.AsNoTracking()
+                       on r.UserUID equals sender.UID
+                   join senderGlobals in DbContext.GlobalPermissions.AsNoTracking()
+                       on r.UserUID equals senderGlobals.UserUID
+                   join targetGlobals in DbContext.GlobalPermissions.AsNoTracking()
+                       on UserUID equals targetGlobals.UserUID
+                   join senderHc in DbContext.HardcoreState.AsNoTracking()
+                       on r.UserUID equals senderHc.UserUID
+                   join targetHc in DbContext.HardcoreState.AsNoTracking()
+                       on UserUID equals targetHc.UserUID
+                   select new
+                   {
+                       TargetUid = r.UserUID,
+                       Sender = sender,
+                       Request = r,
+                       SenderGlobals = senderGlobals,
+                       SenderHC = senderHc,
+                       TargetGlobals = targetGlobals,
+                       TargetHC = targetHc
+                   };
+
+        var infoResult = await info.ToListAsync().ConfigureAwait(false);
+
+        // Might need to reformat to work more like below.
+        return infoResult.ToDictionary(x => x.TargetUid,
+            x => new RequestInfo(x.Request, x.Sender, x.SenderGlobals, x.SenderHC, x.TargetGlobals, x.TargetHC), StringComparer.Ordinal);
+    }
+
+    private async Task<List<User>> GetRequestableUsers(IEnumerable<string> userUids)
+    {
+        // convert to hashset for quick matching.
+        var targets = userUids.ToHashSet(StringComparer.Ordinal);
+        if (targets.Count is 0)
+            return [];
+
+        var query = from u in DbContext.Users.AsNoTracking()
+                    where targets.Contains(u.UID) || (u.Alias != null && targets.Contains(u.Alias))
+                    // Deny if exists
+                    where !DbContext.PairRequests.AsNoTracking().Any(r => (r.UserUID == UserUID && r.OtherUserUID == u.UID) || (r.UserUID == u.UID && r.OtherUserUID == UserUID))
+                    // Deny if paired
+                    where !DbContext.ClientPairs.AsNoTracking().Any(p => (p.UserUID == UserUID && p.OtherUserUID == u.UID) || (p.UserUID == u.UID && p.OtherUserUID == UserUID))
+                    select u;
+        // ret the query result as a list.
+        return await query.ToListAsync().ConfigureAwait(false);
+    }
+
+    private async Task<Dictionary<string, PairingRequest>> GetSentRequests(IEnumerable<string> uids)
+    {
+        var targets = uids.ToHashSet(StringComparer.Ordinal);
+        // Query all existing requests in one go
+        var requestsQuery = from req in DbContext.PairRequests.AsNoTracking()
+                            join tgt in DbContext.Users.AsNoTracking()
+                            on req.OtherUserUID equals tgt.UID
+                            where req.UserUID == UserUID && targets.Contains(req.OtherUserUID)
+                            select new
+                            {
+                                Request = req,
+                                TargetUid = tgt.UID,
+                                TargetAlias = tgt.Alias,
+                                TargetCreatedAt = tgt.CreatedAt
+                            };
+
+        var requestsList = await requestsQuery.ToListAsync().ConfigureAwait(false);
+
+        // Form dictionary keyed by target UID
+        return requestsList.ToDictionary(x => x.TargetUid, x => x.Request, StringComparer.Ordinal);
+    }
+
+    /// <inheritdoc cref="GetAllPairedUsers(string)"/>
+    private async Task<List<string>> GetAllPairedUsers()
+        => await GetAllPairedUsers(UserUID).ConfigureAwait(false);
+
     /// <summary>
-    ///     Given a defined uid, retrieve all of this uid's paired users uid's who are online and not paused. <br/>
-    ///     Thankfully this query is simpler than the above as IsPaused does not exist anymore.
+    ///   Retrieves the distinct list of all UserUIDs who are direct pairs, 
+    ///   or paired via a joined sanction that have InSync enabled.
     /// </summary>
-    private async Task<List<string>> GetUnpausedOnlinePairs(string uid)
+    private async Task<List<string>> GetAllPairedUsers(string uid)
     {
         var clientPairs = from cp in DbContext.ClientPairs.AsNoTracking().Where(u => u.UserUID == uid)
                           join cp2 in DbContext.ClientPairs.AsNoTracking().Where(u => u.OtherUserUID == uid)
-                            on new { cp.UserUID, cp.OtherUserUID }
-                            equals new { UserUID = cp2.OtherUserUID, OtherUserUID = cp2.UserUID }
-                          where cp.UserUID == uid
+                          on new { UserUID = cp.UserUID, OtherUserUID = cp.OtherUserUID }
+                          equals new { UserUID = cp2.OtherUserUID, OtherUserUID = cp2.UserUID }
                           select cp.OtherUserUID;
-        // Start by selecting from a previously defined collection 'clientPairs'
-        IQueryable<string> resultingInfo = 
-            from otherUid in clientPairs
-            join u in DbContext.Users.AsNoTracking()
-                on otherUid equals u.UID
-                select otherUid;
-        // return the distinct list OtherUserUID's that are unpaused and online for the client caller's list of client pairs.
-        return await resultingInfo.Distinct().AsNoTracking().ToListAsync().ConfigureAwait(false);
+        // Concatinate this result, returning the distinct list of UIDs that are either direct pairs or paired via a sanction.
+        return await clientPairs.Distinct().AsNoTracking().ToListAsync().ConfigureAwait(false);
     }
 
+    public record RequestInfo(PairingRequest Request, User Sender, GlobalPermissions SenderGlobals, UserHardcoreState SenderHC, GlobalPermissions RecipientGlobals, UserHardcoreState RecipientHC);
+
     // Big record, much information of kinkster pairing.
-    public record UserInfo(string Alias, CkSupporterTier Tier, DateTime Created,
-        GlobalPermissions OwnGlobals, UserHardcoreState OwnHcState, PairPermissions OwnPerms, PairPermissionAccess OwnAccess,
-        GlobalPermissions OtherGlobals, UserHardcoreState OtherHcState, PairPermissions OtherPerms, PairPermissionAccess OtherAccess,
-        DateTime PairInitAt);
+    public record UserInfo(
+        UserData UserData, 
+        GlobalPermissions OwnGlobals,
+        UserHardcoreState OwnHcState,
+        PairPermissions OwnPerms,
+        PairPermissionAccess OwnAccess,
+        GlobalPermissions OtherGlobals,
+        UserHardcoreState OtherHcState,
+        PairPermissions OtherPerms,
+        PairPermissionAccess OtherAccess,
+        DateTime PairInitAt,
+        string PairTempAccepter);
 }
 #pragma warning restore MA0016
 #nullable disable

@@ -4,7 +4,7 @@ using System.ComponentModel.DataAnnotations;
 namespace GagspeakShared.Models;
 
 /// <summary>
-///     Sent requests expire after 8 hours (automatically rejected)
+///   Sent requests expire after 8 hours (automatically rejected)
 /// </summary>
 public class CollaringRequest
 {

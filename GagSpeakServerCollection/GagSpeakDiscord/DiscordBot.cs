@@ -4,6 +4,7 @@ using Discord.Interactions;
 using Discord.Rest;
 using Discord.WebSocket;
 using GagspeakAPI.Enums;
+using GagspeakAPI.User;
 using GagspeakDiscord.Commands;
 using GagspeakDiscord.Modules.AccountWizard;
 using GagspeakDiscord.Modules.KinkDispenser;
@@ -54,20 +55,20 @@ internal partial class DiscordBot : IHostedService
     }
 
     // Map role names from both servers
-    public static readonly Dictionary<string, CkSupporterTier> RoleToVanityTier = new Dictionary<string, CkSupporterTier>(StringComparer.Ordinal)
+    public static readonly Dictionary<string, CkVanityTier> RoleToVanityTier = new Dictionary<string, CkVanityTier>(StringComparer.Ordinal)
     {
-        { "Corby", CkSupporterTier.KinkporiumMistress },
-        { "Distinguished Connoisseur", CkSupporterTier.DistinguishedConnoisseur },
-        { "Esteemed Patron", CkSupporterTier.EsteemedPatron },
-        { "Server Booster", CkSupporterTier.ServerBooster },
-        { "Illustrious Supporter", CkSupporterTier.IllustriousSupporter },
+        { "Corby", CkVanityTier.KinkporiumMistress },
+        { "Distinguished Connoisseur", CkVanityTier.DistinguishedConnoisseur },
+        { "Esteemed Patron", CkVanityTier.EsteemedPatron },
+        { "Server Booster", CkVanityTier.ServerBooster },
+        { "Illustrious Supporter", CkVanityTier.IllustriousSupporter },
     };
 
     // the main startup function, this will run whenever the discord bot is turned on
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         // get the discord bot token from the configuration
-        string token = _discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.DiscordBotToken), string.Empty);
+        string token = _discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.BotToken), string.Empty);
         // if the token is not empty
         if (!string.IsNullOrEmpty(token))
         {
@@ -110,7 +111,7 @@ internal partial class DiscordBot : IHostedService
     public async Task StopAsync(CancellationToken cancellationToken)
     {
         // if the discord bot token is not empty
-        if (!string.IsNullOrEmpty(_discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.DiscordBotToken), string.Empty)))
+        if (!string.IsNullOrEmpty(_discordConfig.GetValueOrDefault(nameof(ServerDiscordConfig.BotToken), string.Empty)))
         {
             // await for all bot services to stop
             await _botServices.Stop().ConfigureAwait(false);
@@ -146,7 +147,7 @@ internal partial class DiscordBot : IHostedService
         // update the stored guild to our bot service.
         _botServices.UpdateGuild(ckGuild);
         // assign our created schedulars for the bot.
-        _ = RunScheduledTask("ProcessReports", () => CreateOrUpdateReportWizard(ckGuild), TimeSpan.FromMinutes(30), _updateStatusCts.Token);
+        _ = RunScheduledTask("ProcessReports", () => CreateOrUpdateReportWizard(ckGuild), TimeSpan.FromMinutes(10), _updateStatusCts.Token);
         _ = RunScheduledTask("SyncRolesDict", () => UpdateVanityRoles(ckGuild, _updateStatusCts.Token), TimeSpan.FromHours(12), _updateStatusCts.Token);
         _ = RunScheduledTask("AddDonorPerks", () => AddPerksToVanityUsers(ckGuild, _updateStatusCts.Token), TimeSpan.FromHours(6), _updateStatusCts.Token);
         _ = RunScheduledTask("RemoveDonorPerks", () => RemoveVanityPerks(_updateStatusCts.Token), TimeSpan.FromHours(6), _updateStatusCts.Token);
@@ -173,13 +174,13 @@ internal partial class DiscordBot : IHostedService
     }
 
     /// <summary>
-    ///     The primary function for creating / updating the account claim system
+    ///   The primary function for creating / updating the account claim system
     /// </summary>
     private async Task CreateOrUpdateAccountWizard(RestGuild guild)
     {
         _logger.LogDebug("Account Management Wizard: Getting Channel");
         // fetch the channel for the account management system message
-        ulong? discordChannelForCommands = _discordConfig.GetValue<ulong?>(nameof(ServerDiscordConfig.DiscordChannelForCommands));
+        ulong? discordChannelForCommands = _discordConfig.GetValue<ulong?>(nameof(ServerDiscordConfig.ChannelForCommands));
         if (discordChannelForCommands is null)
         {
             _logger.LogWarning("Account Management Wizard: No channel configured");
@@ -236,13 +237,13 @@ internal partial class DiscordBot : IHostedService
     }
 
     /// <summary>
-    ///     The primary function for creating / updating the report system
+    ///   The primary function for creating / updating the report system
     /// </summary>
     private async Task CreateOrUpdateReportWizard(RestGuild guild)
     {
         _logger.LogDebug("Report Wizard: Getting Channel");
 
-        ulong? reportsChannel = _discordConfig.GetValue<ulong?>(nameof(ServerDiscordConfig.DiscordChannelForReports));
+        ulong? reportsChannel = _discordConfig.GetValue<ulong?>(nameof(ServerDiscordConfig.ChannelForReports));
         if (reportsChannel is null)
         {
             _logger.LogWarning("Report Wizard: No channel configured");
@@ -283,8 +284,8 @@ internal partial class DiscordBot : IHostedService
         using var scope = _services.CreateAsyncScope();
         using var db = scope.ServiceProvider.GetRequiredService<GagspeakDbContext>();
 
-        var totalProfileReports = await db.ReportedProfiles.CountAsync().ConfigureAwait(false);
-        var totalChatReports = await db.ReportedChats.CountAsync().ConfigureAwait(false);
+        var totalProfileReports = await db.ProfileReports.CountAsync().ConfigureAwait(false);
+        var totalChatReports = await db.ChatReports.CountAsync().ConfigureAwait(false);
 
         var eb = new EmbedBuilder()
             .WithTitle("GagSpeak Report Wizard")
@@ -321,7 +322,7 @@ internal partial class DiscordBot : IHostedService
     }
 
     /// <summary>
-    ///     Updates the vanity roles in the concurrent dictionary for the bot services to reflect the list in the appsettings.json
+    ///   Updates the vanity roles in the concurrent dictionary for the bot services to reflect the list in the appsettings.json
     /// </summary>
     private async Task UpdateVanityRoles(RestGuild guild, CancellationToken token)
     {
@@ -433,7 +434,7 @@ internal partial class DiscordBot : IHostedService
     }
 
     /// <summary> 
-    ///     Removes the VanityPerks from users who are no longer supporting CK 
+    ///   Removes the VanityPerks from users who are no longer supporting CK 
     /// </summary>
     private async Task RemoveVanityPerks(CancellationToken token)
     {
@@ -450,7 +451,7 @@ internal partial class DiscordBot : IHostedService
         // Get all users in the database who have been verified by the bot but have no supporter role.
         HashSet<string> usersWithperks = await db.AccountReputation.Include(r => r.User)
             .AsNoTracking()
-            .Where(r => r.IsVerified && r.User.Tier != CkSupporterTier.NoRole)
+            .Where(r => r.IsVerified && r.User.Tier != CkVanityTier.NoRole)
             .Select(r => r.User.UID)
             .ToHashSetAsync()
             .ConfigureAwait(false);
@@ -483,14 +484,14 @@ internal partial class DiscordBot : IHostedService
                     {
                         _logger.LogInformation($"[VanityCleanup] {ckUser.DisplayName} ({ckUser.Id}) is no longer a supporting CK. Cleaning up account profile alias and roles.");
                         authClaim.User!.Alias = null;
-                        authClaim.User.Tier = CkSupporterTier.NoRole;
+                        authClaim.User.Tier = CkVanityTier.NoRole;
                         // Clear out the vanity perks from their alts.
                         var secondaryUsers = await db.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
                         foreach (var secondaryUser in secondaryUsers)
                         {
                             _logger.LogDebug($"Secondary User {secondaryUser!.User!.UID} not in allowed roles, deleting alias & resetting supporter tier");
                             secondaryUser.User.Alias = null;
-                            secondaryUser.User.Tier = CkSupporterTier.NoRole;
+                            secondaryUser.User.Tier = CkVanityTier.NoRole;
                         }
                         // await for the database to save changes
                         await db.SaveChangesAsync().ConfigureAwait(false);
@@ -510,7 +511,7 @@ internal partial class DiscordBot : IHostedService
     }
 
     /// <summary>
-    ///     Updates the status of the bot at the interval
+    ///   Updates the status of the bot at the interval
     /// </summary>
     private async Task UpdateStatusAsync(CancellationToken token)
     {
@@ -527,7 +528,7 @@ internal partial class DiscordBot : IHostedService
     }
 
     /// <summary>
-    ///     Translate discords log messages into our logger format
+    ///   Translate discords log messages into our logger format
     /// </summary>
     private Task Log(LogMessage msg)
     {

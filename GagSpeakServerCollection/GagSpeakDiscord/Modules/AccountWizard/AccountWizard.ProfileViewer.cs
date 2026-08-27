@@ -1,9 +1,10 @@
-using System.Globalization;
 using Discord;
 using Discord.Interactions;
 using GagspeakAPI.Enums;
+using GagspeakAPI.User;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace GagspeakDiscord.Modules.AccountWizard;
 
@@ -70,7 +71,7 @@ public partial class AccountWizard
         eb.AddField("Last Online (Local)", formattedTimestamp);
 
         // display this accounts vanity tier if they have one
-        if (dbUser.Tier != CkSupporterTier.NoRole)
+        if (dbUser.Tier != CkVanityTier.NoRole)
         {
             eb.AddField("Supporter Tier", dbUser.Tier.ToString());
         }

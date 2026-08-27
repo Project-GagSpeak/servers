@@ -1,13 +1,12 @@
-using GagspeakAPI.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace GagspeakShared.Models;
 
 /// <summary>
-///     Stores information for moderation review on reports regarding a users profile.
+///   Stores information for moderation review on reports regarding a users profile.
 /// </summary>
-public class ReportedProfile
+public class ReportedUserProfile
 {
     // create a generated key on initialization
     [Key]
@@ -15,10 +14,11 @@ public class ReportedProfile
     public int ReportID { get; set; }
 
     // Some Required Information to be in a report.
-    [Required] public ReportKind Type { get; set; }
     [Required] public DateTime ReportTime { get; set; }
-    [Required] public string SnapshotImage { get; set; } // Migrated (ReportedBase64Picture -> SnapshotImage)
-    [Required] public string SnapshotDescription { get; set; } // Migrated (ReportedDescription -> SnapshotDescription)
+    [Required] public bool SnapshotIsNSFW { get; set; }
+    [Required] public string SnapshotIcon { get; set; }
+    [Required] public string SnapshotBg { get; set; }
+    [Required] public string SnapshotJson { get; set; }
 
     // Player who made the report.
     [ForeignKey(nameof(ReportingUser))]

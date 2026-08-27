@@ -1,5 +1,6 @@
 ﻿using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
+using GagspeakAPI.User;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
@@ -120,11 +121,11 @@ public class UserCleanupService : BackgroundService
                 .ExecuteUpdateAsync(ar => ar.SetProperty(
                     a => a.AccountRep.UploadAllowances,
                     // Check no role fist, as people will more likely match the first case.
-                    a => a.User.Tier == CkSupporterTier.NoRole ? 10 :
-                         a.User.Tier == CkSupporterTier.KinkporiumMistress ? 999999 :
-                         a.User.Tier == CkSupporterTier.DistinguishedConnoisseur ? 20 :
-                         a.User.Tier == CkSupporterTier.EsteemedPatron ? 15 :
-                         a.User.Tier == CkSupporterTier.ServerBooster ? 15 :
+                    a => a.User.Tier == CkVanityTier.NoRole ? 10 :
+                         a.User.Tier == CkVanityTier.KinkporiumMistress ? 999999 :
+                         a.User.Tier == CkVanityTier.DistinguishedConnoisseur ? 20 :
+                         a.User.Tier == CkVanityTier.EsteemedPatron ? 15 :
+                         a.User.Tier == CkVanityTier.ServerBooster ? 15 :
                          12
                 )).ConfigureAwait(false);
 
@@ -234,7 +235,7 @@ public class UserCleanupService : BackgroundService
                     Dictionary<string, List<string>> remUserPairUidDict = await SharedDbFunctions.DeleteUserProfile(user, _logger, dbContext, _metrics).ConfigureAwait(false);
                     // inform all related pairs to remove the user.
                     foreach ((string removedUser, List<string> removedPairUids) in remUserPairUidDict)
-                        await _hubContext.Clients.Users(removedPairUids).Callback_RemoveClientPair(new(new(removedUser))).ConfigureAwait(false);
+                        await _hubContext.Clients.Users(removedPairUids).Callback_RemovePair(new(new(removedUser))).ConfigureAwait(false);
                 }
             }
 
@@ -252,7 +253,7 @@ public class UserCleanupService : BackgroundService
         {
             _logger.LogInformation("Cleaning up expired pair requests");
 
-            List<PairRequest> expiredRequests = dbContext.PairRequests.Where(r => r.CreationTime < DateTime.UtcNow - TimeSpan.FromDays(3)).ToList();
+            List<PairingRequest> expiredRequests = dbContext.PairRequests.Where(r => r.CreationTime < DateTime.UtcNow - TimeSpan.FromDays(3)).ToList();
             _logger.LogInformation("Removing " + expiredRequests.Count + " expired pair requests");
             dbContext.PairRequests.RemoveRange(expiredRequests);
         }

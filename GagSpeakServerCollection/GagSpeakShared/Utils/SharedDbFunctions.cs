@@ -11,9 +11,9 @@ namespace GagspeakShared.Utils;
 public static class SharedDbFunctions
 {
     /// <summary>
-    ///     Purges a user completely from the database, including all secondary users associated with them. <para />
-    ///     This means if they are an alt account, or a main account, they are all removed. <para />
-    ///     It is wise to only do this when banning someone. Should not be used on other things like cleanup.
+    ///   Purges a user completely from the database, including all secondary users associated with them. <para />
+    ///   This means if they are an alt account, or a main account, they are all removed. <para />
+    ///   It is wise to only do this when banning someone. Should not be used on other things like cleanup.
     /// </summary>
     /// <exception cref="ArgumentNullException"></exception>
     public static async Task PurgeUserAccount(User user, ILogger logger, GagspeakDbContext dbContext, GagspeakMetrics? metrics = null)
@@ -29,8 +29,8 @@ public static class SharedDbFunctions
     }
 
     /// <summary>
-    ///     Removes a single profile of a user from the database. <para />
-    ///     <b>IF THE PROFILE BEING REMOVED IS THE PRIMARY ACCOUNT PROFILE, ALL ALT PROFILES ARE REMOVED.</b><para />
+    ///   Removes a single profile of a user from the database. <para />
+    ///   <b>IF THE PROFILE BEING REMOVED IS THE PRIMARY ACCOUNT PROFILE, ALL ALT PROFILES ARE REMOVED.</b><para />
     /// </summary>
     /// <returns> a dictionary linking the removed userUID's to the list of UID's paired with them. Dictionary is used incase primary profile is removed. </returns>
     /// <exception cref="ArgumentNullException"></exception>
@@ -88,7 +88,7 @@ public static class SharedDbFunctions
         var likesMoodles = await dbContext.LociStatusLikes.Where(u => u.UserUID == user.UID).ToListAsync().ConfigureAwait(false);
         // Profile-Related
         var achievementData = await dbContext.AchievementData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
-        var userProfileData = await dbContext.ProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
+        var userProfileData = await dbContext.UserProfileData.SingleOrDefaultAsync(u => u.UserUID == user.UID).ConfigureAwait(false);
 
         // Get Kinkster Pair List to output.
         var pairedUids = otherPairData.Select(p => p.UserUID);
@@ -126,10 +126,10 @@ public static class SharedDbFunctions
     }
 
     /// <summary>
-    ///     Safely created the primary account profile for a <paramref name="user"/> with their 
-    ///     associated <paramref name="rep"/> and <paramref name="auth"/> to the DB. <para />
-    ///     At the same time, this method will generate entries in all other tables user-related data is necessary. <para />
-    ///     This will help reduce connection bloat.
+    ///   Safely created the primary account profile for a <paramref name="user"/> with their 
+    ///   associated <paramref name="rep"/> and <paramref name="auth"/> to the DB. <para />
+    ///   At the same time, this method will generate entries in all other tables user-related data is necessary. <para />
+    ///   This will help reduce connection bloat.
     /// </summary>
     public static async Task CreateMainProfile(User user, AccountReputation rep, Auth auth, ILogger logger, GagspeakDbContext dbContext, GagspeakMetrics? metrics = null)
     {
@@ -153,7 +153,7 @@ public static class SharedDbFunctions
         await dbContext.ActiveRestraintData.AddAsync(new UserRestraintData { UserUID = user.UID }).ConfigureAwait(false);
         await dbContext.ActiveCollarData.AddAsync(new UserCollarData { UserUID = user.UID }).ConfigureAwait(false);
 
-        await dbContext.ProfileData.AddAsync(new UserProfileData { UserUID = user.UID }).ConfigureAwait(false);
+        await dbContext.UserProfileData.AddAsync(new UserProfile { UserUID = user.UID }).ConfigureAwait(false);
         await dbContext.AchievementData.AddAsync(new UserAchievementData { UserUID = user.UID, Base64AchievementData = null }).ConfigureAwait(false);
 
         logger.LogInformation($"[User {user.UID} (Alias: {user.Alias}) <{user.Tier}>] was created along with other necessary table entries!");
@@ -161,9 +161,9 @@ public static class SharedDbFunctions
     }
 
     /// <summary>
-    ///     Creates an alt profile for an account safely, along with their associated <paramref name="auth"/> to the DB. <para />
-    ///     At the same time, this method will generate entries in all other tables user-related data is necessary. <para />
-    ///     This will help reduce connection bloat.
+    ///   Creates an alt profile for an account safely, along with their associated <paramref name="auth"/> to the DB. <para />
+    ///   At the same time, this method will generate entries in all other tables user-related data is necessary. <para />
+    ///   This will help reduce connection bloat.
     /// </summary>
     public static async Task CreateAltProfile(User user, Auth auth, ILogger logger, GagspeakDbContext dbContext, GagspeakMetrics? metrics = null)
     {
@@ -190,7 +190,7 @@ public static class SharedDbFunctions
         await dbContext.ActiveRestraintData.AddAsync(new UserRestraintData { UserUID = user.UID }).ConfigureAwait(false);
         await dbContext.ActiveCollarData.AddAsync(new UserCollarData { UserUID = user.UID }).ConfigureAwait(false);
 
-        await dbContext.ProfileData.AddAsync(new UserProfileData { UserUID = user.UID }).ConfigureAwait(false);
+        await dbContext.UserProfileData.AddAsync(new UserProfile { UserUID = user.UID }).ConfigureAwait(false);
         await dbContext.AchievementData.AddAsync(new UserAchievementData { UserUID = user.UID, Base64AchievementData = null }).ConfigureAwait(false);
 
         logger.LogInformation($"[User {user.UID} (Alias: {user.Alias}) <{user.Tier}>] was created along with other necessary table entries!");

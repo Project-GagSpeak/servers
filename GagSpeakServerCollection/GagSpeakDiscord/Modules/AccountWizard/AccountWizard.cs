@@ -243,9 +243,9 @@ public partial class AccountWizard : InteractionModuleBase
     }
 
     /// <summary>
-    ///     Creates an account auth claim entry for a user that wants to claim their account. <para />
-    ///     Once creates, the <c>StartedAt</c> time is set. When it expires past a time and the user 
-    ///     is not set, it is considered invalid and will be removed.
+    ///   Creates an account auth claim entry for a user that wants to claim their account. <para />
+    ///   Once creates, the <c>StartedAt</c> time is set. When it expires past a time and the user 
+    ///   is not set, it is considered invalid and will be removed.
     /// </summary>
     /// <returns> The verification code to match.
     private async Task<string> GenerateAccountClaimAuth(ulong discordId, string initialGeneratedKey, GagspeakDbContext dbContext)

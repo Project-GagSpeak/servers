@@ -1,4 +1,6 @@
 using GagspeakAPI.Data;
+using GagspeakAPI.Network;
+using GagspeakAPI.User;
 using GagspeakShared.Models;
 using System.Reflection;
 
@@ -51,10 +53,9 @@ public static class Extensions
             MotorsUsed = pattern.MotorsUsed
         };
 
-    public static void UpdateInfoFromDto(this UserProfileData storedData, KinkPlateContent dtoContent)
+    public static void UpdateInfoFromDto(this UserProfile storedData, KinkPlateContent dtoContent)
     {
         // update all other values from the Info in the dto.
-        storedData.ProfileIsPublic = dtoContent.IsPublic;
         storedData.Description = dtoContent.Description;
         storedData.AchievementsEarned = dtoContent.CompletedTotal;
         storedData.ChosenTitleId = dtoContent.ChosenTitleId;
@@ -85,10 +86,9 @@ public static class Extensions
         storedData.BlockedSlotOverlay = dtoContent.BlockedSlotOverlay;
     }
 
-    public static KinkPlateContent FromProfileData(this UserProfileData data)
-        => new KinkPlateContent()
+    public static KinkPlateContent FromProfileData(this UserProfile data)
+        => new()
         {
-            IsPublic = data.ProfileIsPublic,
             Flagged = data.FlaggedForReport,
             Description = data.Description,
             CompletedTotal = data.AchievementsEarned,
@@ -120,12 +120,18 @@ public static class Extensions
             BlockedSlotOverlay = data.BlockedSlotOverlay
         };
 
-    public static UserData ToUserData(this User user)
-        => new UserData(user.UID, user.Alias, user.Tier, user.CreatedAt);
+    public static KinksterRequest ToApi(this PairingRequest r)
+        => new(new(r.UserUID), new(r.OtherUserUID), r.IsTemporary, r.AttachedMessage, r.CreationTime);
+
+    public static KinksterRequest ToApiRemoval(UserData user, UserData target)
+        => new(user, target, false, string.Empty, DateTime.MinValue);
+
+    public static UserData ToUserData(this User u)
+        => new(u.UID, u.Alias, u.DisplayName, u.NameColor, u.NameGlowColor, u.Tier, u.CreatedAt);
 
     /// <summary>
-    ///     Copies all properties over from two objects of the same <typeparamref name="T"/> type. <para />
-    ///     This honestly might be better an an API method lol.
+    ///   Copies all properties over from two objects of the same <typeparamref name="T"/> type. <para />
+    ///   This honestly might be better an an API method lol.
     /// </summary>
     public static void CopyPropertiesTo<T>(this T source, T target)
     {

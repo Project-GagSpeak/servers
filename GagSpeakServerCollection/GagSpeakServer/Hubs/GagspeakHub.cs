@@ -1,3 +1,4 @@
+using GagspeakAPI.Connection;
 using GagspeakAPI.Data;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
@@ -25,51 +26,43 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     // A thread-safe dictionary to store user connections (Shared across ALL instances of created gagspeak hub connections)
     public static readonly ConcurrentDictionary<string, string> _userConnections = new(StringComparer.Ordinal);
 
-    // The Metrics for the GagSpeak web server
+    // Services for GagSpeak
+    private readonly GagspeakHubLogger _logger;
     private readonly GagspeakMetrics _metrics;
-
-    // Service for managing online synced pairs
+    private readonly ChatService _chatService;
     private readonly OnlineSyncedPairCacheService _onlineSyncedPairCacheService;
-
-    // Service for getting system information
     private readonly SystemInfoService _systemInfoService;
 
-    // Accessor to get HTTP context information
     private readonly IHttpContextAccessor _contextAccessor;
-
-    // Logger specific to GagSpeakHub
-    private readonly GagspeakHubLogger _logger;
-
-    // Redis database for caching (Redis allows us to have a simple way to store and manage user state with large scale)
     private readonly IRedisDatabase _redis;
 
-    // Expected version of the client
-    private readonly Version _expectedClientVersion;
-
-    // Lazy initialization of GagSpeakDbContext
+    // Lazily initialized DbContext generated on initialization.
+    // Does not technically need to be lazy as it is not modified, but useful to have.
     private readonly Lazy<GagspeakDbContext> _dbContextLazy;
 
-    // Property to get the GagSpeakDbContext
     private GagspeakDbContext DbContext => _dbContextLazy.Value;
+    private readonly Version _expectedClientVersion;
 
-    // Constructor for GagspeakHub
     public GagspeakHub(
         ILogger<GagspeakHub> logger,
         IDbContextFactory<GagspeakDbContext> dbFactory,
         IConfigurationService<ServerConfiguration> config,
         GagspeakMetrics metrics,
+        ChatService chatService,
         OnlineSyncedPairCacheService onlineSyncService,
         SystemInfoService systemInfoService,
         IRedisDatabase redis,
         IHttpContextAccessor contextAccessor)
     {
         _logger = new GagspeakHubLogger(this, logger);
-        _dbContextLazy = new Lazy<GagspeakDbContext>(() => dbFactory.CreateDbContext());
         _metrics = metrics;
+        _chatService = chatService;
         _onlineSyncedPairCacheService = onlineSyncService;
         _systemInfoService = systemInfoService;
-        _redis = redis;
         _contextAccessor = contextAccessor;
+        _redis = redis;
+
+        _dbContextLazy = new Lazy<GagspeakDbContext>(() => dbFactory.CreateDbContext());
 
         _expectedClientVersion = config.GetValueOrDefault(nameof(ServerConfiguration.ExpectedClientVersion), new Version(0, 0, 0));
     }
@@ -83,10 +76,10 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     }
 
     /// <summary> 
-    ///     Called by a connected client when they want to request a GetConnectionResponse object from the server. <para />
-    ///     
-    ///     Requires the requesting client to have authorization policy of "Identified" to proceed, meaning they used the
-    ///     one-time use account generation to create a new user and secret key.
+    ///   Called by a connected client when they want to request a GetConnectionResponse object from the server. <para />
+    ///   
+    ///   Requires the requesting client to have authorization policy of "Identified" to proceed, meaning they used the
+    ///   one-time use account generation to create a new user and secret key.
     /// </summary>
     [Authorize(Policy = "Identified")]
     public async Task<ConnectionResponse> GetConnectionResponse()
@@ -153,7 +146,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
     /// <summary>
-    ///     This only returns the data that is respective to the caller's UserUID
+    ///   This only returns the data that is respective to the caller's UserUID
     /// </summary>
     /// <returns> All the UserUID's published patterns, loci statuses, and collective ShareHub tags for searches. </returns>
     [Authorize(Policy = "Identified")]
@@ -176,7 +169,7 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
     }
 
     /// <summary> 
-    ///     Creates a new secret key and user for a client, which is called upon by their one time use request. 
+    ///   Creates a new secret key and user for a client, which is called upon by their one time use request. 
     /// </summary>
     /// <returns> A tuple containing the UID and the hashed secret key for the one-time generation. </returns>
     [Authorize(Policy = "TemporaryAccess")]
@@ -246,8 +239,8 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
     /// <summary> 
-    ///     Called after fully connecting to GagSpeak servers. <para />
-    ///     The _userConnections is the concurrent dictionary of connected users to the server.
+    ///   Called after fully connecting to GagSpeak servers. <para />
+    ///   The _userConnections is the concurrent dictionary of connected users to the server.
     /// </summary>
     public override async Task OnConnectedAsync()
     {
@@ -265,36 +258,26 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         // If it exists, it means they are already connected.
         if (_userConnections.TryGetValue(UserUID, out string oldId))
         {
-            // if we got here log, a warning that we are updating the users UID to the new connection 
             _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "UpdatingId", oldId, Context.ConnectionId));
-            // Update concurrent dictionary with unique ID
             _userConnections[UserUID] = Context.ConnectionId;
-            // add the user to the global chat group
-            await Groups.AddToGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
         }
-        // otherwise, this is a new connection, so lets establish it.
+        // otherwise, attempt establishing a new connection.
         else
         {
-            // next up, try and log the connection attempt with the user details
             _metrics.IncGauge(MetricsAPI.GaugeConnections);
+            // If this fails we should remove the user from the group and user connections.
             try
             {
                 // display IP of client who just connected, and initialize player into the online synced pair cache service.
                 _logger.LogCallInfo(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
                 // initialize the online synced pair cache service with the user UID and connection ID.
                 await _onlineSyncedPairCacheService.InitPlayer(UserUID).ConfigureAwait(false);
-                // Finally, update the user onto the redi's server, then set their connection ID in the concurrent dictionary.
                 await UpdateUserOnRedis().ConfigureAwait(false);
                 _userConnections[UserUID] = Context.ConnectionId;
-                // add the user to the global chat group
-                await Groups.AddToGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
             }
             catch
             {
-                // if at any point we catch an error, then remove the user from the concurrent dictionary of user connections.
-
                 _userConnections.Remove(UserUID, out _);
-                await Groups.RemoveFromGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
             }
         }
         await base.OnConnectedAsync().ConfigureAwait(false);
@@ -302,13 +285,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
 
     /// <summary> 
-    ///     Ensures everything is properly disconnected once the function is called upon. <para />
-    ///     We dont require authenticated policy for disconnect as temp access uses it too.
+    ///   Properly disposes of any connected or lingering data of a disconnected user.
     /// </summary>
     public override async Task OnDisconnectedAsync(Exception exception)
     {
-        /* -------------------- Temporary Connection -------------------- */
-        // if its a temp connection disconnecting, simply call the base and exit
+        /* ---- Temporary Connection ---- */
         if (string.Equals(UserHasTempAccess, "LocalContent", StringComparison.Ordinal))
         {
             _logger.LogMessage("Temp Access Connection Disconnected.");
@@ -331,8 +312,6 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
 
                 // log the call info of the user who disconnected
                 _logger.LogCallInfo(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, UserCharaIdent));
-
-                // check to see if they disconnected with an exception. If it did, log it as a warning message
                 if (exception != null)
                     _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), Context.ConnectionId, exception.Message, exception.StackTrace ?? string.Empty));
 
@@ -340,24 +319,21 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
                 await RemoveUserFromRedis().ConfigureAwait(false);
 
                 // send a function call to all connected pairs of this user that they have gone offline.
-                await SendOfflineToAllPairedUsers().ConfigureAwait(false);
+                await SendOfflineToKinksterPairs().ConfigureAwait(false);
             }
             catch { /* Consume */ }
             finally
             {
                 // finally, remove this user from the concurrent dictionary of connected users.
                 _userConnections.Remove(UserUID, out _);
-                // remove user from the global chat group
-                await Groups.RemoveFromGroupAsync(Context.ConnectionId, GagspeakGlobalChat).ConfigureAwait(false);
             }
         }
-        // if we reach here, we should log a warning that the user disconnecting was not in the dictionary of connected users.
+        // Log warning if a DC happened before we were even properly established in _userConnections.
         else
         {
             _logger.LogCallWarning(GagspeakHubLogger.Args(_contextAccessor.GetIpAddress(), "ObsoleteId", UserUID, Context.ConnectionId));
         }
 
-        // await the base disconnectedAsync method to occur.
         await base.OnDisconnectedAsync(exception).ConfigureAwait(false);
     }
 }

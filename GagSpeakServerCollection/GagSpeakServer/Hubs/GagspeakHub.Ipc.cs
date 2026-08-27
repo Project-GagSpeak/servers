@@ -3,6 +3,7 @@ using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
+using GagspeakAPI.User;
 using GagspeakServer.Utils;
 using GagspeakShared.Metrics;
 using Microsoft.AspNetCore.Authorization;
@@ -103,7 +104,7 @@ public partial class GagspeakHub
 	}
 
 	[Authorize(Policy = "Identified")]
-	public async Task<HubResponse> UserClearLociData(KinksterBase dto)
+	public async Task<HubResponse> UserClearLociData(UserDto dto)
 	{
         if (await DbContext.PairPermissions.AsNoTracking().SingleOrDefaultAsync(u => u.UserUID == dto.User.UID && u.OtherUserUID == UserUID).ConfigureAwait(false) is not { } pairPerms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.NotPaired);

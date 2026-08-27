@@ -44,7 +44,7 @@ public class JwtController : Controller
     }
 
     /// <summary>
-    ///     Create a temporary access token via the callers hashed name and contentId.
+    ///   Create a temporary access token via the callers hashed name and contentId.
     /// </summary>
     [AllowAnonymous]
     [HttpPost(GagspeakAuth.Auth_TempToken)]
@@ -55,7 +55,7 @@ public class JwtController : Controller
     }
 
     /// <summary> 
-    ///     Create a new token for a User. <b>(Allows Anonymous Access)</b> <para />
+    ///   Create a new token for a User. <b>(Allows Anonymous Access)</b> <para />
     /// </summary>
     [AllowAnonymous]
     [HttpPost(GagspeakAuth.Auth_CreateIdent)]
@@ -66,7 +66,7 @@ public class JwtController : Controller
     }
 
     /// <summary>
-    ///     Renews a token for a User. <b>(Requires Authenticated Access)</b> <para />
+    ///   Renews a token for a User. <b>(Requires Authenticated Access)</b> <para />
     /// </summary>
     [Authorize(Policy = "Authenticated")]
     [HttpGet(GagspeakAuth.Auth_RenewToken)]
@@ -188,8 +188,8 @@ public class JwtController : Controller
     }
 
     /// <summary>
-    ///     Method to create a temporary JWT token from a provided user ID, character identity, and alias. <para />
-    ///     For One-Time AccountGeneration.
+    ///   Method to create a temporary JWT token from a provided user ID, character identity, and alias. <para />
+    ///   For One-Time AccountGeneration.
     /// </summary>
     private IActionResult CreateTempAccessJwtFromId(string charaIdent, string localConentId)
     {
@@ -204,7 +204,7 @@ public class JwtController : Controller
     }
 
     /// <summary>
-    ///     Method to create a JWT token from a provided user ID, character identity, and alias.
+    ///   Method to create a JWT token from a provided user ID, character identity, and alias.
     /// </summary>
     private IActionResult CreateJwtFromId(string uid, string charaIdent, string alias)
     {
@@ -223,7 +223,7 @@ public class JwtController : Controller
     }
 
     /// <summary>
-    ///     Method to create a JWT token from a provided set of claims.
+    ///   Method to create a JWT token from a provided set of claims.
     /// </summary>
     private JwtSecurityToken CreateJwt(IEnumerable<Claim> authClaims)
     {
@@ -248,7 +248,7 @@ public class JwtController : Controller
     }
 
     /// <summary>
-    ///     Ensure ban across the board if detected from user identity.
+    ///   Ensure ban across the board if detected from user identity.
     /// </summary>
     private async Task EnsureBanFromDetectedIdentBan(string uid, string charaIdent)
     {
@@ -273,7 +273,7 @@ public class JwtController : Controller
     }
 
     /// <summary>
-    ///     Ensure ban across the board if detected true from account rep.
+    ///   Ensure ban across the board if detected true from account rep.
     /// </summary>
     private async Task EnsureBanFromDetectedRepBan(string uid, string charaIdent, string accountUid)
     {

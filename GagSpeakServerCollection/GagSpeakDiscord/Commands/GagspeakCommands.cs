@@ -210,7 +210,7 @@ public class GagspeakCommands : InteractionModuleBase
             using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfig.MainServerAddress)), "/msgc/sendMessage"), payload).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfig.DiscordChannelForMessages), null);
+                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfig.ChannelForMessages), null);
                 if (uid is null && discordChannelForMessages != null)
                 {
                     IMessageChannel? discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
@@ -391,7 +391,7 @@ public class GagspeakCommands : InteractionModuleBase
             using HttpResponseMessage response = await client.PostAsJsonAsync(new Uri(_discordConfigService.GetValue<Uri>(nameof(DiscordConfig.MainServerAddress)), "/msgc/forceHardReconnect"), payload).ConfigureAwait(false);
             if (response.IsSuccessStatusCode)
             {
-                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfig.DiscordChannelForMessages), null);
+                ulong? discordChannelForMessages = _discordConfigService.GetValueOrDefault<ulong?>(nameof(DiscordConfig.ChannelForMessages), null);
                 if (discordChannelForMessages != null)
                 {
                     IMessageChannel? discordChannel = await Context.Guild.GetChannelAsync(884567637529604117) as IMessageChannel;
@@ -550,7 +550,7 @@ public class GagspeakCommands : InteractionModuleBase
         }
 
         // Modify the profile data.
-        if (await db.ProfileData.SingleAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false) is { } profile)
+        if (await db.UserProfileData.SingleAsync(u => u.UserUID == auth.UserUID).ConfigureAwait(false) is { } profile)
         {
             profile.FlaggedForReport = false;
             profile.Description = string.Empty;

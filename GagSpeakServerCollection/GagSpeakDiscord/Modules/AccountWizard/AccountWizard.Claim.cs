@@ -2,6 +2,7 @@ using Discord;
 using Discord.Interactions;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
+using GagspeakAPI.User;
 using GagSpeakDiscord.Modules.Popups;
 using GagspeakShared.Data;
 using Microsoft.AspNetCore.SignalR;
@@ -169,7 +170,7 @@ public partial class AccountWizard
     }
 
     /// <summary>
-    ///     Called by the start of the registration when asking for the initial key.
+    ///   Called by the start of the registration when asking for the initial key.
     /// </summary>
     /// <param name="embed"> the embed builder for the message </param>
     /// <param name="arg"> the initial key modal as an argument passed in. </param>
@@ -288,7 +289,7 @@ public partial class AccountWizard
             // fetch the roles they have, and output them.
             _logger.LogInformation($"User {authClaim!.User!.UID} has roles: {string.Join(", ", gsUser.RoleIds)}");
             // Determine the highest priority role
-            CkSupporterTier highestRole = gsUser.RoleIds
+            CkVanityTier highestRole = gsUser.RoleIds
                 .Where(ckRoles.ContainsKey)
                 .Select(id => DiscordBot.RoleToVanityTier[ckRoles[id]])
                 .OrderByDescending(tier => tier)

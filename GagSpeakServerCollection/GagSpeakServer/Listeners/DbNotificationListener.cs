@@ -173,7 +173,7 @@ public class DbNotificationListener : IHostedService
     }
 
     /// <summary>
-    ///     The AccountClaimAuth that was inserted into the database by intercepting the JSON payload and turning it into the model version.
+    ///   The AccountClaimAuth that was inserted into the database by intercepting the JSON payload and turning it into the model version.
     /// </summary>
     public AccountClaimAuth ParsePayloadToAccountClaimAuth(string jsonPayload)
     {

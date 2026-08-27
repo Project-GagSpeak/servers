@@ -30,7 +30,7 @@ public class SecretKeyAuthService
     }
 
     /// <summary>
-    ///     Authorize a user with by a passed in hashed secret key, and the IP it is accessed from.
+    ///   Authorize a user with by a passed in hashed secret key, and the IP it is accessed from.
     /// </summary>
     /// <returns> The secret key authorization reply. </returns>
     public async Task<SecretKeyAuthReply> AuthorizeAsync(string ip, string hashedSecretKey)

@@ -5,6 +5,7 @@ using GagspeakAPI.Enums;
 using GagspeakAPI.Extensions;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
+using GagspeakAPI.User;
 using GagspeakAPI.Util;
 using GagspeakServer.Utils;
 using GagspeakShared.Metrics;
@@ -126,7 +127,7 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // Obtain the recipients to send the data to now that we know we can.
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
@@ -251,7 +252,7 @@ public partial class GagspeakHub
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
@@ -429,7 +430,7 @@ public partial class GagspeakHub
         // save changes to our tracked item.
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
@@ -523,7 +524,7 @@ public partial class GagspeakHub
         }
 
         // Grabs all Pairs of the affected pair
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.Target.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
@@ -556,7 +557,7 @@ public partial class GagspeakHub
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
         // Grabs all Pairs of the affected pair
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.Target.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         List<string> onlinePairUids = onlinePairsOfTarget.Keys.ToList();
         // remove client
@@ -583,7 +584,7 @@ public partial class GagspeakHub
         if (!pairPerms.ToggleAlarms)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.Target.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         List<string> onlinePairUids = onlinePairsOfTarget.Keys.ToList();
         onlinePairUids.Remove(UserUID);
@@ -609,7 +610,7 @@ public partial class GagspeakHub
         if (!pairPerms.ToggleTriggers)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.LackingPermissions);
 
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.Target.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.Target.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         List<string> onlinePairUids = onlinePairsOfTarget.Keys.ToList();
         onlinePairUids.Remove(UserUID);
@@ -657,7 +658,7 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         // grab the user pairs that the paired user we are updating has.
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
@@ -868,7 +869,7 @@ public partial class GagspeakHub
         await DbContext.SaveChangesAsync().ConfigureAwait(false);
 
         var newData = hcState.ToApi(); 
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
@@ -878,9 +879,9 @@ public partial class GagspeakHub
     }
 
     /// <summary>
-    ///     Sends a custom Hypnosis effect to another kinkster, which they will execute. <para />
-    ///     If the image string is not null, ensure they have permission rights to do so. <para />
-    ///     When received by the target, they should update their HardcoreState to reflect these changes.
+    ///   Sends a custom Hypnosis effect to another kinkster, which they will execute. <para />
+    ///   If the image string is not null, ensure they have permission rights to do so. <para />
+    ///   When received by the target, they should update their HardcoreState to reflect these changes.
     /// </summary>
     [Authorize(Policy = "Identified")]
     public async Task<HubResponse> UserHypnotizeKinkster(HypnoticAction dto)
@@ -918,7 +919,7 @@ public partial class GagspeakHub
 
         var newHcState = hcState.ToApi();
         // Otherwise we can set it (assuming the permissions are valid) and should also inform all of this pair's pairs.
-        var pairsOfTarget = await GetAllPairedUnpausedUsers(dto.User.UID).ConfigureAwait(false);
+        var pairsOfTarget = await GetAllPairedUsers(dto.User.UID).ConfigureAwait(false);
         var onlinePairsOfTarget = await GetOnlineUsers(pairsOfTarget).ConfigureAwait(false);
         IEnumerable<string> onlinePairUids = onlinePairsOfTarget.Keys;
 
