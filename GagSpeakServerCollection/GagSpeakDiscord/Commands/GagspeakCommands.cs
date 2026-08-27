@@ -1,5 +1,6 @@
 using Discord;
 using Discord.Interactions;
+using Discord.WebSocket;
 using GagspeakAPI.Enums;
 using GagspeakShared.Data;
 using GagspeakShared.Models;
@@ -10,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System.Data;
 using System.Globalization;
+using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -286,6 +288,75 @@ public class GagspeakCommands : InteractionModuleBase
         
         await FollowupAsync($"Purge completed for users inactive for {timeFrame}.");
     }
+
+    [SlashCommand("getemotezip", "Downloads all server emojis as a zip. Use sparingly.")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task FetchEmoteZip()                
+    {
+        await Context.Interaction.DeferAsync();
+
+        var guild = (Context.Guild as SocketGuild);
+        if (guild == null)
+        {
+            await FollowupAsync("This command can only be used in a server.");
+            return;
+        }
+
+        await FollowupAsync($"Compiling Downloadable Zip for {guild.Emotes.Count} emotes..");
+        // Compile it.
+        var zipBytes = await BuildEmojiZipAsync(guild);
+
+        await using var stream = new MemoryStream(zipBytes);
+        await FollowupWithFileAsync(fileStream: stream, fileName: $"{guild.Name}_emojis.zip", text: $"Downloaded {guild.Emotes.Count} emojis.");
+    }
+
+    private async Task<byte[]> BuildEmojiZipAsync(SocketGuild guild)
+    {
+        using var zipStream = new MemoryStream();
+        // Compose a zip download file that is returnable as a byte array.
+        using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            using var client = new HttpClient();
+            // Compose all the emotjis into a zip file.
+            foreach (var emote in guild.Emotes)
+            {
+                // Discord helper.
+                var url = CDN.GetEmojiUrl(emote.Id, emote.Animated);
+                // Collect the bytes.
+                byte[] bytes;
+                try
+                {
+                    bytes = await client.GetByteArrayAsync(url);
+                }
+                catch
+                {
+                    continue;
+                }
+                // Make the file name.
+                var extension = emote.Animated ? "gif" : "png";
+                var fileName = $"{SanitizeFileName(emote.Name)}.{extension}";
+                // Add the file to the zip.
+                var entry = archive.CreateEntry(fileName, CompressionLevel.Fastest);
+                // Write the bytes to the zip entry.
+                await using var entryStream = entry.Open();
+                await entryStream.WriteAsync(bytes);
+            }
+        }
+        // Return the zip file as a byte array.
+        return zipStream.ToArray();
+
+        // Helper to sanitize name.
+        string SanitizeFileName(string name)
+        {
+            // Cleanup invalid filename characters.
+            foreach (char c in Path.GetInvalidFileNameChars())
+                name = name.Replace(c, '_');
+            // Return final sanitized name, or "emoji" if the name is null or whitespace.
+            return string.IsNullOrWhiteSpace(name) ? "emoji" : name;
+        }
+    }
+
+
 
     [SlashCommand("forcereconnect", "ADMIN ONLY: forcibly reconnects all online connected clients")]
     public async Task ForceReconnectOnlineUsers([Summary("message", "Message to send with reconnection notification")] string message,
