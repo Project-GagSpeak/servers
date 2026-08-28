@@ -52,7 +52,7 @@ public sealed class SystemInfoService : BackgroundService
                 _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableWorkerThreads, workerThreads);
                 _metrics.SetGaugeTo(MetricsAPI.GaugeAvailableIOWorkerThreads, ioThreads);
 
-                int onlineUsers = (_redis.SearchKeysAsync("GagspeakHub:UID:*").GetAwaiter().GetResult()).Count();
+                int onlineUsers = (_redis.SearchKeysAsync("UID:*").GetAwaiter().GetResult()).Count();
                 SystemInfoDto = new ServerInfoResponse(onlineUsers);
                 if (_config.IsMain)
                 {

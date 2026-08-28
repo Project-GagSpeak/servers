@@ -62,13 +62,27 @@ public partial class GagspeakHub
     }
 
     [Authorize(Policy = "Identified")]
-    public async Task<List<ChatlogMessage>> GetChatHistory(ChatHistoryRequest dto)
+    public async Task<ChatHistoryResult> GetChatHistory(ChatHistoryRequest dto)
     {
-        // If direct, fail if not involved.
-        if (dto.Id.Kind is GsChatKind.Direct && !dto.Id.ChatId.Contains(UserUID, StringComparison.Ordinal))
-            return [];
-        // Otherwise return the history.
-        return _chatService.GetPrivateChatHistory(dto.Id, dto.total).ToList();
+        var historyResult = new Dictionary<ChatlogId, List<ChatlogMessage>>();
+        if (dto.FetchGlobal)
+            historyResult[ChatlogId.GlobalChat] = _chatService.GetGlobalChatHistory(dto.total).ToList();
+        // If we request DMs, append them as well.
+        if (dto.DMs.Count > 0)
+        {
+            var validPairs = await GetAllPairedUsers().ConfigureAwait(false);
+            var limit = Math.Min(dto.total, 100);
+            foreach (var user in dto.DMs)
+            {
+                if (!validPairs.Contains(user.UID, StringComparer.Ordinal))
+                    continue;
+                // Get the distinct DM chat ID.
+                var chatId = string.CompareOrdinal(UserUID, user.UID) < 0 ? $"{UserUID}-{user.UID}" : $"{user.UID}-{UserUID}";
+                var chatlogId = new ChatlogId { Kind = GsChatKind.Direct, ChatId = chatId };
+                historyResult[chatlogId] = _chatService.GetPrivateChatHistory(chatlogId, limit).ToList();
+            }
+        }
+        return new ChatHistoryResult(historyResult);
     }
 
     [Authorize(Policy = "Identified")]
