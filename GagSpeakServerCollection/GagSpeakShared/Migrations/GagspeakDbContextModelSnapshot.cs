@@ -110,6 +110,18 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("profile_viewing");
 
+                    b.Property<int>("RadarStrikes")
+                        .HasColumnType("integer")
+                        .HasColumnName("radar_strikes");
+
+                    b.Property<DateTime>("RadarTimeout")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("radar_timeout");
+
+                    b.Property<bool>("RadarUsage")
+                        .HasColumnType("boolean")
+                        .HasColumnName("radar_usage");
+
                     b.Property<int>("UploadAllowances")
                         .HasColumnType("integer")
                         .HasColumnName("upload_allowances");
@@ -1037,17 +1049,19 @@ namespace GagSpeakShared.Migrations
                     b.ToTable("client_pair_permissions", (string)null);
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.PairRequest", b =>
+            modelBuilder.Entity("GagspeakShared.Models.PairingRequest", b =>
                 {
                     b.Property<string>("UserUID")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasColumnName("user_uid");
+                        .HasColumnName("user_uid")
+                        .HasColumnOrder(0);
 
                     b.Property<string>("OtherUserUID")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasColumnName("other_user_uid");
+                        .HasColumnName("other_user_uid")
+                        .HasColumnOrder(1);
 
                     b.Property<string>("AttachedMessage")
                         .HasColumnType("text")
@@ -1060,10 +1074,6 @@ namespace GagSpeakShared.Migrations
                     b.Property<bool>("IsTemporary")
                         .HasColumnType("boolean")
                         .HasColumnName("is_temporary");
-
-                    b.Property<string>("PreferredNickname")
-                        .HasColumnType("text")
-                        .HasColumnName("preferred_nickname");
 
                     b.HasKey("UserUID", "OtherUserUID")
                         .HasName("pk_kinkster_pair_requests");
@@ -1183,10 +1193,25 @@ namespace GagSpeakShared.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ReportID"));
 
-                    b.Property<string>("CompressedChatHistory")
-                        .IsRequired()
+                    b.Property<int>("Chat")
+                        .HasColumnType("integer")
+                        .HasColumnName("chat");
+
+                    b.Property<string>("ChatContextJson")
                         .HasColumnType("text")
-                        .HasColumnName("compressed_chat_history");
+                        .HasColumnName("chat_context_json");
+
+                    b.Property<string>("ChatLogId")
+                        .HasColumnType("text")
+                        .HasColumnName("chat_log_id");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("text")
+                        .HasColumnName("message");
+
+                    b.Property<string>("MessageId")
+                        .HasColumnType("text")
+                        .HasColumnName("message_id");
 
                     b.Property<string>("ReportReason")
                         .HasColumnType("text")
@@ -1197,30 +1222,29 @@ namespace GagSpeakShared.Migrations
                         .HasColumnName("report_time");
 
                     b.Property<string>("ReportedUserUID")
-                        .HasColumnType("character varying(10)")
+                        .HasColumnType("text")
                         .HasColumnName("reported_user_uid");
 
-                    b.Property<string>("ReportingUserUID")
+                    b.Property<string>("ReporterUID")
                         .HasColumnType("character varying(10)")
-                        .HasColumnName("reporting_user_uid");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
+                        .HasColumnName("reporter_uid");
 
                     b.HasKey("ReportID")
                         .HasName("pk_reported_chats");
 
-                    b.HasIndex("ReportedUserUID")
-                        .HasDatabaseName("ix_reported_chats_reported_user_uid");
+                    b.HasIndex("Chat")
+                        .HasDatabaseName("ix_reported_chats_chat");
 
-                    b.HasIndex("ReportingUserUID")
-                        .HasDatabaseName("ix_reported_chats_reporting_user_uid");
+                    b.HasIndex("ChatLogId")
+                        .HasDatabaseName("ix_reported_chats_chat_log_id");
+
+                    b.HasIndex("ReporterUID")
+                        .HasDatabaseName("ix_reported_chats_reporter_uid");
 
                     b.ToTable("reported_chats", (string)null);
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.ReportedProfile", b =>
+            modelBuilder.Entity("GagspeakShared.Models.ReportedUserProfile", b =>
                 {
                     b.Property<int>("ReportID")
                         .ValueGeneratedOnAdd()
@@ -1245,19 +1269,24 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("character varying(10)")
                         .HasColumnName("reporting_user_uid");
 
-                    b.Property<string>("SnapshotDescription")
+                    b.Property<string>("SnapshotBg")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("snapshot_description");
+                        .HasColumnName("snapshot_bg");
 
-                    b.Property<string>("SnapshotImage")
+                    b.Property<string>("SnapshotIcon")
                         .IsRequired()
                         .HasColumnType("text")
-                        .HasColumnName("snapshot_image");
+                        .HasColumnName("snapshot_icon");
 
-                    b.Property<int>("Type")
-                        .HasColumnType("integer")
-                        .HasColumnName("type");
+                    b.Property<bool>("SnapshotIsNSFW")
+                        .HasColumnType("boolean")
+                        .HasColumnName("snapshot_is_nsfw");
+
+                    b.Property<string>("SnapshotJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("snapshot_json");
 
                     b.HasKey("ReportID")
                         .HasName("pk_reported_profiles");
@@ -1287,9 +1316,22 @@ namespace GagSpeakShared.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("display_name");
+
                     b.Property<DateTime>("LastLogin")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_login");
+
+                    b.Property<long?>("NameColor")
+                        .HasColumnType("bigint")
+                        .HasColumnName("name_color");
+
+                    b.Property<long?>("NameGlowColor")
+                        .HasColumnType("bigint")
+                        .HasColumnName("name_glow_color");
 
                     b.Property<int>("Tier")
                         .HasColumnType("integer")
@@ -1559,7 +1601,7 @@ namespace GagSpeakShared.Migrations
                     b.ToTable("user_hardcore_state", (string)null);
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserProfileData", b =>
+            modelBuilder.Entity("GagspeakShared.Models.UserProfile", b =>
                 {
                     b.Property<string>("UserUID")
                         .HasColumnType("character varying(10)")
@@ -1664,10 +1706,6 @@ namespace GagSpeakShared.Migrations
                     b.Property<int>("PlateLightBorder")
                         .HasColumnType("integer")
                         .HasColumnName("plate_light_border");
-
-                    b.Property<bool>("ProfileIsPublic")
-                        .HasColumnType("boolean")
-                        .HasColumnName("profile_is_public");
 
                     b.HasKey("UserUID")
                         .HasName("pk_user_profile_data");
@@ -2005,7 +2043,7 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.PairRequest", b =>
+            modelBuilder.Entity("GagspeakShared.Models.PairingRequest", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "OtherUser")
                         .WithMany()
@@ -2049,22 +2087,15 @@ namespace GagSpeakShared.Migrations
 
             modelBuilder.Entity("GagspeakShared.Models.ReportedChat", b =>
                 {
-                    b.HasOne("GagspeakShared.Models.User", "ReportedUser")
+                    b.HasOne("GagspeakShared.Models.User", "Reporter")
                         .WithMany()
-                        .HasForeignKey("ReportedUserUID")
-                        .HasConstraintName("fk_reported_chats_users_reported_user_uid");
+                        .HasForeignKey("ReporterUID")
+                        .HasConstraintName("fk_reported_chats_users_reporter_uid");
 
-                    b.HasOne("GagspeakShared.Models.User", "ReportingUser")
-                        .WithMany()
-                        .HasForeignKey("ReportingUserUID")
-                        .HasConstraintName("fk_reported_chats_users_reporting_user_uid");
-
-                    b.Navigation("ReportedUser");
-
-                    b.Navigation("ReportingUser");
+                    b.Navigation("Reporter");
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.ReportedProfile", b =>
+            modelBuilder.Entity("GagspeakShared.Models.ReportedUserProfile", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "ReportedUser")
                         .WithMany()
@@ -2129,7 +2160,7 @@ namespace GagSpeakShared.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("GagspeakShared.Models.UserProfileData", b =>
+            modelBuilder.Entity("GagspeakShared.Models.UserProfile", b =>
                 {
                     b.HasOne("GagspeakShared.Models.User", "User")
                         .WithMany()
@@ -2140,7 +2171,7 @@ namespace GagSpeakShared.Migrations
 
                     b.HasOne("GagspeakShared.Models.UserCollarData", "CollarData")
                         .WithOne()
-                        .HasForeignKey("GagspeakShared.Models.UserProfileData", "UserUID")
+                        .HasForeignKey("GagspeakShared.Models.UserProfile", "UserUID")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_user_profile_data_active_collar_data_user_uid");

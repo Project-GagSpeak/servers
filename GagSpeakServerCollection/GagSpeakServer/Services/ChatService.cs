@@ -88,7 +88,7 @@ public class ChatService
             for (int i = toTake - 1; i >= 0 && node is not null; i--)
             {
                 var msg = node.Value;
-                res[i] = new(msg.ChatID, msg.MsgId, msg.TimeSentUTC, msg.Sender, msg.Message, msg.Contents)
+                res[i] = new(msg.Chatlog, msg.MsgId, msg.TimeSentUTC, msg.Sender, msg.Message, msg.Contents)
                 {
                     GlobalChatFlags = msg.GlobalChatFlags
                 };

@@ -1,11 +1,10 @@
 ﻿using GagspeakAPI.Chat;
 using GagspeakAPI.Connection;
-using GagspeakAPI.Data;
 using GagspeakAPI.Dto.VibeRoom;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Network;
+using GagspeakAPI.Reporting;
 using GagspeakAPI.User;
-using SundouleiaAPI.Reporting;
 
 namespace GagspeakServer.Hubs;
 

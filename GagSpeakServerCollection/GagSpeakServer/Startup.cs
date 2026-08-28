@@ -90,6 +90,7 @@ public class Startup
         // next, add the server token generator, system info service, and online synced pair cache service to the services
         services.AddSingleton<ServerTokenGenerator>();
         services.AddSingleton<SystemInfoService>();
+        services.AddSingleton<ChatService>();
         services.AddSingleton<OnlineSyncedPairCacheService>();
         services.AddHostedService(provider => provider.GetService<SystemInfoService>());
         _logger.LogInformation("System Info Service Hosted Service added");
