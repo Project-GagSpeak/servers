@@ -247,6 +247,7 @@ public partial class GagspeakHub
             case DataUpdateType.Applied:
                 curData.Identifier = dto.ActiveSetId;
                 curData.Enabler = dto.Enabler;
+                curData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             // No bitwise operations for right now, just raw updates.

@@ -303,6 +303,7 @@ public partial class GagspeakHub
 
                 curRestraintSetData.Identifier = dto.ActiveSetId;
                 curRestraintSetData.Enabler = dto.Enabler;
+                curRestraintSetData.ActiveLayers = dto.ActiveLayers;
                 break;
 
             case DataUpdateType.LayersChanged:
