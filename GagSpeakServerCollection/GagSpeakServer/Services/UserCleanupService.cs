@@ -1,5 +1,4 @@
-﻿using GagspeakAPI.Enums;
-using GagspeakAPI.Hub;
+﻿using GagspeakAPI.Hub;
 using GagspeakAPI.User;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;

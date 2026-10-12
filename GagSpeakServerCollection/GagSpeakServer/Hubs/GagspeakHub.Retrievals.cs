@@ -2,7 +2,6 @@
 using GagspeakAPI.Connection;
 using GagspeakAPI.Data;
 using GagspeakAPI.Network;
-using GagspeakAPI.Profiles;
 using GagspeakAPI.User;
 using GagspeakServer.Utils;
 using Microsoft.AspNetCore.Authorization;

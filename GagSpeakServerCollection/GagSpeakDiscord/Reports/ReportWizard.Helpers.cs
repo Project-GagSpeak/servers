@@ -2,7 +2,6 @@
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
-using GagspeakAPI.Profiles;
 using GagspeakAPI.Reporting;
 using GagspeakAPI.User;
 using GagspeakShared.Data;

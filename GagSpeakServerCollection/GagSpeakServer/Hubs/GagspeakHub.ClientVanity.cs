@@ -4,7 +4,6 @@ using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
 using GagspeakAPI.Reporting;
 using GagspeakAPI.User;
-using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
@@ -15,7 +14,6 @@ using Microsoft.EntityFrameworkCore;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using StackExchange.Redis;
-using SundouleiaAPI.Reporting;
 using System.Text.Json;
 
 namespace GagspeakServer.Hubs;

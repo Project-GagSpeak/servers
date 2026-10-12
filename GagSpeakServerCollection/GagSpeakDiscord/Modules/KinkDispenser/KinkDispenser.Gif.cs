@@ -4,7 +4,6 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using GagspeakDiscord.Services;
 using GagspeakShared.Services;
-using GagspeakShared.Utils.Configuration;
 using StackExchange.Redis;
 
 namespace GagspeakDiscord.Modules.KinkDispenser;

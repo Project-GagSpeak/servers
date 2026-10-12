@@ -1,6 +1,5 @@
 
 using System.Net;
-using System.Text;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;

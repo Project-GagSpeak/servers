@@ -8,7 +8,6 @@ using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
-using SundouleiaAPI.Reporting;
 using System.Globalization;
 using System.Text.Json;
 using ServerDiscordConfig = GagspeakShared.Utils.Configuration.DiscordConfig;

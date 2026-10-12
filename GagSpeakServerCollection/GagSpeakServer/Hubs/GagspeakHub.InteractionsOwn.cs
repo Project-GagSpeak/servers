@@ -10,7 +10,6 @@ using GagspeakAPI.Util;
 using GagspeakServer.Utils;
 using GagspeakShared.Metrics;
 using GagspeakShared.Models;
-using GagspeakShared.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;

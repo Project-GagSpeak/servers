@@ -1,6 +1,5 @@
 using Discord;
 using Discord.Interactions;
-using GagspeakAPI.Enums;
 using GagspeakAPI.User;
 using GagspeakShared.Data;
 using Microsoft.EntityFrameworkCore;

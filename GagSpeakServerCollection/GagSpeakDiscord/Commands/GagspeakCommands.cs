@@ -6,7 +6,6 @@ using GagspeakShared.Data;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
 using GagspeakShared.Utils;
-using GagspeakShared.Utils.Configuration;
 using Microsoft.EntityFrameworkCore;
 using StackExchange.Redis;
 using System.Data;

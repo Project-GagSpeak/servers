@@ -3,7 +3,6 @@ using Discord;
 using Discord.Interactions;
 using Discord.Rest;
 using Discord.WebSocket;
-using GagspeakAPI.Enums;
 using GagspeakAPI.User;
 using GagspeakDiscord.Commands;
 using GagspeakDiscord.Modules.AccountWizard;

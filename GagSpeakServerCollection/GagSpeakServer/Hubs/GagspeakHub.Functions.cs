@@ -1,6 +1,4 @@
-﻿using GagspeakAPI.Data.Permissions;
-using GagspeakAPI.Enums;
-using GagspeakAPI.User;
+﻿using GagspeakAPI.User;
 using GagspeakShared.Models;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;

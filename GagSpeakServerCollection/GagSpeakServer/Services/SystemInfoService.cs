@@ -1,6 +1,5 @@
 using GagspeakAPI.Connection;
 using GagspeakAPI.Hub;
-using GagspeakAPI.Network;
 using GagspeakServer.Hubs;
 using GagspeakShared.Data;
 using GagspeakShared.Metrics;
