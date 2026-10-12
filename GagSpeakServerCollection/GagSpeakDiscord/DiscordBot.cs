@@ -43,6 +43,7 @@ internal partial class DiscordBot : IHostedService
         _gagspeakHubContext = hubContext;
         _logger = logger;
         _connectionMultiplexer = multiplexer;
+        _logger.LogWarning("DiscordBot Initialized");
         // Create a new discord client with the default retry mode
         _discordClient = new(new DiscordSocketConfig()
         {
@@ -103,6 +104,10 @@ internal partial class DiscordBot : IHostedService
 
             await _botServices.Start().ConfigureAwait(false);
         }
+        else
+        {
+            _logger.LogWarning("DiscordBot Token is empty, skipping bot startup");
+        }
     }
 
     /// <summary>
@@ -134,13 +139,18 @@ internal partial class DiscordBot : IHostedService
     {
         // only obtain the guild for Cordy's Kinkporium.
         RestGuild ckGuild = (await _discordClient.Rest.GetGuildsAsync().ConfigureAwait(false)).First();
+        _logger.LogInformation("Guild Found: {GuildName} | {GuildId}", ckGuild.Name, ckGuild.Id);
+
         // Register the commands for it.
         await _interactionModule.RegisterCommandsToGuildAsync(ckGuild.Id, true).ConfigureAwait(false);
+        _logger.LogInformation("Registered Commands to Guild: {GuildName} | {GuildId}", ckGuild.Name, ckGuild.Id);
         // cancel and dispose the previous update status.
         _updateStatusCts?.Cancel();
         _updateStatusCts?.Dispose();
         _updateStatusCts = new();
         _ = UpdateStatusAsync(_updateStatusCts.Token);
+
+        _logger.LogInformation("Starting Scheduled Tasks for Guild: {GuildName} | {GuildId}", ckGuild.Name, ckGuild.Id);
 
         // create our updated modal for the account management system
         await CreateOrUpdateAccountWizard(ckGuild).ConfigureAwait(false);
@@ -519,7 +529,7 @@ internal partial class DiscordBot : IHostedService
         {
             System.Net.EndPoint endPoint = _connectionMultiplexer.GetEndPoints().First();
             // fetch the total number of online users connected to the redis server
-            int onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "GagspeakHub:UID:*").CountAsync().ConfigureAwait(false);
+            int onlineUsers = await _connectionMultiplexer.GetServer(endPoint).KeysAsync(pattern: "UID:*").CountAsync().ConfigureAwait(false);
             
             _logger.LogTrace($"Users online: {onlineUsers}");
             await _discordClient.SetActivityAsync(new Game($"with {onlineUsers} Kinksters")).ConfigureAwait(false);

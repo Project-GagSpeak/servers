@@ -66,7 +66,7 @@ public partial class GagspeakHub
     {
         var historyResult = new Dictionary<ChatlogId, List<ChatlogMessage>>();
         if (dto.FetchGlobal)
-            historyResult[ChatlogId.GlobalChat] = _chatService.GetGlobalChatHistory(dto.total).ToList();
+            historyResult[ChatlogId.GlobalChat] = _chatService.GetGlobalChatHistory(200).ToList();
         // If we request DMs, append them as well.
         if (dto.DMs.Count > 0)
         {

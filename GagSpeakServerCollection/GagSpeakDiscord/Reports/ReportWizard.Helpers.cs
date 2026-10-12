@@ -78,6 +78,8 @@ public partial class ReportWizard
             _ => 0
         };
 
+        // Based on how many strikes exist for this catagory on that user, the duration gets longer.
+        // So if they get reported 1 time for profile viewing, a strike to profile editing will only have a 12h timeout.
         TimeSpan punishmentDuration = strikeCount switch
         {
             1 => TimeSpan.FromHours(12),

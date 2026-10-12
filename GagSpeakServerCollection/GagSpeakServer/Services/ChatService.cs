@@ -30,9 +30,9 @@ public class ChatService
         var msgId = Guid.NewGuid().ToString("N"); // No dashes
         var timeSent = DateTime.UtcNow;
 
-        var logMsg = new ChatlogMessage(sentMsg.ChatID, msgId, timeSent, sentMsg.Sender, sentMsg.Message, sentMsg.Contents)
+        var logMsg = new ChatlogMessage(ChatlogId.GlobalChat, msgId, timeSent, sentMsg.Sender, sentMsg.Message, sentMsg.Contents, sentMsg.LegacyId)
         {
-            GlobalChatFlags = sentMsg.GlobalChatFlags
+            Flags = sentMsg.Flags,
         };
 
         lock (_recorderLock)
@@ -53,7 +53,10 @@ public class ChatService
     {
         var msgId = Guid.NewGuid().ToString("N");
         var timeSent = DateTime.UtcNow;
-        var logMsg = new ChatlogMessage(sentMsg.ChatID, msgId, timeSent, sentMsg.Sender, sentMsg.Message, sentMsg.Contents);
+        var logMsg = new ChatlogMessage(sentMsg.ChatID, msgId, timeSent, sentMsg.Sender, sentMsg.Message, sentMsg.Contents, sentMsg.LegacyId)
+        {
+            Flags = sentMsg.Flags,
+        };
 
         lock (_recorderLock)
         {
@@ -88,10 +91,7 @@ public class ChatService
             for (int i = toTake - 1; i >= 0 && node is not null; i--)
             {
                 var msg = node.Value;
-                res[i] = new(msg.Chatlog, msg.MsgId, msg.TimeSentUTC, msg.Sender, msg.Message, msg.Contents)
-                {
-                    GlobalChatFlags = msg.GlobalChatFlags
-                };
+                res[i] = new(msg.Chatlog, msg.MsgId, msg.TimeSentUTC, msg.Sender, msg.Message, msg.Contents, msg.LegacyId) { Flags = msg.Flags };
                 node = node.Previous;
             }
 
@@ -118,10 +118,7 @@ public class ChatService
             for (int i = toTake - 1; i >= 0 && node is not null; i--)
             {
                 var msg = node.Value;
-                res[i] = new(id, msg.MsgId, msg.TimeSentUTC, msg.Sender, msg.Message, msg.Contents)
-                {
-                    GlobalChatFlags = msg.GlobalChatFlags,
-                };
+                res[i] = new(id, msg.MsgId, msg.TimeSentUTC, msg.Sender, msg.Message, msg.Contents, msg.LegacyId) { Flags = msg.Flags };
                 node = node.Previous;
             }
 

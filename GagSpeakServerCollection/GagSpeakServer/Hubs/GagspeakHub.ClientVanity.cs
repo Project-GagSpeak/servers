@@ -178,14 +178,22 @@ public partial class GagspeakHub
         if (newAlias && !IsValidName(dto.NewAlias))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.IncorrectDataType);
 
-        if (newVanityName && !IsValidName(dto.VanityName))
+        if (newVanityName && !IsValidVanityName(dto.VanityName))
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.IncorrectDataType);
 
         if (newAlias)
+        {
+            if (await DbContext.Users.AsNoTracking().AnyAsync(u => u.Alias == dto.NewAlias).ConfigureAwait(false))
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.AlreadyExists);
             user.Alias = dto.NewAlias!.Length is 0 ? null : dto.NewAlias;
+        }
 
         if (newVanityName)
+        {
+            if (await DbContext.Users.AsNoTracking().AnyAsync(u => u.DisplayName == dto.VanityName).ConfigureAwait(false))
+                return HubResponseBuilder.AwDangIt(GagSpeakApiEc.AlreadyExists);
             user.DisplayName = dto.VanityName!.Length is 0 ? null : dto.VanityName;
+        }
 
         if (newNameColor)
         {
@@ -215,7 +223,17 @@ public partial class GagspeakHub
             // An empty string is valid because it represents a request to clear the data.
             if (string.IsNullOrEmpty(value))
                 return true;
-            return value.Length is >= 5 and <= 15 && value.All(c => char.IsLetterOrDigit(c) || c is '_' or '-');
+            return value.Length is >= 4 and <= 15 && value.All(c => char.IsLetterOrDigit(c) || c is '_' or '-');
+        }
+
+        bool IsValidVanityName(string? value)
+        {
+            if (user.Tier is CkVanityTier.KinkporiumMistress)
+                return true;
+            // An empty string is valid because it represents a request to clear the data.
+            if (string.IsNullOrEmpty(value))
+                return true;
+            return value.Length is >= 4 and <= 10 && value.All(c => char.IsLetterOrDigit(c));
         }
 #pragma warning restore CS8632
     }
