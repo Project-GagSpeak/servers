@@ -28,6 +28,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.MessagePack" Version="10.0.14" />
 		<PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="9.0.0" />
 		<!--We need to do this until Discord.Net updates to 3.19-->
 		<PackageReference Include="System.Linq.Async" Version="6.0.1">
