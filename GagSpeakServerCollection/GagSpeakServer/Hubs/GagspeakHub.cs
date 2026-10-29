@@ -3,6 +3,7 @@ using GagspeakAPI.Data;
 using GagspeakAPI.Enums;
 using GagspeakAPI.Hub;
 using GagspeakAPI.Network;
+using GagspeakAPI.User;
 using GagspeakServer.Services;
 using GagspeakServer.Utils;
 using GagspeakShared.Data;
@@ -180,14 +181,15 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         var user = new User()
         {
             LastLogin = DateTime.UtcNow,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            Tier = CkVanityTier.EsteemedPatron,
         };
 
         // set has valid UID to false, so we can generate a new UID
-        bool hasValidUid = false;
+        var hasValidUid = false;
         while (!hasValidUid) // while its false, keep generating a new one.
         {
-            string uid = StringUtils.GenerateRandomString(10);
+            var uid = StringUtils.GenerateRandomString(10);
             if (DbContext.Users.Any(u => u.UID == uid || u.Alias == uid)) continue;
             user.UID = uid;
             hasValidUid = true;
@@ -198,10 +200,11 @@ public partial class GagspeakHub : Hub<IGagspeakHub>, IGagspeakHub
         {
             UserUID = user.UID,
             User = user,
+            IsVerified = true,
         };
 
         // Gen secret key 64long plus the current time.
-        string computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+        var computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
         // Add the auth for this user. In this case, the auth created is always the account's auth.
         // Add the respective Auth, referencing the User.
         var auth = new Auth()

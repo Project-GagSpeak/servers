@@ -16,7 +16,7 @@ public class GagspeakDbContext : DbContext
             return;
         }
 
-        optionsBuilder.UseNpgsql("Host=167.71.108.254;Port=5432;Database=gagspeak;Username=ckgagspeak", builder =>
+        optionsBuilder.UseNpgsql("Host=15.204.93.107;Port=5432;Database=gagspeak;Username=ckgagspeak", builder =>
         {
             builder.MigrationsHistoryTable("_efmigrationshistory", "public");
             builder.MigrationsAssembly("GagSpeakShared");

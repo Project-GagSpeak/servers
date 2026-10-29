@@ -48,7 +48,7 @@ public class Startup
         app.UseAuthorization();
 
         // This should be different from the other components ports.
-        var metricServer = new KestrelMetricServer(6152);
+        var metricServer = new KestrelMetricServer(6153);
         metricServer.Start();
 
         // set up the endpoints for the application. Because this is for authentications,

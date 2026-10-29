@@ -450,7 +450,7 @@ public class Startup
 
         // for the metrics server, initialize it with the metrics port from the configuration
 #pragma warning disable IDISP001, IDISP004
-        var metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 6150));
+        var metricServer = new KestrelMetricServer(config.GetValueOrDefault<int>(nameof(GagspeakConfigurationBase.MetricsPort), 6151));
         metricServer.Start();
 #pragma warning restore IDISP001, IDISP004
 
