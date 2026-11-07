@@ -771,15 +771,27 @@ public partial class GagspeakHub
     ///   If the profile being deleted is the account's primary profile, all secondary profiles are deleted with it.
     /// </summary>
     [Authorize(Policy = "Identified")]
-    public async Task<HubResponse> UserDelete()
+    public async Task<HubResponse> UserDelete(UserDto user)
     {
         _logger.LogCallInfo(GagspeakHubLogger.Args());
 
-        // Obtain the caller's Auth entry, which contains the User entry inside.
-        if (await DbContext.Users.AsNoTracking().SingleOrDefaultAsync(a => a.UID == UserUID).ConfigureAwait(false) is not { } caller)
+        // Retrieve the main Auth of the caller to get the primary profile.
+        if (await DbContext.Auth.AsNoTracking().SingleOrDefaultAsync(a => a.UserUID == UserUID).ConfigureAwait(false) is not { } auth)
+            return HubResponseBuilder.AwDangIt<List<UserData>>(GagSpeakApiEc.NullData);
+
+        // Retrieve the list of UIDs from all profiles matching the auth other.
+        var accountProfiles = await DbContext.Auth.AsNoTracking()
+            .Where(a => a.PrimaryUserUID == auth.PrimaryUserUID)
+            .Select(a => a.User)
+            .ToListAsync().ConfigureAwait(false);
+
+        // Identify the user we wish to delete. If they are not found, we should fail the operation.
+        if (accountProfiles.SingleOrDefault(u => string.Equals(u.UID, user.User.UID, StringComparison.OrdinalIgnoreCase)) is not { } userToDelete)
             return HubResponseBuilder.AwDangIt(GagSpeakApiEc.InvalidRecipient);
 
-        var pairRemovals = await SharedDbFunctions.DeleteUserProfile(caller, _logger.Logger, DbContext, _metrics).ConfigureAwait(false);
+        // Otherwise, we can go ahead and remove the profile (or all if the primary) of this user from the database.
+        _logger.LogWarning($"Removing profile(s) for user {user.User.UID} from the database, this is a permanent action.");
+        var pairRemovals = await SharedDbFunctions.DeleteUserProfile(userToDelete, _logger.Logger, DbContext, _metrics).ConfigureAwait(false);
 
         // send out to all the pairs to remove the deleted profile(s) from their lists.
         foreach (var (deletedProfile, profilePairUids) in pairRemovals)

@@ -493,6 +493,8 @@ internal partial class DiscordBot : IHostedService
                     {
                         _logger.LogInformation($"[VanityCleanup] {ckUser.DisplayName} ({ckUser.Id}) is no longer a supporting CK. Cleaning up account profile alias and roles.");
                         authClaim.User!.Alias = null;
+                        authClaim.User!.DisplayName = null;
+                        authClaim.User!.NameColor = null;
                         authClaim.User.Tier = CkVanityTier.NoRole;
                         // Clear out the vanity perks from their alts.
                         var secondaryUsers = await db.Auth.Include(u => u.User).Where(u => u.PrimaryUserUID == authClaim.User.UID).ToListAsync().ConfigureAwait(false);
@@ -500,6 +502,8 @@ internal partial class DiscordBot : IHostedService
                         {
                             _logger.LogDebug($"Secondary User {secondaryUser!.User!.UID} not in allowed roles, deleting alias & resetting supporter tier");
                             secondaryUser.User.Alias = null;
+                            secondaryUser.User.DisplayName = null;
+                            secondaryUser.User.NameColor = null;
                             secondaryUser.User.Tier = CkVanityTier.NoRole;
                         }
                         // await for the database to save changes
