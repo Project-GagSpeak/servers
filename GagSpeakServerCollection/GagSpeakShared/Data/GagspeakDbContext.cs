@@ -68,7 +68,7 @@ public class GagspeakDbContext : DbContext
 
     // User Active State Data
     public DbSet<UserGagData> ActiveGagData { get; set; }
-    public DbSet<UserRestrictionData> ActiveRestrictionData { get; set; }
+    public DbSet<UserRestraintLayer> ActiveRestrictionData { get; set; }
     public DbSet<UserRestraintData> ActiveRestraintData { get; set; }
     public DbSet<UserCollarData> ActiveCollarData { get; set; }
     
@@ -175,9 +175,9 @@ public class GagspeakDbContext : DbContext
         mb.Entity<UserGagData>().ToTable("user_gag_data");
         mb.Entity<UserGagData>().HasKey(u => new { u.UserUID, u.Layer });
         mb.Entity<UserGagData>().HasIndex(u => new { u.UserUID, u.Layer }).IsUnique(); // Ensures no duplicates for UserUID + Layer
-        mb.Entity<UserRestrictionData>().ToTable("user_restriction_data");
-        mb.Entity<UserRestrictionData>().HasKey(u => new { u.UserUID, u.Layer });
-        mb.Entity<UserRestrictionData>().HasIndex(u => new { u.UserUID, u.Layer }).IsUnique(); // Ensures no duplicates for UserUID + Layer
+        mb.Entity<UserRestraintLayer>().ToTable("user_restriction_data");
+        mb.Entity<UserRestraintLayer>().HasKey(u => new { u.UserUID, u.Layer });
+        mb.Entity<UserRestraintLayer>().HasIndex(u => new { u.UserUID, u.Layer }).IsUnique(); // Ensures no duplicates for UserUID + Layer
         mb.Entity<UserRestraintData>().ToTable("user_restraintset_data");
         mb.Entity<UserRestraintData>().HasIndex(u => u.UserUID);
         // Collars can have one or more owners, that link back to the collar's UserUID, via the foreign key CollaredUserUID.

@@ -67,8 +67,17 @@ public class ClientMessageController : Controller
             _logger.LogError("Received a null message");
             return Empty;
         }
-        _logger.LogInformation("Sending Message of severity {severity} to all online users: {message}", msg.Severity, msg.Message);
-        await _hubContextMain.Clients.All.Callback_HardReconnectMessage(msg.Severity, msg.Message, msg.State).ConfigureAwait(false);
+
+        if (string.IsNullOrEmpty(msg.userUID))
+        {
+            _logger.LogInformation($"Sending Message of severity {msg.Severity} to all online users: {msg.Message}");
+            await _hubContextMain.Clients.All.Callback_HardReconnectMessage(msg.Severity, msg.Message, msg.State).ConfigureAwait(false);
+        }
+        else
+        {
+            _logger.LogInformation($"Sending Message of severity {msg.Severity} to user {msg.userUID}: {msg.Message}");
+            await _hubContextMain.Clients.User(msg.userUID).Callback_HardReconnectMessage(msg.Severity, msg.Message, msg.State).ConfigureAwait(false);
+        }
 
         // Return an empty result
         return Empty;

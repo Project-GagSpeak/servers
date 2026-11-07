@@ -27,7 +27,7 @@ public static class PermissionsEx
         };
     }
 
-    public static ActiveRestriction ToApiRestrictionSlot(this UserRestrictionData restrictionSlot)
+    public static ActiveRestriction ToApiRestrictionSlot(this UserRestraintLayer restrictionSlot)
     {
         return new ActiveRestriction
         {

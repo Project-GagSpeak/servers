@@ -36,7 +36,7 @@ public partial class GagspeakHub
             }
 
             // Grab the restriction data ordered by layer.
-            List<UserRestrictionData> curRestrictions = await DbContext.ActiveRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
+            List<UserRestraintLayer> curRestrictions = await DbContext.ActiveRestrictionData.Where(u => u.UserUID == UserUID).OrderBy(u => u.Layer).ToListAsync().ConfigureAwait(false);
             if (curRestrictions.Any(r => r is null))
             {
                 await Clients.Caller.Callback_ServerMessage(MessageSeverity.Error, "Cannot clear Active Restriction Data, it does not exist!").ConfigureAwait(false);
@@ -63,7 +63,7 @@ public partial class GagspeakHub
             }
 
             // Clear restrictionData for all layers.
-            foreach (UserRestrictionData activeSetData in curRestrictions)
+            foreach (UserRestraintLayer activeSetData in curRestrictions)
             {
                 activeSetData.Identifier = Guid.Empty;
                 activeSetData.Enabler = string.Empty;

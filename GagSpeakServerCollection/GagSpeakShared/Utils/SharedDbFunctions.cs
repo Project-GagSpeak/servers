@@ -148,7 +148,7 @@ public static class SharedDbFunctions
 
         // Add UserRestrictionData (5 layers: 0, 1, 2, 3, 4)
         for (byte layer = 0; layer < 5; layer++)
-            await dbContext.ActiveRestrictionData.AddAsync(new UserRestrictionData { UserUID = user.UID, Layer = layer }).ConfigureAwait(false);
+            await dbContext.ActiveRestrictionData.AddAsync(new UserRestraintLayer { UserUID = user.UID, Layer = layer }).ConfigureAwait(false);
 
         await dbContext.ActiveRestraintData.AddAsync(new UserRestraintData { UserUID = user.UID }).ConfigureAwait(false);
         await dbContext.ActiveCollarData.AddAsync(new UserCollarData { UserUID = user.UID }).ConfigureAwait(false);
@@ -185,7 +185,7 @@ public static class SharedDbFunctions
 
         // Add UserRestrictionData (5 layers: 0, 1, 2, 3, 4)
         for (byte layer = 0; layer < 5; layer++)
-            await dbContext.ActiveRestrictionData.AddAsync(new UserRestrictionData { UserUID = user.UID, Layer = layer }).ConfigureAwait(false);
+            await dbContext.ActiveRestrictionData.AddAsync(new UserRestraintLayer { UserUID = user.UID, Layer = layer }).ConfigureAwait(false);
 
         await dbContext.ActiveRestraintData.AddAsync(new UserRestraintData { UserUID = user.UID }).ConfigureAwait(false);
         await dbContext.ActiveCollarData.AddAsync(new UserCollarData { UserUID = user.UID }).ConfigureAwait(false);
