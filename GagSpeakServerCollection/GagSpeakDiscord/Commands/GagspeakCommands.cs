@@ -3,10 +3,12 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using GagspeakAPI.Enums;
 using GagspeakShared.Data;
+using GagspeakShared.Metrics;
 using GagspeakShared.Models;
 using GagspeakShared.Services;
 using GagspeakShared.Utils;
 using Microsoft.EntityFrameworkCore;
+using Prometheus;
 using StackExchange.Redis;
 using System.Data;
 using System.Globalization;
@@ -22,6 +24,7 @@ namespace GagspeakDiscord.Commands;
 #pragma warning disable CS8602
 public class GagspeakCommands : InteractionModuleBase
 {
+    private readonly GagspeakMetrics _metrics;
     private readonly DiscordBotServices _botServices;
     private readonly ServerTokenGenerator _serverTokenGenerator;                   // the server token generator
     private readonly ILogger<GagspeakCommands> _logger;                               // the logger for the GagspeakCommands
@@ -29,16 +32,17 @@ public class GagspeakCommands : InteractionModuleBase
     private readonly IConfigurationService<DiscordConfig> _discordConfigService;    // the discord configuration service
     private readonly IConnectionMultiplexer _connectionMultiplexer;                 // the connection multiplexer for the discord bot
 
-    public GagspeakCommands(DiscordBotServices botServices, ServerTokenGenerator tokenGenerator, 
-        ILogger<GagspeakCommands> logger, IServiceProvider services,
-        IConfigurationService<DiscordConfig> gagspeakDiscordConfiguration,
+    public GagspeakCommands(GagspeakMetrics metrics, DiscordBotServices botServices,
+        ServerTokenGenerator tokenGenerator, ILogger<GagspeakCommands> logger,
+        IServiceProvider services, IConfigurationService<DiscordConfig> discordConfig,
         IConnectionMultiplexer connectionMultiplexer)
     {
+        _metrics = metrics;
         _botServices = botServices;
         _serverTokenGenerator = tokenGenerator;
         _logger = logger;
         _services = services;
-        _discordConfigService = gagspeakDiscordConfiguration;
+        _discordConfigService = discordConfig;
         _connectionMultiplexer = connectionMultiplexer;
     }
 
@@ -352,6 +356,109 @@ public class GagspeakCommands : InteractionModuleBase
                 name = name.Replace(c, '_');
             // Return final sanitized name, or "emoji" if the name is null or whitespace.
             return string.IsNullOrWhiteSpace(name) ? "emoji" : name;
+        }
+    }
+
+    [SlashCommand("createuser", "ADMIN ONLY: Creates a user with a UID ending in the specified 4 characters.")]
+    [RequireUserPermission(GuildPermission.Administrator)]
+    public async Task CreateUserWithCustomUidSuffix([Summary("uid_suffix", "Either the last 4 characters of the UID (suffix mode), or the full 10-character UID")] string uidSuffix)
+    {
+        if (uidSuffix.Length != 4 && uidSuffix.Length != 10)
+        {
+            await RespondAsync("UID must be either **4 characters (suffix)** or **10 characters (full UID)**.", ephemeral: true);
+            return;
+        }
+
+        try
+        {
+            // Immediately respond with a deferred message
+            await Context.Interaction.DeferAsync();
+            // Build the embed display for the response.
+            EmbedBuilder eb = new();
+            eb.WithTitle($"Generating UserUID ending in {uidSuffix}...");
+            eb.WithColor(Color.Gold);
+            await FollowupAsync(embed: eb.Build(), ephemeral: true).ConfigureAwait(false);
+            IUserMessage resp = await GetOriginalResponseAsync().ConfigureAwait(false);
+
+            // Begin creating the user.
+            using IServiceScope scope = _services.CreateScope();
+            using var db = scope.ServiceProvider.GetService<GagspeakDbContext>();
+            if (db is null)
+                throw new Exception("Database context is null");
+
+            // Generate UID with specified suffix, ensure uniqueness.
+            var user = new User()
+            {
+                LastLogin = DateTime.UtcNow,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            string finalUid;
+            bool isFullUid = uidSuffix.Length == 10;
+
+            bool hasValidUid = false;
+            while (!hasValidUid) // while its false, keep generating a new one.
+            {
+                finalUid = isFullUid ? uidSuffix : StringUtils.GenerateRandomString(6) + uidSuffix;
+
+                if (db.Users.Any(u => u.UID == finalUid || u.Alias == finalUid))
+                {
+                    if (isFullUid)
+                        throw new InvalidOperationException($"The UID `{finalUid}` is already in use.");
+                    // Otherwise continue.
+                    continue;
+                }
+                // Match was found, assign and break.
+                user.UID = finalUid;
+                hasValidUid = true;
+            }
+
+            // Modify the message to indicate user creation.
+            eb.WithTitle(isFullUid
+                ? $"Assigning Explicit UserUID {uidSuffix}..."
+                : $"Generating UserUID ending in {uidSuffix}...");
+            eb.WithDescription($"Generating Auth & AccountRep entries.");
+            await ModifyMessageAsync(eb, resp).ConfigureAwait(false);
+
+            // Make an AccountRep entry for this user.
+            var reputation = new AccountReputation()
+            {
+                UserUID = user.UID,
+                User = user,
+            };
+
+            // Gen secret key 64long plus the current time.
+#pragma warning disable MA0011 // IFormatProvider is missing
+            string computedHash = StringUtils.Sha256String(StringUtils.GenerateRandomString(64) + DateTime.UtcNow.ToString());
+#pragma warning restore MA0011 // IFormatProvider is missing
+
+            // Add the auth for this user. In this case, the auth created is always the account's auth.
+            // Add the respective Auth, referencing the User.
+            var auth = new Auth()
+            {
+                HashedKey = StringUtils.Sha256String(computedHash),
+                UserUID = user.UID,
+                User = user,
+                PrimaryUserUID = user.UID,
+                PrimaryUser = user,
+                AccountRep = reputation
+            };
+
+            // Initialize all attached data to the User entry across the database.
+            await SharedDbFunctions.CreateMainProfile(user, reputation, auth, _logger, db, _metrics).ConfigureAwait(false);
+            await db.SaveChangesAsync().ConfigureAwait(false);
+
+            eb.WithTitle($"User {user.UID} Created!");
+            eb.WithDescription($"Main Account is now valid in the database.\n\n"
+                + $"Account UserUID is: ```{user.UID}```\n\n"
+                + $"Account Secret Key is: ```{computedHash}```");
+            eb.WithColor(Color.Green);
+            await ModifyMessageAsync(eb, resp).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to create user with custom UID suffix");
+            await RespondAsync("Failed to create user: " + ex.ToString(), ephemeral: true);
         }
     }
 
